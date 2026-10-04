@@ -18,10 +18,10 @@ generate: (build-dir "lean")
 library: (build-dir "lean")
     cp -rT --no-preserve=mode "$LEAN_SAIL" "{{ build }}/lean/lean-sail"
 
-# Lay lean/ over the generated project: its lakefile and the proofs.
+# Lay proofs/lean over the generated project: its lakefile and the proofs.
 [private]
 project: generate library
-    cp -rT lean "{{ build }}/lean/Tara"
+    cp -rT proofs/lean "{{ build }}/lean/Tara"
 
 # Resolve the local lean-sail dependency (no network).
 [private]
@@ -37,4 +37,4 @@ build: update
 lint:
     LC_ALL=C.UTF-8 awk -v width={{ width }} \
         'length > width { print FILENAME ":" FNR ": " length " columns"; status = 1 } \
-        END { exit status }' lean/Tara/*.lean
+        END { exit status }' proofs/lean/Tara/*.lean

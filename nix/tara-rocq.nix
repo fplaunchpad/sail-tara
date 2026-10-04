@@ -11,7 +11,7 @@ justDerivation {
   pname = "tara-rocq";
   fileset = [
     ../model
-    ../rocq
+    ../proofs/rocq
   ];
   nativeBuildInputs = [
     bash
@@ -22,6 +22,6 @@ justDerivation {
   recipes = [ "rocq::build" ];
   installPhase = ''
     mkdir -p "$out/share/tara/rocq"
-    cp build/rocq/*.v build/rocq/*.vo rocq/*.v "$out/share/tara/rocq/"
+    cp build/rocq/*.v build/rocq/*.vo proofs/rocq/Tara/*.v "$out/share/tara/rocq/"
   '';
 }

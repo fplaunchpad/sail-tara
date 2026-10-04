@@ -19,7 +19,7 @@
       inherit (nixpkgs) lib;
       leanOverlay = import ./nix/lean-overlay.nix {
         lean4Nix = lean4-nix;
-        toolchain = ./lean/lean-toolchain;
+        toolchain = ./proofs/lean/lean-toolchain;
       };
       # x86_64-linux is tested; the other systems are best-effort.
       systems = [

@@ -13,8 +13,9 @@ A Sail model of TARA, the 16-bit teaching CPU of IIT Madras CS2300, and the tool
 | `model/syntax.sail` | Assembly syntax, for disassembly |
 | `emulator/host.sail` | Host interface shared by the emulators |
 | `emulator/c/`, `emulator/ocaml/` | The C and OCaml emulators: sources in `src/`, build and lint configuration beside it |
-| `rocq/`, `lean/` | Proofs about the generated models: progress, the PC invariant, halting, illegal opcodes, frame conditions and the codec round trip |
-| `doc/tara.adoc` | Specification layout; the Sail plugin includes the model's prose and code |
+| `proofs/rocq/`, `proofs/lean/` | Proofs about the generated models: progress, the PC invariant, halting, illegal opcodes, frame conditions and the codec round trip |
+| `doc/tara.adoc` | Chapter layout; instruction sections, prose and code come from Sail |
+| `doc/README.md` | Font choices and PDF/HTML theme settings |
 | `tests/` | pytest suite: the emulators against the reference model |
 | `tests/programs/` | Test programs, in assembly |
 | `tools/tara/` | `tara-asm` and the reference model with the RTL corrections below |

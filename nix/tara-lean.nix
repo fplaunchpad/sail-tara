@@ -11,7 +11,7 @@ justDerivation {
   pname = "tara-lean";
   fileset = [
     ../model
-    ../lean
+    ../proofs/lean
   ];
   nativeBuildInputs = [
     bash

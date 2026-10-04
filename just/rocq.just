@@ -18,10 +18,10 @@ types: generate
 definitions: types
     rocq compile -R "{{ build }}/rocq" Tara "{{ build }}/rocq/Tara.v"
 
-# Compile rocq/NAME.v against the generated definitions and the other sources, as Tara.NAME.
+# Compile proofs/rocq/Tara/NAME.v against the generated definitions and sources, as Tara.NAME.
 [private]
 compile name: definitions
-    rocq compile -R "{{ build }}/rocq" Tara -R rocq Tara -o "{{ build }}/rocq/$1.vo" "rocq/$1.v"
+    rocq compile -R "{{ build }}/rocq" Tara -R proofs/rocq/Tara Tara -o "{{ build }}/rocq/$1.vo" "proofs/rocq/Tara/$1.v"
 
 # Compile what the proofs share: machines, the program logic and the PC mask.
 [private]
@@ -56,8 +56,8 @@ build: progress invariant halted illegal frame codec audit
 # Reject axioms in every published theorem.
 [private]
 audit: invariant illegal frame codec
-    bash rocq/audit.sh "{{ build }}/rocq"
+    bash proofs/rocq/audit.sh "{{ build }}/rocq"
 
 # Check that Rocq source lines fit the repository's 100-column limit.
 lint:
-    LC_ALL=C.UTF-8 awk 'length > 100 { print FILENAME ":" FNR ": " length " columns"; status = 1 } END { exit status }' rocq/*.v
+    LC_ALL=C.UTF-8 awk 'length > 100 { print FILENAME ":" FNR ": " length " columns"; status = 1 } END { exit status }' proofs/rocq/Tara/*.v

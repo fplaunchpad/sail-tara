@@ -72,8 +72,8 @@ in
     fileset = [
       ../model
       ../emulator
-      ../lean
-      ../rocq
+      ../proofs/lean
+      ../proofs/rocq
       ../doc
       ../tools/sail-doc
     ];
