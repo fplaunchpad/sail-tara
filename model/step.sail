@@ -1,21 +1,17 @@
-/* Drivers. Each call takes the five input lines, held for its duration, and
- * retires at most one instruction. A halted CPU does nothing until reset.
- */
+/* The drivers: each call retires at most one instruction. */
 
 /*!
 == Execution */
 $anchor section_execution
 
 /*!
-The drivers run one instruction per call. `step` and `run_instruction` take the five input lines
-as their first argument and hold them for the duration of the call. A driver reports what happened
-with a `retirement`.
+The drivers run an instruction per call. `step` and `run_instruction` take the input lines, hold
+them for the call, and say what happened:
 
-- `Retired`: an instruction ran to completion. `HLT` retires like any other instruction; it also
-sets the halt latch.
-- `Stopped`: the CPU is halted and nothing happened: no fetch, no input latched, no state changed.
-- `Illegal`: the fetched word has an unassigned opcode, 27 to 31; the payload is that word. The
-fetch advanced PC past the word, and registers, memory and the halt latch are unchanged.
+- `Retired`: an instruction completed. `HLT` retires like any other.
+- `Stopped`: the CPU is halted, and nothing was fetched or changed.
+- `Illegal(word)`: the fetched `word` has an unassigned opcode. The fetch advanced PC past it, and
+nothing else changed.
  */
 $anchor drivers
 
@@ -26,10 +22,9 @@ union retirement = {
 }
 
 /*!
-Retires a decoded instruction. The successor defaults to `PC + 2`; `execute` may replace it in
-`nextPC`, and the result, masked to 11 bits, becomes PC. An instruction therefore sees PC as its own
-address, while the RTL has already incremented PC by the time the instruction executes: the
-PC-relative targets of the instruction set are written accordingly.
+Retires an instruction: sets `nextPC` to `PC + 2`, executes the instruction, which may change it,
+and masks it into PC. The instruction sees PC as its own address, where the RTL has already advanced
+PC, so relative targets add 2 to it.
  */
 function retire(insn : instruction) -> retirement = {
     nextPC = PC + 0x0002;
@@ -39,8 +34,8 @@ function retire(insn : instruction) -> retirement = {
 }
 
 /*!
-Executes an instruction that is already decoded, as if it had been fetched from PC, without
-placing it in memory. It does no fetch; a halted CPU does nothing, as for `step`.
+Executes a decoded instruction as if it had been fetched from PC, without a fetch. Like `step`, it
+does nothing while the CPU is halted.
  */
 val run_instruction : (bits(5), instruction) -> retirement
 
@@ -53,16 +48,14 @@ function run_instruction(keys, insn) =
     }
 
 /*!
-The model of the processor runs the next instruction from memory:
+Runs the next instruction:
 
-- If the CPU is halted, `step` returns `Stopped` without changing state.
-- Otherwise, `step` latches the input lines in `KEYS`, fetches the word at PC with `read_word`,
-  decodes it and retires the instruction.
-- Fetch is an ordinary word read. It ignores bit 0 of PC, sees the input port if it covers `0x5FF`,
-  and sees stores made by earlier instructions, so self-modifying code works.
-- An unassigned opcode, 27 to 31, advances PC to `pc_mask(PC + 2)` and returns `Illegal` with the
-  fetched word. The model does not halt the CPU here: the hardware's next behavior is not published,
-  so the host decides what happens next.
+- If the CPU is halted, it returns `Stopped`.
+- Otherwise it latches the input lines in `KEYS`, reads the word at PC with `read_word`, decodes it
+  and retires it. The fetch is an ordinary word read: it ignores bit 0 of PC, sees the input port
+  when it covers `0x5FF`, and sees earlier stores, so self-modifying code works.
+- An unassigned opcode advances PC to `pc_mask(PC + 2)` and returns `Illegal`. The CPU does not
+  halt: what the hardware does next is not published, so the host decides.
  */
 val step : bits(5) -> retirement
 
@@ -82,8 +75,8 @@ function step(keys) =
     }
 
 /*!
-The reset button: "clears halted state, and restarts from PC 0". Registers and memory keep their
-values.
+The reset button, which "clears halted state, and restarts from PC 0". Registers and memory keep
+their values.
  */
 val reset : unit -> unit
 

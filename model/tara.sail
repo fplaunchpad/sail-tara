@@ -1,13 +1,5 @@
-/* TARA instruction semantics.
- *
- * Each instruction gives its operands, its 16-bit encoding (5-bit opcode, then operand fields) and
- * its effect, side by side, in the file of its group under instructions/. Decoding ignores the
- * unused padding bits; encoding writes them as zero. rd is a destination; rs, rs1 and rs2 are
- * sources. X(r) reads or writes a register. Arithmetic wraps at 16 bits. Memory offsets count
- * bytes; branch offsets count instructions.
- *
- * execute sees PC as the address of the current instruction and proposes the successor in nextPC;
- * the drivers in step.sail commit it.
+/* TARA's instructions. Each instruction's operands, encoding and effect sit together in the file
+ * of its group under instructions/; the drivers in step.sail run them.
  */
 
 $ifndef _TARA_SAIL
@@ -19,11 +11,10 @@ $include "machine.sail"
 $anchor section_instruction_set
 
 /*!
-An instruction is one word, stored big-endian like every word. The opcode and operand fields
-are defined by `decode` and `encode`; fields written as zeros are padding. `decode` ignores the
-padding and `encode` writes it as zeros, so every word with an assigned opcode decodes, and several
-words give the same instruction. The format labels in the tables are derived from the ordered field
-names and widths, rather than maintained separately in the model.
+An instruction is one word: a 5-bit opcode in bits 15 to 11, then its operand fields. Bits that no
+field uses are padding, which `decode` ignores and `encode` writes as zeros, so several words can
+decode to the same instruction. The formats group the instructions by the names and widths of their
+fields.
  */
 $anchor encoding
 
@@ -36,38 +27,33 @@ $anchor section_instruction_formats
 $anchor section_opcodes
 
 /*!
-The operands of the instructions are named as follows.
+The operands:
 
-- `rd`, `rs`, `rs1`, `rs2`, `base`: a register number, 0 to 7. `rd` is the destination; `rs`, `rs1`
-and `rs2` are sources; `base` holds a memory address.
-- `imm`: an immediate byte, unsigned for `LIL` and `LIH`, two's complement (-128 to 127) for `ADDI`.
-- `shamt`: a shift count; only bits 4 to 0 are used.
-- `off`: a signed offset, in bytes (-16 to 15) for the memory instructions and in instructions for
-the branches (-128 to 127) and for `JMP` and `CALL` (-1024 to 1023).
+- `rd`, `rs`, `rs1`, `rs2`, `base`: register numbers, 0 to 7. `rd` is written; `rs`, `rs1` and
+`rs2` are read; `base` holds an address.
+- `imm`: an immediate byte, unsigned for `LIL` and `LIH`, signed (-128 to 127) for `ADDI`.
+- `shamt`: a shift count, of which only bits 4 to 0 are used.
+- `off`: a signed offset: in bytes (-16 to 15) for loads and stores, and in instructions for
+branches (-128 to 127) and for `JMP` and `CALL` (-1024 to 1023).
  */
 $anchor operands
 
 scattered union instruction
 
 /*!
-Turns an instruction into its 16-bit word: the opcode, then the fields, with the padding written
-as zeros.
- */
+The word of an instruction: its opcode and fields, with zeros for padding. */
 val encode : instruction -> word
 scattered function encode
 
 /*!
-Turns a word into an instruction, or `None`. Each clause matches the opcode in bits 15 to 11 and
-ignores the padding.
- */
+The instruction in a word, or `None`. Each clause matches an opcode and ignores the padding. */
 val decode : word -> option(instruction)
 scattered function decode
 
 /*!
-Carries out an instruction. It reads and writes the machine state; it sees PC as the address of
-the instruction itself and proposes the successor in `nextPC`, which the drivers commit. An
-instruction reads its sources before it writes its result. `PUSH` and `POP` take two steps that
-depend on each other, and they take them in the order of their clauses.
+Carries out an instruction. It sees PC as the address of the instruction itself, and leaves the
+address of the next one in `nextPC` for the drivers to commit. An instruction reads its operands
+before it writes; `PUSH` and `POP` update R7 and memory in the order their clauses give.
  */
 val execute : instruction -> unit
 scattered function execute
@@ -82,9 +68,7 @@ $include "instructions/control_flow.sail"
 $include "instructions/stack.sail"
 
 /*!
-Opcodes 27 to 31 are unassigned: no instruction decodes from them, and `step` reports them as
-`Illegal`.
- */
+Opcodes 27 to 31 are unassigned: they decode to `None`, and `step` reports them as `Illegal`. */
 function clause decode(_) = None()
 
 end instruction

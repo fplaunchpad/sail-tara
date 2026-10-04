@@ -15,9 +15,9 @@ include::sailcomment:document_title[type=anchor,indent=0]
 [preface]
 == Preface
 
-include::sailcomment:document_introduction[type=anchor,indent=0]
-
 include::sailcomment:machine[type=anchor,indent=0]
+
+include::sailcomment:document_introduction[type=anchor,indent=0]
 
 include::sailcomment:section_machine[type=anchor,indent=0]
 
