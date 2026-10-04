@@ -14,18 +14,15 @@ module Format = struct
   ;;
 end
 
-let word token =
+let word ~line token =
   if String.length token <= 4 && String.for_all token ~f:Char.is_hex_digit
   then Ok (Int.of_string [%string "0x%{token}"])
-  else Or_error.error_s [%message "malformed word" token]
+  else Or_error.error_s [%message "malformed word" (line : int) token]
 ;;
 
 let words text =
-  String.split_lines text
-  |> List.concat_map ~f:(fun line ->
-    let code = String.lsplit2 line ~on:';' |> Option.value_map ~default:line ~f:fst in
-    String.split_on_chars code ~on:[ ' '; '\t'; '\r' ] |> List.filter ~f:(Fn.non String.is_empty))
-  |> List.map ~f:word
+  Source.fields text
+  |> List.concat_map ~f:(fun (line, tokens) -> List.map tokens ~f:(word ~line))
   |> Or_error.all
 ;;
 
@@ -41,10 +38,11 @@ let load filename =
   let%bind.Or_error format =
     Format.of_filename filename
     |> Result.of_option ~error:(Error.of_string "expected a .bin or .hex image")
+    |> Or_error.tag ~tag:filename
   in
-  let%bind.Or_error contents = Or_error.try_with (fun () -> In_channel.read_all filename) in
-  let%bind.Or_error bytes = bytes format contents in
+  let%bind.Or_error contents = Source.read filename in
+  let%bind.Or_error bytes = bytes format contents |> Or_error.tag ~tag:filename in
   if List.length bytes > memory_bytes
-  then Or_error.error_string [%string "larger than %{memory_bytes#Int} bytes"]
+  then Or_error.error_s [%message [%string "larger than %{memory_bytes#Int} bytes"] filename]
   else Ok (List.iteri bytes ~f:(fun address -> Machine.poke ~address))
 ;;

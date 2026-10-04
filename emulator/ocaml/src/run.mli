@@ -1,6 +1,4 @@
-(** Running a loaded program to completion. *)
-
-open! Core
+(** A run of the loaded program: its steps, counted against a limit. *)
 
 (** Why a run ended: the dump's status line and the exit code. *)
 module Status : sig
@@ -13,7 +11,17 @@ module Status : sig
   val exit_code : t -> int
 end
 
-(** Step the machine until it halts, [max_steps] instructions retire (0: no limit), or an illegal
-    opcode is fetched. With [trace], print a trace line per step. Returns the status and the
-    number of instructions retired. *)
-val run : max_steps:int -> trace:bool -> Status.t * int
+type t
+
+(** A run from the machine's present state. It ends after [max_steps] instructions retire (0: no
+    limit), when the CPU halts, or when an illegal opcode is fetched. *)
+val create : max_steps:int -> t
+
+(** The number of instructions retired so far. *)
+val retired : t -> int
+
+(** Why the run has ended, or [None] while it can go on. *)
+val status : t -> Status.t option
+
+(** Execute one instruction with the given input lines. The run must not have ended. *)
+val step : t -> keys:Keys.t -> unit

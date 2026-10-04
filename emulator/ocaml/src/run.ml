@@ -14,22 +14,28 @@ module Status = struct
   ;;
 end
 
-let run ~max_steps ~trace =
-  let trace_line () = if trace then Machine.trace () |> print_endline in
-  let rec go steps : Status.t * int =
-    if Machine.halted ()
-    then Halted, steps
-    else if max_steps > 0 && steps = max_steps
-    then Limit, steps
-    else (
-      match Machine.step ~keys:0 with
-      | Stopped -> Halted, steps
-      | Retired ->
-        trace_line ();
-        go (steps + 1)
-      | Illegal ->
-        trace_line ();
-        Illegal, steps)
-  in
-  go 0
+type t =
+  { max_steps : int
+  ; mutable retired : int
+  ; mutable illegal : bool
+  }
+
+let create ~max_steps = { max_steps; retired = 0; illegal = false }
+let retired t = t.retired
+
+let status t : Status.t option =
+  if t.illegal
+  then Some Illegal
+  else if Machine.halted ()
+  then Some Halted
+  else if t.max_steps > 0 && t.retired = t.max_steps
+  then Some Limit
+  else None
+;;
+
+let step t ~keys =
+  match Machine.step ~keys:(Keys.to_int keys) with
+  | Retired -> t.retired <- t.retired + 1
+  | Illegal -> t.illegal <- true
+  | Stopped -> ()
 ;;

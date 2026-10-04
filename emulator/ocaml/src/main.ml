@@ -1,41 +1,40 @@
 (* TARA emulator: the OCaml build of the Sail model. Its command line matches tara-c
-   (emulator/c/main.c). *)
+   (emulator/c/src/main.c). *)
 
 open! Core
 
-let default_max_steps = 1_000_000
-
-let count =
-  Command.Arg_type.create (fun text ->
-    match Int.of_string_opt text with
-    | Some n when n >= 0 -> n
-    | _ -> raise_s [%message "expected a non-negative count" text])
+(* Do what the command line asks, and return the exit status. *)
+let run (mode : Options.Mode.t) =
+  match mode with
+  | Disassemble ->
+    Disasm.print_all ();
+    Ok 0
+  | Batch options -> Batch.run options
+  | Interactive options -> Interactive.run options
 ;;
 
 let command =
   Command.basic_or_error
     ~summary:"Run a TARA program on the Sail model"
     ~readme:(fun () ->
-      {|IMAGE is .bin (bytes) or .hex (16-bit words, ';' comments), loaded from address 0.
-The final state is printed as status, steps, pc, r0-r7 and mem lines.
+      {|Usage: tara-ocaml [OPTION...] IMAGE
+       tara-ocaml --disasm-all
+
+IMAGE is .bin (bytes) or .hex (16-bit words of 1 to 4 hex digits, ';' comments), loaded from
+address 0; at most 2048 bytes.
+
+A batch run prints the trace lines (-t), then status, steps, pc, r0-r7 and mem lines, then the
+framebuffer (--fb).
+
+-i plays the program in the terminal: arrows or WASD drive UP, DOWN, LEFT and RIGHT, Q drives
+QUIT, and ESC or Ctrl-C leaves.
+
 Exit status: 0 halted, 1 error, 3 step limit, 4 illegal opcode.|})
-    (let%map_open.Command trace = flag "-t" no_arg ~doc:" print a trace line per step"
-     and max_steps =
-       flag
-         "-n"
-         (optional_with_default default_max_steps count)
-         ~doc:"MAX_STEPS stop after this many retirements (0: no limit)"
-     and image = anon ("IMAGE" %: Filename_unix.arg_type) in
+    (let%map.Command mode = Options.param in
      fun () ->
-       Machine.start ();
-       let%map.Or_error () = Image.load image |> Or_error.tag ~tag:image in
-       let status, steps = Run.run ~max_steps ~trace in
-       print_endline [%string "status %{status#Run.Status}"];
-       print_endline [%string "steps %{steps#Int}"];
-       Machine.dump () |> print_string;
-       match Run.Status.exit_code status with
-       | 0 -> ()
-       | code -> Stdlib.exit code)
+       let%bind.Or_error mode = mode in
+       let%map.Or_error exit_status = run mode in
+       if exit_status <> 0 then Stdlib.exit exit_status)
 ;;
 
 let () = Command_unix.run command
