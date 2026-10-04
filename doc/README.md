@@ -1,6 +1,6 @@
 # Specification
 
-The specification is generated from the Sail model. `main.adoc` lays out the chapters; the prose and the listings come from the model's documentation comments and sources, through the [asciidoctor-sail](https://github.com/Alasdair/asciidoctor-sail) plugin. The Sail plugin in `tools/sail-doc` derives the instruction metadata from the model's `encode`, `decode` and `assembly` definitions, and `tools/tara/doc.py` turns it into the format table, the opcode table and a section per instruction, grouped by the file in `model/instructions/` that defines it.
+The specification is generated from the Sail model. `main.adoc` lays out the chapters; the prose and the listings come from the model's documentation comments and sources, through the [asciidoctor-sail](https://github.com/Alasdair/asciidoctor-sail) plugin. The Sail plugin in `tools/sail-doc` derives the instruction metadata from the model's `decode` function and `assembly` mapping, and `tools/tara/doc.py` turns it into the format table, the opcode table and a section per instruction, grouped by the file in `model/instructions/` that defines it.
 
 From the repository root inside `nix develop` (or direnv):
 
