@@ -55,6 +55,7 @@ in
       ../model
       ../emulator
       ../lean
+      ../lem
     ];
     nativeBuildInputs = [
       sail
@@ -77,6 +78,7 @@ in
       "model::lint"
       "c::lint"
       "ocaml::lint"
+      "lem::lint"
     ];
     installPhase = "touch $out";
   };

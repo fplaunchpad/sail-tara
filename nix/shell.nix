@@ -44,6 +44,8 @@ mkShell {
     ocamlPackages.dune_3
     ocamlPackages.findlib
     ocamlPackages.ocamlformat
+    # Lem definitions and their OCaml extraction.
+    ocamlPackages.lem
     # Rocq and Lean extraction, and the typeset specification.
     rocqPackages.rocq-core
     lean

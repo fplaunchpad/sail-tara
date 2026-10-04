@@ -1,0 +1,15 @@
+; Lem extracts the model and Sail's Lem library (just lem smoke); their warnings are not ours.
+
+(library
+ (name tara_lem)
+ (modules :standard \ smoke)
+ (libraries lem_zarith)
+ (flags
+  (:standard -w -a)))
+
+(executable
+ (name smoke)
+ (modules smoke)
+ (libraries core tara_lem)
+ (preprocess
+  (pps ppx_jane)))
