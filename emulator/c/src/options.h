@@ -22,8 +22,8 @@ struct options {
 enum options_result { OPTIONS_OK, OPTIONS_HELP, OPTIONS_ERROR };
 
 /* Parse the command line into options. On OPTIONS_ERROR, print why to stderr. */
-enum options_result options_parse(int argc, char *argv[], struct options *options);
+enum options_result parse_options(int argc, char *argv[], struct options *options);
 
-void options_print_usage(FILE *out);
+void print_usage(FILE *out);
 
 #endif

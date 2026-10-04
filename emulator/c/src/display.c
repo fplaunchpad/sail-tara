@@ -32,7 +32,7 @@ static const char *const CELL_COLORS[] = {
 #define RESET_ATTRIBUTES "\x1b[0m"
 #define CLEAR_SCREEN "\x1b[2J"
 
-void display_reset(struct display *display) {
+void reset_display(struct display *display) {
   memset(display->cells, CELL_UNKNOWN, sizeof display->cells);
   display->clear = true;
 }
@@ -99,7 +99,7 @@ static void paint_changes(struct display *display, FILE *out) {
   }
 }
 
-void display_draw(struct display *display, FILE *out, const char *status, bool changed) {
+void draw_display(struct display *display, FILE *out, const char *status, bool changed) {
   if (display->clear) {
     fputs(RESET_ATTRIBUTES CLEAR_SCREEN, out);
     display->clear = false;

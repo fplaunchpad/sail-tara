@@ -11,9 +11,9 @@ enum key_line { KEY_UP, KEY_DOWN, KEY_LEFT, KEY_RIGHT, KEY_QUIT, KEY_LINES };
 #define KEYS_MAX ((1u << KEY_LINES) - 1)
 
 /* Parse a set of lines: a number from 0 to KEYS_MAX, in decimal or 0x hex. */
-bool keys_parse(const char *text, uint8_t *keys);
+bool parse_keys(const char *text, uint8_t *keys);
 
 /* Spell the lines in order, a letter for each held one and '-' for a released one: "U-L-Q". */
-void keys_spell(uint8_t keys, char spelling[KEY_LINES + 1]);
+void spell_keys(uint8_t keys, char spelling[KEY_LINES + 1]);
 
 #endif

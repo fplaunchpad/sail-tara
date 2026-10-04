@@ -9,6 +9,6 @@
 
 /* Returns the exit status: 0 halted, 3 step limit, 4 illegal opcode, 1 for an error, in which
  * case nothing was printed on standard output. */
-int batch_run(const struct options *options);
+int run_batch(const struct options *options);
 
 #endif

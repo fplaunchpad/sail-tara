@@ -13,15 +13,15 @@ static void settle(struct run *run) {
   }
 }
 
-void run_start(struct run *run, uint64_t limit) {
+void start_run(struct run *run, uint64_t limit) {
   *run = (struct run){.state = RUN_RUNNING, .limit = limit};
   settle(run);
 }
 
-enum step_result run_step(struct run *run, uint8_t keys) {
+enum step_result step_run(struct run *run, uint8_t keys) {
   assert(run->state == RUN_RUNNING);
 
-  enum step_result result = machine_step(keys);
+  enum step_result result = step_machine(keys);
   if (result == STEP_RETIRED) {
     ++run->retired;
   }

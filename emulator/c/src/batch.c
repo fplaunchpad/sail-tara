@@ -17,10 +17,10 @@
 /* Step the machine to the end of the run, with the input lines the key script gives. */
 static void run_to_end(struct run *run, struct key_script *script, bool trace) {
   while (run->state == RUN_RUNNING) {
-    uint8_t keys = key_script_keys(script, run->retired);
-    enum step_result result = run_step(run, keys);
+    uint8_t keys = scripted_keys(script, run->retired);
+    enum step_result result = step_run(run, keys);
     if (trace && result != STEP_STOPPED) {
-      machine_print_trace(stdout);
+      print_trace(stdout);
     }
   }
 }
@@ -38,7 +38,7 @@ static void print_framebuffer(FILE *out) {
 
 static void print_result(const struct run *run, bool framebuffer) {
   printf("status %s\nsteps %" PRIu64 "\n", run_state_name(run->state), run->retired);
-  machine_print_dump(stdout);
+  print_dump(stdout);
   if (framebuffer) {
     print_framebuffer(stdout);
   }
@@ -46,24 +46,24 @@ static void print_result(const struct run *run, bool framebuffer) {
 
 /* Load the key script, if any, and the image: everything that can fail before the run. */
 static bool load_inputs(const struct options *options, struct key_script *script) {
-  key_script_init(script, options->keys);
-  return (!options->key_script || key_script_load(script, options->key_script)) &&
-         image_load(options->image);
+  init_key_script(script, options->keys);
+  return (!options->key_script || load_key_script(script, options->key_script)) &&
+         load_program(options->image);
 }
 
-int batch_run(const struct options *options) {
+int run_batch(const struct options *options) {
   struct key_script script;
   if (!load_inputs(options, &script)) {
-    key_script_free(&script);
+    free_key_script(&script);
     return EXIT_ERROR;
   }
 
   struct run run;
-  run_start(&run, options->max_steps);
+  start_run(&run, options->max_steps);
   run_to_end(&run, &script, options->trace);
   print_result(&run, options->framebuffer);
-  key_script_free(&script);
-  if (!report_flush()) {
+  free_key_script(&script);
+  if (!flush_output()) {
     return EXIT_ERROR;
   }
   return (int)run_exit_status(run.state);

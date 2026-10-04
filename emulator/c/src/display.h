@@ -22,12 +22,12 @@ struct display {
 };
 
 /* Forget what the terminal shows: the next frame clears the screen and paints everything. */
-void display_reset(struct display *display);
+void reset_display(struct display *display);
 
 /* Write to out the escape sequences that paint the framebuffer where it differs from what the
  * display knows, and then rewrite the status line, whole, with `status` (plain text). Reading the
  * framebuffer is the costly part: pass changed = false if it cannot have changed since the last
  * call. After a reset it is read anyway. */
-void display_draw(struct display *display, FILE *out, const char *status, bool changed);
+void draw_display(struct display *display, FILE *out, const char *status, bool changed);
 
 #endif

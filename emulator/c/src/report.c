@@ -33,7 +33,7 @@ bool report_system_error(int error, const char *format, ...) {
   return false;
 }
 
-bool report_flush(void) {
+bool flush_output(void) {
   if (fflush(stdout) != 0) {
     return report_system_error(errno, "standard output");
   }

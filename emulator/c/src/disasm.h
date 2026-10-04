@@ -3,6 +3,6 @@
 #define TARA_DISASM_H
 
 /* Print "WWWW TEXT" for every 16-bit word, 0000 to ffff in order. Returns the exit status. */
-int disasm_run(void);
+int disassemble_all(void);
 
 #endif

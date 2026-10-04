@@ -32,11 +32,11 @@ static bool would_block(int error) {
 static const int FATAL_SIGNALS[] = {SIGHUP,  SIGINT, SIGQUIT, SIGTERM, SIGABRT,
                                     SIGSEGV, SIGBUS, SIGFPE,  SIGILL};
 
-static struct termios original;       /* the settings before terminal_open */
-static volatile sig_atomic_t is_open; /* terminal_open has changed the terminal; put it back */
+static struct termios original;       /* the settings before open_terminal */
+static volatile sig_atomic_t is_open; /* open_terminal has changed the terminal; put it back */
 static volatile sig_atomic_t resized;
 
-bool terminal_write(const char *data, size_t length) {
+bool write_terminal(const char *data, size_t length) {
   while (length > 0) {
     ssize_t written = write(STDOUT_FILENO, data, length);
     if (written > 0) {
@@ -56,13 +56,13 @@ bool terminal_write(const char *data, size_t length) {
 
 /* Safe in a signal handler. A signal that comes in the middle of the restoring restores it all
  * over again before it ends the process, which does no harm. */
-void terminal_close(void) {
+void close_terminal(void) {
   if (!is_open) {
     return;
   }
 
   int saved_errno = errno;
-  terminal_write(LEAVE_SCREEN, sizeof LEAVE_SCREEN - 1);
+  write_terminal(LEAVE_SCREEN, sizeof LEAVE_SCREEN - 1);
   tcsetattr(STDIN_FILENO, TCSAFLUSH, &original);
   is_open = 0;
   errno = saved_errno;
@@ -71,7 +71,7 @@ void terminal_close(void) {
 /* Restore the terminal, then let the signal end the process: SA_RESETHAND has made its action the
  * default one. */
 static void on_fatal_signal(int signal_number) {
-  terminal_close();
+  close_terminal();
   raise(signal_number);
 }
 
@@ -112,7 +112,7 @@ static void make_raw(struct termios *settings) {
 
 bool terminal_attached(void) { return isatty(STDIN_FILENO) && isatty(STDOUT_FILENO); }
 
-bool terminal_open(void) {
+bool open_terminal(void) {
   if (tcgetattr(STDIN_FILENO, &original) != 0) {
     return report_system_error(errno, "cannot read the terminal settings");
   }
@@ -120,15 +120,15 @@ bool terminal_open(void) {
   struct termios raw = original;
   make_raw(&raw);
   install_handlers();
-  if (atexit(terminal_close) != 0) {
+  if (atexit(close_terminal) != 0) {
     return report_error("cannot arrange for the terminal to be restored at exit");
   }
 
   is_open = 1;
   if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw) != 0 ||
-      !terminal_write(ENTER_SCREEN, sizeof ENTER_SCREEN - 1)) {
+      !write_terminal(ENTER_SCREEN, sizeof ENTER_SCREEN - 1)) {
     int error = errno;
-    terminal_close();
+    close_terminal();
     return report_system_error(error, "cannot set up the terminal");
   }
   return true;
@@ -140,7 +140,7 @@ bool terminal_resized(void) {
   return was_resized;
 }
 
-ssize_t terminal_read(uint8_t *buffer, size_t size, int timeout_ms) {
+ssize_t read_terminal(uint8_t *buffer, size_t size, int timeout_ms) {
   struct pollfd input = {.fd = STDIN_FILENO, .events = POLLIN};
   int ready = poll(&input, 1, timeout_ms);
   if (ready < 0) {

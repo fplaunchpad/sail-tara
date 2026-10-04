@@ -14,6 +14,6 @@ bool report_error(const char *format, ...) __attribute__((format(printf, 1, 2)))
 bool report_system_error(int error, const char *format, ...) __attribute__((format(printf, 2, 3)));
 
 /* Flush standard output. If that, or an earlier write to it, failed, report it and return false. */
-bool report_flush(void);
+bool flush_output(void);
 
 #endif

@@ -24,29 +24,29 @@
 static int run_mode(const struct options *options) {
   switch (options->mode) {
   case MODE_BATCH:
-    return batch_run(options);
+    return run_batch(options);
   case MODE_INTERACTIVE:
-    return interactive_run(options);
+    return run_interactive(options);
   case MODE_DISASM:
-    return disasm_run();
+    return disassemble_all();
   }
   return EXIT_ERROR;
 }
 
 int main(int argc, char *argv[]) {
   struct options options;
-  switch (options_parse(argc, argv, &options)) {
+  switch (parse_options(argc, argv, &options)) {
   case OPTIONS_OK:
     break;
   case OPTIONS_HELP:
-    options_print_usage(stdout);
+    print_usage(stdout);
     return EXIT_SUCCESS;
   case OPTIONS_ERROR:
     return EXIT_ERROR;
   }
 
-  machine_start();
+  start_machine();
   int status = run_mode(&options);
-  machine_stop();
+  stop_machine();
   return status;
 }

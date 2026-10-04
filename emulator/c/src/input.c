@@ -23,7 +23,7 @@
 #define FINAL_FIRST 0x40
 #define FINAL_LAST 0x7E
 
-void input_init(struct input *input) {
+void init_input(struct input *input) {
   *input = (struct input){.state = INPUT_GROUND};
   for (int line = 0; line < KEY_LINES; ++line) {
     input->held_until[line] = INT64_MIN;
@@ -116,7 +116,7 @@ static bool feed_byte(struct input *input, uint8_t byte, int64_t now) {
   return false;
 }
 
-bool input_feed(struct input *input, int64_t now, const uint8_t *bytes, size_t length) {
+bool feed_input(struct input *input, int64_t now, const uint8_t *bytes, size_t length) {
   for (size_t i = 0; i < length; ++i) {
     if (feed_byte(input, bytes[i], now)) {
       return true;
@@ -132,7 +132,7 @@ int64_t input_deadline(const struct input *input) {
   return input->state == INPUT_GROUND ? INT64_MAX : input->pending_since + ESCAPE_NS;
 }
 
-bool input_expire(struct input *input, int64_t now) {
+bool expire_input(struct input *input, int64_t now) {
   if (now < input_deadline(input)) {
     return false;
   }
@@ -140,7 +140,7 @@ bool input_expire(struct input *input, int64_t now) {
   return true;
 }
 
-uint8_t input_held(const struct input *input, int64_t now) {
+uint8_t held_keys(const struct input *input, int64_t now) {
   uint8_t keys = 0;
   for (int line = 0; line < KEY_LINES; ++line) {
     if (now < input->held_until[line]) {

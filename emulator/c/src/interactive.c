@@ -42,9 +42,9 @@ enum wait_result { WAIT_ELAPSED, WAIT_QUIT, WAIT_LOST };
 enum play_end { PLAY_QUIT, PLAY_WRITE_FAILED, PLAY_TERMINAL_LOST };
 
 static void player_init(struct player *player, const struct options *options) {
-  run_start(&player->run, options->max_steps);
-  input_init(&player->input);
-  display_reset(&player->display);
+  start_run(&player->run, options->max_steps);
+  init_input(&player->input);
+  reset_display(&player->display);
   player->hz = options->hz;
   player->owed = 0;
 }
@@ -71,7 +71,7 @@ static bool run_frame(struct player *player, uint8_t keys, int64_t deadline) {
   while (player->run.state == RUN_RUNNING && budget > 0) {
     uint64_t chunk = budget < CHUNK ? budget : CHUNK;
     for (uint64_t i = 0; i < chunk && player->run.state == RUN_RUNNING; ++i) {
-      run_step(&player->run, keys);
+      step_run(&player->run, keys);
     }
 
     budget -= chunk;
@@ -84,7 +84,7 @@ static bool run_frame(struct player *player, uint8_t keys, int64_t deadline) {
 
 static void format_status(char status[STATUS_MAX], const struct run *run, uint8_t keys) {
   char spelling[KEY_LINES + 1];
-  keys_spell(keys, spelling);
+  spell_keys(keys, spelling);
   snprintf(status, STATUS_MAX, "%s  pc 0x%04x  steps %" PRIu64 "  keys %s",
            run_state_name(run->state), machine_pc(), run->retired, spelling);
 }
@@ -101,8 +101,8 @@ static bool draw(struct player *player, uint8_t keys, bool changed) {
     return false;
   }
 
-  display_draw(&player->display, out, status, changed);
-  bool drawn = fclose(out) == 0 && terminal_write(frame, size);
+  draw_display(&player->display, out, status, changed);
+  bool drawn = fclose(out) == 0 && write_terminal(frame, size);
   free(frame);
   return drawn;
 }
@@ -121,15 +121,15 @@ static enum wait_result wait_for_input(struct input *input, int64_t deadline) {
     int64_t wake = escape < deadline ? escape : deadline;
 
     uint8_t bytes[READ_SIZE];
-    ssize_t count = terminal_read(bytes, sizeof bytes, timeout_ms(clock_ns(), wake));
+    ssize_t count = read_terminal(bytes, sizeof bytes, timeout_ms(clock_ns(), wake));
     int64_t now = clock_ns();
     if (count < 0) {
       return WAIT_LOST;
     }
-    if (count > 0 && input_feed(input, now, bytes, (size_t)count)) {
+    if (count > 0 && feed_input(input, now, bytes, (size_t)count)) {
       return WAIT_QUIT;
     }
-    if (input_expire(input, now)) {
+    if (expire_input(input, now)) {
       return WAIT_QUIT;
     }
     if (now >= deadline && (size_t)count < sizeof bytes) {
@@ -150,9 +150,9 @@ static enum play_end play(struct player *player) {
   int64_t start = clock_ns();
   for (;;) {
     int64_t end = start + FRAME_NS;
-    uint8_t keys = input_held(&player->input, clock_ns());
+    uint8_t keys = held_keys(&player->input, clock_ns());
     if (terminal_resized()) {
-      display_reset(&player->display);
+      reset_display(&player->display);
     }
 
     bool retired = run_frame(player, keys, end);
@@ -172,12 +172,12 @@ static enum play_end play(struct player *player) {
   }
 }
 
-int interactive_run(const struct options *options) {
+int run_interactive(const struct options *options) {
   if (!terminal_attached()) {
     report_error("--interactive needs a terminal on standard input and output");
     return EXIT_ERROR;
   }
-  if (!image_load(options->image) || !terminal_open()) {
+  if (!load_program(options->image) || !open_terminal()) {
     return EXIT_ERROR;
   }
 
@@ -185,7 +185,7 @@ int interactive_run(const struct options *options) {
   player_init(&player, options);
   enum play_end end = play(&player);
   int error = errno;
-  terminal_close();
+  close_terminal();
 
   switch (end) {
   case PLAY_QUIT:

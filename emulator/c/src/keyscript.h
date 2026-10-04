@@ -22,15 +22,15 @@ struct key_script {
 };
 
 /* Start an empty script, in which the input lines are `initial` throughout. */
-void key_script_init(struct key_script *script, uint8_t initial);
-void key_script_free(struct key_script *script);
+void init_key_script(struct key_script *script, uint8_t initial);
+void free_key_script(struct key_script *script);
 
 /* Add the changes of the script file at path; on failure, print why to stderr and return false. */
-bool key_script_load(struct key_script *script, const char *path);
+bool load_key_script(struct key_script *script, const char *path);
 
 /* The input lines for the instruction executed after `retired` retirements: those of the last
  * change with a step of at most `retired`, else the initial ones. The counts asked for must not
  * decrease. */
-uint8_t key_script_keys(struct key_script *script, uint64_t retired);
+uint8_t scripted_keys(struct key_script *script, uint64_t retired);
 
 #endif

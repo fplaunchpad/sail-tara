@@ -9,14 +9,14 @@
 void model_init(void);
 void model_fini(void);
 
-void machine_start(void) {
+void start_machine(void) {
   model_init();
   zhost_reset(UNIT);
 }
 
-void machine_stop(void) { model_fini(); }
+void stop_machine(void) { model_fini(); }
 
-void machine_poke(uint16_t address, uint8_t value) { zhost_poke(address, value); }
+void poke_memory(uint16_t address, uint8_t value) { zhost_poke(address, value); }
 
 uint16_t machine_pc(void) { return (uint16_t)zhost_pc(UNIT); }
 
@@ -24,7 +24,7 @@ bool machine_halted(void) { return zhost_halted(UNIT); }
 
 bool machine_pixel(unsigned x, unsigned y) { return zhost_pixel(x, y); }
 
-enum step_result machine_step(uint8_t keys) { return (enum step_result)zhost_step(keys); }
+enum step_result step_machine(uint8_t keys) { return (enum step_result)zhost_step(keys); }
 
 /* Print a string made by the host interface, then free it. */
 static void print_text(FILE *out, void (*text)(sail_string *, unit)) {
@@ -35,14 +35,14 @@ static void print_text(FILE *out, void (*text)(sail_string *, unit)) {
   KILL(sail_string)(&string);
 }
 
-void machine_print_trace(FILE *out) {
+void print_trace(FILE *out) {
   print_text(out, zhost_trace);
   fputc('\n', out);
 }
 
-void machine_print_dump(FILE *out) { print_text(out, zhost_dump); }
+void print_dump(FILE *out) { print_text(out, zhost_dump); }
 
-void machine_print_disasm(FILE *out, uint16_t word) {
+void print_disassembly(FILE *out, uint16_t word) {
   sail_string string;
   CREATE(sail_string)(&string);
   zhost_disasm(&string, word);

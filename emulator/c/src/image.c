@@ -68,7 +68,7 @@ static bool place_byte(struct loader *loader, uint8_t value) {
   if (loader->address == MEMORY_BYTES) {
     return report_error("%s: larger than the %d-byte memory", loader->path, MEMORY_BYTES);
   }
-  machine_poke((uint16_t)loader->address++, value);
+  poke_memory((uint16_t)loader->address++, value);
   return true;
 }
 
@@ -186,7 +186,7 @@ static bool load_hex(struct loader *loader, const struct contents *contents) {
   return true;
 }
 
-bool image_load(const char *path) {
+bool load_program(const char *path) {
   enum format format;
   if (!format_of(path, &format)) {
     return report_error("%s: expected a .bin or .hex image", path);

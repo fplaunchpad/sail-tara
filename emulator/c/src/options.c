@@ -71,7 +71,7 @@ static bool apply(struct options *options, struct given *given, int option, cons
     return true;
   case OPT_KEYS:
     given->keys = true;
-    if (!keys_parse(argument, &options->keys)) {
+    if (!parse_keys(argument, &options->keys)) {
       return report_error("--keys: '%s' is not input lines (0-%u, decimal or 0x hex)", argument,
                           KEYS_MAX);
     }
@@ -155,7 +155,7 @@ static enum options_result fail(void) {
   return OPTIONS_ERROR;
 }
 
-enum options_result options_parse(int argc, char *argv[], struct options *options) {
+enum options_result parse_options(int argc, char *argv[], struct options *options) {
   *options = (struct options){.mode = MODE_BATCH, .max_steps = DEFAULT_MAX_STEPS, .hz = DEFAULT_HZ};
   struct given given = {0};
 
@@ -180,4 +180,4 @@ enum options_result options_parse(int argc, char *argv[], struct options *option
   return OPTIONS_OK;
 }
 
-void options_print_usage(FILE *out) { fputs(USAGE, out); }
+void print_usage(FILE *out) { fputs(USAGE, out); }

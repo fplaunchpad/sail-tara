@@ -23,11 +23,11 @@ struct run {
 };
 
 /* Start a run of the machine as it is now. */
-void run_start(struct run *run, uint64_t limit);
+void start_run(struct run *run, uint64_t limit);
 
 /* Execute one instruction with the given input lines, and update the state. The run must be
  * RUNNING. */
-enum step_result run_step(struct run *run, uint8_t keys);
+enum step_result step_run(struct run *run, uint8_t keys);
 
 /* The state as the status line and the "status" output line spell it. */
 const char *run_state_name(enum run_state state);

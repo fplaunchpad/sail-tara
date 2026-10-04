@@ -15,11 +15,11 @@
 #define MAX_WORDS 3
 #define FIRST_CAPACITY 16
 
-void key_script_init(struct key_script *script, uint8_t initial) {
+void init_key_script(struct key_script *script, uint8_t initial) {
   *script = (struct key_script){.keys = initial};
 }
 
-void key_script_free(struct key_script *script) {
+void free_key_script(struct key_script *script) {
   free(script->changes);
   script->changes = NULL;
   script->count = script->capacity = 0;
@@ -72,7 +72,7 @@ static bool add_line(struct key_script *script, char *line, const char *path, un
     return report_error("%s:%u: '%s' is not a step (a decimal count of retirements)", path, number,
                         words[0]);
   }
-  if (!keys_parse(words[1], &change.keys)) {
+  if (!parse_keys(words[1], &change.keys)) {
     return report_error("%s:%u: '%s' is not input lines (0-%u, decimal or 0x hex)", path, number,
                         words[1], KEYS_MAX);
   }
@@ -104,7 +104,7 @@ static bool read_lines(struct key_script *script, FILE *file, const char *path) 
   return valid;
 }
 
-bool key_script_load(struct key_script *script, const char *path) {
+bool load_key_script(struct key_script *script, const char *path) {
   FILE *file = fopen(path, "r");
   if (!file) {
     return report_system_error(errno, "%s", path);
@@ -115,7 +115,7 @@ bool key_script_load(struct key_script *script, const char *path) {
   return loaded;
 }
 
-uint8_t key_script_keys(struct key_script *script, uint64_t retired) {
+uint8_t scripted_keys(struct key_script *script, uint64_t retired) {
   while (script->next < script->count && script->changes[script->next].step <= retired) {
     script->keys = script->changes[script->next++].keys;
   }

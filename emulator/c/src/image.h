@@ -9,6 +9,6 @@
 #include <stdbool.h>
 
 /* Load the image at path; on failure, print why to stderr and return false. */
-bool image_load(const char *path);
+bool load_program(const char *path);
 
 #endif
