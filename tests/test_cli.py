@@ -128,11 +128,6 @@ def test_play_rejects_bad_options(emulator: Emulator, program: Program, options:
         pytest.param([], id="no-subcommand"),
         pytest.param(["frobnicate"], id="unknown-subcommand"),
         pytest.param(["--trace"], id="option-without-subcommand"),
-        *(
-            pytest.param([name], id=name)
-            for name in ["r", "ru", "p", "pl", "d", "di", "dis", "disa"]
-        ),
-        *(pytest.param(["--help", name], id=f"help-{name}") for name in ["r", "pl", "dis"]),
         pytest.param([Subcommand.DISASM, "image.bin"], id="disasm-argument"),
     ],
 )

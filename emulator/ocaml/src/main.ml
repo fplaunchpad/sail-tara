@@ -59,28 +59,10 @@ let disasm_command =
       Ok 0)
 ;;
 
-let subcommands = [ "run", run_command; "play", play_command; "disasm", disasm_command ]
-let command = Command.group ~summary:"Run TARA programs on the Sail model" subcommands
-
-(* Core resolves command prefixes; keep the public subcommand names exact like tara-c. The name
-   follows the program, or a help option after it. *)
-let reject_subcommand_prefix () =
-  match Sys.get_argv () |> Array.to_list with
-  | _ :: ("--help" | "-help" | "-?" | "-h") :: name :: _ | _ :: name :: _ ->
-    let names = List.map subcommands ~f:fst in
-    if
-      (not (String.is_empty name))
-      && (not (List.mem names name ~equal:String.equal))
-      && List.exists names ~f:(String.is_prefix ~prefix:name)
-    then (
-      Out_channel.output_string
-        stderr
-        [%string "tara-ocaml: '%{name}' is not a subcommand: run, play or disasm\n"];
-      Stdlib.exit 1)
-  | [] | [ _ ] -> ()
+let command =
+  Command.group
+    ~summary:"Run TARA programs on the Sail model"
+    [ "run", run_command; "play", play_command; "disasm", disasm_command ]
 ;;
 
-let () =
-  reject_subcommand_prefix ();
-  Command_unix.run command
-;;
+let () = Command_unix.run command

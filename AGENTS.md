@@ -24,7 +24,7 @@ The global `python`, `just`, `ocaml` and `cpp` skills hold the language rules. T
 
 ## Emulators
 
-- `tara-c` and `tara-ocaml` share one command line: the subcommands `run`, `play` and `disasm`, matched exactly (no abbreviations, also after `--help`). A repeated option is an error, even with the same value or through another alias.
+- `tara-c` and `tara-ocaml` share one command line: the subcommands `run`, `play` and `disasm`. `tara-ocaml` also takes an unambiguous prefix of one, as Core's `Command.group` does; `tara-c` takes the full name. A repeated option is an error, even with the same value or through another alias.
 - Exit statuses: 0 halted, 1 error, 3 step limit, 4 illegal opcode. An error prints a message on stderr and nothing on stdout.
 - C (`emulator/c`): strict C11 through CMake with every warning an error, and clang-tidy's best-practice families as errors (`just c lint`); disable a check only with its reason in `.clang-tidy`. Functions that act are named verb first (`parse_options`), sum types are tagged unions, results return by value, conditions with side effects get an explicit `if`/`else`, and nothing is cast to `(void)`.
 - OCaml (`emulator/ocaml`): implementation modules open `Import`, which bans the printf family.
