@@ -10,7 +10,7 @@ function begin_attempt(env : environment) -> unit = {
 /* Internal worker, called only after the halted check. On a boundary, execute
  * has not written architectural state. Sail exceptions provide NO rollback.
  * A successful HLT still reaches the PC assignment below and retires once. */
-function retire(insn : instruction) -> outcome = {
+function retire(insn : instruction) -> retirement = {
   nextPC = PC + 0x0002;
   execute(insn);
   PC = nextPC;
@@ -18,7 +18,7 @@ function retire(insn : instruction) -> outcome = {
 }
 
 /* Decoded instructions have no fetch and do not require an aligned PC. */
-function run_instruction(env : environment, insn : instruction) -> outcome = {
+function run_instruction(env : environment, insn : instruction) -> retirement = {
   begin_attempt(env);
   if HALTED then return Stopped();
   try { retire(insn) } catch {
@@ -29,7 +29,7 @@ function run_instruction(env : environment, insn : instruction) -> outcome = {
 /* Fetch from LIVE unified memory. Keep fetch observations even if decode or
  * data alignment reaches a boundary. Check the opcode table before fetching:
  * an invalid table must not cause an input read at a memory-mapped PC. */
-function step_with(env : environment, table : opcode_table) -> outcome = {
+function step_with(env : environment, table : opcode_table) -> retirement = {
   begin_attempt(env);
   if HALTED then return Stopped();
   if PC[0] == bitone then return NeedsSpecification(OddInstructionFetch(PC));
@@ -43,4 +43,4 @@ function step_with(env : environment, table : opcode_table) -> outcome = {
   }
 }
 
-function step(env : environment) -> outcome = step_with(env, evidenced_opcodes())
+function step(env : environment) -> retirement = step_with(env, evidenced_opcodes())

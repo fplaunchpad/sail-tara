@@ -5,6 +5,7 @@
  */
 default Order dec
 $include <prelude.sail>
+$include <generic_equality.sail>
 
 /* Only notation: the operations themselves come from Sail's library. */
 overload operator - = {sub_bits}
@@ -58,7 +59,7 @@ union issue = {
  * back writes. Every possible boundary must precede architectural writes. */
 union exception = { SpecificationBoundary : issue }
 
-union outcome = {
+union retirement = {
   Retired : unit,
   Stopped : unit,
   NeedsSpecification : issue
@@ -84,8 +85,8 @@ union event = {
 }
 
 type events = vector(4, option(event))
-register Platform : environment
-register Events : events
+register Platform : environment = PlainRAM()
+register Events : events = [None(), None(), None(), None()]
 
 /* Name access roles at call sites; flatten them only for the public trace.
  * Fetch bytes occupy slots 0,1; data bytes occupy slots 2,3. */

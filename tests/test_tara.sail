@@ -5,7 +5,7 @@ $include "harness.sail"
 
 val expect_retired : transition -> state
 function expect_retired(t) = {
-  match t.outcome {
+  match t.result {
     Retired() => (),
     _ => assert(false, "expected instruction retirement")
   };
@@ -56,7 +56,7 @@ function test_all_mnemonics() = {
   let hlt = run_one(s, HLT());
   expect_same_state(hlt, { s with pc = 0x0102, halted = true });
   let stopped = execute_from(PlainRAM(), hlt, ADDI(0b000, 0x01));
-  match stopped.outcome { Stopped() => (), _ => assert(false, "HLT did not stop") };
+  match stopped.result { Stopped() => (), _ => assert(false, "HLT did not stop") };
   expect_same_state(stopped.state, hlt);
 
   expect_register(s, MOV(0b000, 0b011), 0b000, 0x1234);
@@ -114,14 +114,14 @@ function test_aliases_and_boundaries() = {
   let pop = run_one(s, POP(0b111));
   assert(pop.regs[7] == 0x1236, "POP R7 policy");
   let odd = execute_from(PlainRAM(), s, STW(0b011, 0b100, 0b00001));
-  match odd.outcome {
+  match odd.result {
     NeedsSpecification(OddWordAccess(a)) => assert(a == 0x0401, "odd address detail"),
     _ => assert(false, "odd STW must be a model boundary")
   };
   expect_same_state(odd.state, s);
   let odd_pc = { s with pc = 0x0101 };
   let fetch = step_from(PlainRAM(), odd_pc);
-  match fetch.outcome {
+  match fetch.result {
     NeedsSpecification(OddInstructionFetch(a)) => assert(a == 0x0101, "odd PC detail"),
     _ => assert(false, "odd fetch must be a model boundary")
   };
@@ -145,7 +145,7 @@ function test_aliases_and_boundaries() = {
   assert(jmp_min.pc == 0x0802 & jmp_max.pc == 0x1800, "jump endpoint offsets")
 }
 
-function assert_retired(result : outcome) -> unit = match result {
+function assert_retired(result : retirement) -> unit = match result {
   Retired() => (),
   _ => assert(false, "expected retirement")
 }
@@ -359,7 +359,7 @@ function test_platform() = {
   s.pc = 0x05FE;
   s.mem[1534] = 0x00;
   let boundary = step_from(env, s); /* Fetch word 0x0015: unknown default opcode 0. */
-  match boundary.outcome { NeedsSpecification(UnverifiedOpcode(_)) => (), _ => assert(false, "decode boundary") };
+  match boundary.result { NeedsSpecification(UnverifiedOpcode(_)) => (), _ => assert(false, "decode boundary") };
   expect_same_state(boundary.state, s);
   match boundary.events[1] { Some(InputRead(_, _)) => (), _ => assert(false, "fetch observation lost") }
 }
@@ -377,7 +377,7 @@ function expect_no_events(observations) = {
 val expect_word_boundary : (state, instruction, word) -> unit
 function expect_word_boundary(s, insn, address) = {
   let result = execute_from(KeyboardFramebuffer(0b10101), s, insn);
-  match result.outcome {
+  match result.result {
     NeedsSpecification(OddWordAccess(actual)) => assert(actual == address),
     _ => assert(false, "expected data-alignment boundary")
   };
@@ -404,7 +404,7 @@ function test_boundary_ordering() = {
   s.regs[0] = 0x0400;
   s.mem[1534] = 0x28;
   let result = step_from_with(KeyboardFramebuffer(0b10101), synthetic_test_opcodes(), s);
-  match result.outcome {
+  match result.result {
     NeedsSpecification(OddWordAccess(a)) => assert(a == 0x03F5),
     _ => assert(false, "expected boundary after fetch")
   };
@@ -426,7 +426,7 @@ function test_attempt_precedence() = {
   var bad = synthetic_test_opcodes();
   bad[31] = Some(M_NOP);
   let invalid = step_from_with(KeyboardFramebuffer(0b10101), bad, s);
-  match invalid.outcome {
+  match invalid.result {
     NeedsSpecification(NoninjectiveOpcodeMap()) => (),
     _ => assert(false, "opcode map must be checked before fetch")
   };
@@ -435,7 +435,7 @@ function test_attempt_precedence() = {
 
   s.pc = 0x05FF;
   let odd = step_from_with(KeyboardFramebuffer(0b10101), bad, s);
-  match odd.outcome {
+  match odd.result {
     NeedsSpecification(OddInstructionFetch(a)) => assert(a == 0x05FF),
     _ => assert(false, "odd PC precedes map check")
   };
@@ -444,7 +444,7 @@ function test_attempt_precedence() = {
 
   s.halted = true;
   let stopped = step_from_with(KeyboardFramebuffer(0b10101), bad, s);
-  match stopped.outcome { Stopped() => (), _ => assert(false, "halt precedes fetch checks") };
+  match stopped.result { Stopped() => (), _ => assert(false, "halt precedes fetch checks") };
   expect_no_events(stopped.events);
   expect_same_state(stopped.state, s);
 
@@ -459,7 +459,7 @@ function test_attempt_precedence() = {
   let returned = run_one(s, RET());
   assert(returned.pc == 0x0101, "RET changed its target or checked alignment early");
   let next_fetch = step_from(PlainRAM(), returned);
-  match next_fetch.outcome {
+  match next_fetch.result {
     NeedsSpecification(OddInstructionFetch(a)) => assert(a == 0x0101),
     _ => assert(false, "RET's odd target did not fail on next fetch")
   };

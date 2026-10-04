@@ -11,7 +11,7 @@ struct state = {
   halted : bool
 }
 
-struct transition = { outcome : outcome, state : state, events : events }
+struct transition = { result : retirement, state : state, events : events }
 
 val zero_state : unit -> state
 function zero_state() = struct {
@@ -33,8 +33,8 @@ function install_state(s) = {
   HALTED = s.halted
 }
 
-val observe : outcome -> transition
-function observe(result) = struct { outcome = result, state = snapshot(), events = Events }
+val observe : retirement -> transition
+function observe(result) = struct { result = result, state = snapshot(), events = Events }
 
 val execute_from : (environment, state, instruction) -> transition
 function execute_from(env, s, insn) = {
