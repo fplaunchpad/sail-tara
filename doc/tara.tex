@@ -1,15 +1,982 @@
 % The TARA specification, typeset from the Sail model.
-\documentclass{article}
+%
+% `sail --latex --latex-prefix tara` writes sail_latex/commands.tex, one macro per definition of
+% the model (\tarafclADDexecute, \taravalstep, ...). This file arranges those macros into a
+% reference: the listings are the normative text, the prose around them explains and indexes it.
+\documentclass[a4paper,10pt]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{array}
+\usepackage{etoolbox}
+\usepackage{booktabs}
+\usepackage{fancyhdr}
+% xcolor, fullpage, listings, hyperref and the Sail listing language, from Sail's own sail.tex.
 \input{sail-preamble}
+\usepackage[a4paper,left=22mm,right=22mm,top=23mm,bottom=22mm,headheight=14pt,headsep=6mm]{geometry}
+
+% ---------------------------------------------------------------------------------------------
+% Page, links and listings
+% ---------------------------------------------------------------------------------------------
+
+% The PDF carries no dates, file ID or engine banner, so equal sources give equal bytes.
+\pdfinfoomitdate=1
+\pdfsuppressptexinfo=-1
+\pdftrailerid{}
+
+\hypersetup{
+  urlcolor=MediumBlue,
+  pdftitle={The TARA Instruction Set Architecture},
+  pdfsubject={Reference specification typeset from the Sail model},
+  bookmarksdepth=3,
+  bookmarksnumbered=true,
+  pdfpagemode=UseOutlines,
+}
+\renewcommand{\sectionautorefname}{\S}
+\renewcommand{\subsectionautorefname}{\S}
+\renewcommand{\subsubsectionautorefname}{\S}
+\renewcommand{\appendixautorefname}{Appendix}
+
+\emergencystretch=2em
+\widowpenalty=10000
+\clubpenalty=10000
+\setlength{\parskip}{0.4\baselineskip plus 0.1\baselineskip}
+\setlength{\parindent}{0pt}
+\setcounter{tocdepth}{2}
+\makeatletter
+\def\@listI{\leftmargin\leftmargini \parsep 0pt \topsep 4pt plus 2pt minus 2pt
+  \itemsep 2pt plus 1pt minus 1pt}
+% Less space around the headings: the instructions are many and close together.
+\renewcommand{\section}{\@startsection{section}{1}{\z@}%
+  {-3ex \@plus -1ex \@minus -0.2ex}{1.6ex \@plus 0.2ex}{\normalfont\Large\bfseries}}
+\renewcommand{\subsection}{\@startsection{subsection}{2}{\z@}%
+  {-2.6ex \@plus -0.8ex \@minus -0.2ex}{1ex \@plus 0.2ex}{\normalfont\large\bfseries}}
+\renewcommand{\subsubsection}{\@startsection{subsubsection}{3}{\z@}%
+  {-2.4ex \@plus -0.6ex \@minus -0.2ex}{0.8ex \@plus 0.2ex}{\normalfont\normalsize\bfseries}}
+\makeatother
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small The TARA Instruction Set Architecture}
+\fancyhead[R]{\small\nouppercase{\leftmark}}
+\fancyfoot[C]{\small\thepage}
+\renewcommand{\headrulewidth}{0.3pt}
+\fancypagestyle{plain}{\fancyhf{}\fancyfoot[C]{\small\thepage}%
+  \renewcommand{\headrulewidth}{0pt}}
+
+% Listings: a shaded block, flush with the text, its contents indented by \listingmargin. Sail
+% lines have at most 100 columns, and the check below makes sure that 100 columns of this font
+% fit between the margins.
+\definecolor{shade}{gray}{0.95}
+\newlength{\listingmargin}
+\setlength{\listingmargin}{5pt}
+\newcommand{\listingfont}{\fontsize{8.5}{10.2}\ttfamily\selectfont}
+\lstset{
+  basicstyle=\listingfont,
+  showstringspaces=false,
+  backgroundcolor=\color{shade},
+  frame=single,
+  framerule=0pt,
+  framesep=2pt,
+  framexleftmargin=\listingmargin,
+  framexrightmargin=\listingmargin,
+  rulecolor=\color{shade},
+  xleftmargin=\listingmargin,
+  xrightmargin=\listingmargin,
+  aboveskip=0pt,
+  belowskip=0pt,
+}
+\newlength{\hundredcolumns}
+\settowidth{\hundredcolumns}{\listingfont
+  0123456789012345678901234567890123456789012345678901234567890123456789%
+  01234567890123456789012345678901}
+\ifdim\hundredcolumns>\dimexpr\textwidth-2\listingmargin\relax
+  \PackageError{tara}{100 columns of Sail do not fit the page}{Shrink the listing font.}
+\fi
+
+% The generated listings link every call to its definition. Definitions that are not typeset
+% in this document (Sail's library) have no target: render those calls as plain text.
+\let\tarahyperref\hyperref
+\renewcommand{\hyperref}[2][]{\ifcsname r@#1\endcsname\tarahyperref[#1]{#2}\else#2\fi}
+
+% Keep a group of listings on one page, and with the paragraph that introduces it.
+\newcommand{\keep}[1]{\par\nopagebreak\vspace{3pt}\begin{minipage}{\linewidth}%
+  \setlength{\parskip}{0pt}#1\end{minipage}\par\medskip}
+
+% A centred table or diagram, kept with the paragraph that introduces it (a list begins with a
+% penalty that allows a break, which \@beginparpenalty removes for this one).
+\makeatletter
+\newenvironment{display}{%
+  \par\nopagebreak\@beginparpenalty=\@M\begin{center}\@beginparpenalty=-51\relax}{\end{center}}
+\makeatother
+
+% A link to a label; unlike the generated ones, a typo shows up as an undefined reference.
+\newcommand{\xref}[2]{\tarahyperref[#1]{#2}}
+
+% Inline code; a link to a listing (the label is the one the generated macro defines); a
+% mnemonic that links to its entry in Section 4.
+\newcommand{\code}[1]{\texttt{#1}}
+\newcommand{\sym}[2]{\xref{#1}{\code{#2}}}
+\newcommand{\mnem}[1]{\xref{taraz#1}{#1}}
+
 \input{sail_latex/commands}
 
-\title{TARA in Sail}
-\begin{document}
-\maketitle
+% ---------------------------------------------------------------------------------------------
+% The opcode table: one \defop per instruction, in opcode order.
+%   \defop{opcode}{hex}{bits}{mnemonic}{format}{syntax}
+% The table in Section 3 and the heading of every instruction in Section 4 read this data. The
+% three forms of the opcode must agree (\checkop), and tests/test_doc.py checks the mnemonics and
+% formats against TARA Studio's opcode table.
+% ---------------------------------------------------------------------------------------------
 
-\section{ADD}
+\newcommand{\binval}[5]{\numexpr16*#1+8*#2+4*#3+2*#4+#5\relax}
+\newcommand{\checkop}[4]{%
+  \ifnum#1="#2 \else\PackageError{tara}{#4: opcode #1 is not hexadecimal #2}{}\fi
+  \ifnum#1=\binval#3 \else\PackageError{tara}{#4: opcode #1 is not binary #3}{}\fi}
+
+\def\oplist{}
+\newcommand{\defop}[6]{%
+  \checkop{#1}{#2}{#3}{#4}%
+  \listgadd{\oplist}{#4}%
+  \csgdef{op@#4@dec}{#1}\csgdef{op@#4@hex}{#2}\csgdef{op@#4@bin}{#3}%
+  \csgdef{op@#4@fmt}{#5}\csgdef{op@#4@syn}{#6}}
+
+\defop{0}{00}{00000}{NOP}{F0}{NOP}
+\defop{1}{01}{00001}{HLT}{F0}{HLT}
+\defop{2}{02}{00010}{MOV}{F2}{MOV Rd, Rs}
+\defop{3}{03}{00011}{LIL}{F3}{LIL Rd, imm}
+\defop{4}{04}{00100}{LIH}{F3}{LIH Rd, imm}
+\defop{5}{05}{00101}{LDW}{F4}{LDW Rd, off(Rb)}
+\defop{6}{06}{00110}{STW}{F4}{STW Rs, off(Rb)}
+\defop{7}{07}{00111}{LDB}{F4}{LDB Rd, off(Rb)}
+\defop{8}{08}{01000}{STB}{F4}{STB Rs, off(Rb)}
+\defop{9}{09}{01001}{ADD}{F1}{ADD Rd, Rs1, Rs2}
+\defop{10}{0A}{01010}{SUB}{F1}{SUB Rd, Rs1, Rs2}
+\defop{11}{0B}{01011}{ADDI}{F3}{ADDI Rd, imm}
+\defop{12}{0C}{01100}{MUL}{F1}{MUL Rd, Rs1, Rs2}
+\defop{13}{0D}{01101}{AND}{F1}{AND Rd, Rs1, Rs2}
+\defop{14}{0E}{01110}{OR}{F1}{OR Rd, Rs1, Rs2}
+\defop{15}{0F}{01111}{XOR}{F1}{XOR Rd, Rs1, Rs2}
+\defop{16}{10}{10000}{NOT}{F2}{NOT Rd, Rs}
+\defop{17}{11}{10001}{SHL}{F3}{SHL Rd, shamt}
+\defop{18}{12}{10010}{SHR}{F3}{SHR Rd, shamt}
+\defop{19}{13}{10011}{SLT}{F1}{SLT Rd, Rs1, Rs2}
+\defop{20}{14}{10100}{BZ}{F5}{BZ Rs, off}
+\defop{21}{15}{10101}{BN}{F5}{BN Rs, off}
+\defop{22}{16}{10110}{JMP}{F6}{JMP off}
+\defop{23}{17}{10111}{CALL}{F6}{CALL off}
+\defop{24}{18}{11000}{RET}{F0}{RET}
+\defop{25}{19}{11001}{PUSH}{F7}{PUSH Rs}
+\defop{26}{1A}{11010}{POP}{F7}{POP Rd}
+
+% A row of the opcode table.
+\newcommand{\oprow}[1]{%
+  \csuse{op@#1@dec} & \code{\csuse{op@#1@hex}} & \code{\csuse{op@#1@bin}} &
+  \xref{taraz#1}{\code{#1}} & \code{\csuse{op@#1@syn}} &
+  \xref{fmt:\csuse{op@#1@fmt}}{\csuse{op@#1@fmt}} & \pageref{taraz#1} \\}
+
+% A group of instructions: a subsection; its introduction stays with the first entry.
+\newif\ifgroupstart
+\newcommand{\group}[2]{\subsection{#1}\label{#2}\groupstarttrue}
+
+% An instruction of Section 4: its heading, a line with its syntax, opcode and format, the
+% prose given as the second argument and the body (the listings), all on one page.
+% The label taraz<MNEMONIC> is the target of the links in the generated listings.
+\makeatletter
+\newenvironment{instruction}[2]{%
+  \ifgroupstart\@secpenalty=\@M\fi % no page break between a group's introduction and its entries
+  \subsubsection{\texorpdfstring{\code{#1}}{#1}}\label{taraz#1}%
+  \@secpenalty=-300\relax\groupstartfalse
+  \begin{minipage}[t]{\linewidth}%
+  \textbf{Syntax}\enspace\code{\csuse{op@#1@syn}}\hspace{2em}
+  \textbf{Opcode}\enspace\csuse{op@#1@dec} (\code{\csuse{op@#1@bin}})\hspace{2em}
+  \textbf{Format}\enspace\xref{fmt:\csuse{op@#1@fmt}}{\csuse{op@#1@fmt}}\par\smallskip
+  #2\par\smallskip\setlength{\parskip}{0pt}%
+}{%
+  \end{minipage}\par\medskip}
+\makeatother
+
+% A field of a format diagram: n bits wide; the last field of a row closes the box.
+\newlength{\bitwidth}
+\setlength{\bitwidth}{5mm}
+\newcommand{\fld}[2]{\multicolumn{#1}{|c}{\small#2}}
+\newcommand{\fldlast}[2]{\multicolumn{#1}{|c|}{\small#2}}
+\newcommand{\bitnumber}[1]{{\scriptsize#1}}
+
+\begin{document}
+\thispagestyle{plain}
+
+\begin{center}
+  {\LARGE\bfseries The TARA Instruction Set Architecture\par}
+  \medskip
+  {\large Reference specification, typeset from the Sail model\par}
+\end{center}
+
+{\hypersetup{linkcolor=black}\setlength{\parskip}{0pt}\tableofcontents}
+\clearpage
+
+% =============================================================================================
+\section{Introduction}\label{sec:intro}
+% =============================================================================================
+
+TARA (\emph{Teaching Architecture for RISC Assembly}) is the 16-bit teaching processor of the
+course CS2300 at IIT Madras, developed and maintained by Ayon Chakraborty. A TARA machine has
+eight 16-bit general-purpose registers, a unified 2~KB byte-addressed memory, a memory-mapped
+input port with five input lines and a memory-mapped $64\times64$ monochrome framebuffer.
+Every instruction is one 16-bit word with a 5-bit opcode; 27 of the 32 opcodes are assigned.
+
+\subsection{The model is the specification}\label{sec:model}
+
+The architecture is specified by a model written in Sail, a language for specifying
+instruction-set architectures. This document is typeset from that model: each listing is a
+definition taken from the Sail source by \code{sail -{}-latex}, so the listings are the normative
+text, and the prose around them explains and indexes them. Where the prose and a listing
+disagree, the listing is right.
+
+\begin{display}
+\begin{tabular}{@{}ll@{}}
+\toprule
+File & Contents \\
+\midrule
+\code{model/machine.sail} & State, memory buses, input port, framebuffer (\autoref{sec:state}) \\
+\code{model/tara.sail} & The instructions: operands, encoding, decoding, semantics
+  (\autoref{sec:formats}, \autoref{sec:isa}) \\
+\code{model/step.sail} & The drivers \sym{tarazstep}{step},
+  \sym{tarazrunzyinstruction}{run\_instruction}, \sym{tarazreset}{reset}
+  (\autoref{sec:execution}) \\
+\code{model/syntax.sail} & Assembly syntax (\autoref{sec:syntax}) \\
+\bottomrule
+\end{tabular}
+\end{display}
+
+The model describes the architecture, not the microarchitecture. A call to \sym{tarazstep}{step}
+fetches, decodes and executes one instruction; T-states, the control ROM, memory timing and the
+status flags Z, N, C and V are not modelled. The flags are ``observational only'' in the RTL: they
+drive LEDs and debug outputs, are not architecturally visible and never control a branch.
+
+\subsection{Sources}\label{sec:sources}
+
+The model follows the RTL description published with TARA Studio: the microarchitecture section
+of the TARA Studio manual and the TARA hardware manual. Where the RTL description is silent it
+follows the ISA reference table of the Studio manual. Quotations in this document are from these
+two manuals.
+\begin{itemize}\small
+\item TARA Studio manual, \emph{Microarchitecture}:
+  \url{https://www.cse.iitm.ac.in/~ayon/courses/CS2300/taramanual/tarastudio/index.html#microarch}
+\item TARA CPU on the Basys 3, hardware manual:
+  \url{https://www.cse.iitm.ac.in/~ayon/courses/CS2300/taramanual/tarahw/index.html}
+\end{itemize}
+Where neither source says what happens, the model makes an assumption;
+\autoref{app:assumptions} lists them. Where the TARA Studio simulator (taracpu 1.2.2)
+disagrees with the RTL description, the model follows the RTL description;
+\autoref{app:studio} lists the differences.
+
+\subsection{Reading the listings}\label{sec:reading}
+
+A listing shows a definition as written in the Sail source, with Sail's keyword highlighting.
+A call of a function, constructor or register access that is defined in this document is a
+link to its definition; calls of Sail's library functions are plain text, since the library is
+not part of this document. The notation of the model:
+
+\begin{display}
+\small
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.27\linewidth}%
+  p{\dimexpr0.73\linewidth-2\tabcolsep\relax}@{}}
+\toprule
+Notation & Meaning \\
+\midrule
+\code{0b1010}, \code{0x2F} & Bit-vector literals: one bit per binary digit, four per
+  hexadecimal digit. \code{bitone} is the single bit 1. \\
+\code{bits(n)} & A vector of $n$ bits; bit 0 is the least significant. \\
+\code{a @ b} & Concatenation; \code{a} supplies the more significant bits. \\
+\code{x[i]}, \code{x[h .. l]} & Bit $i$ of \code{x}; bits $h$ down to $l$, inclusive. \\
+\code{unsigned(x)}, \code{signed(x)} & The integer value of a bit-vector read as an unsigned
+  number, or as a two's-complement number. \\
+\code{get\_slice\_int(n, i, 0)} & The low $n$ bits of the integer \code{i}. \\
+\code{+}, \code{-}, \code{\&}, \code{|}, \code{\textasciicircum}, \code{not\_vec} & Addition and
+  subtraction modulo $2^n$, bitwise and, or, exclusive or and complement, on bit-vectors of
+  equal length. Adding an integer to a bit-vector also wraps modulo $2^n$. \\
+\code{sail\_shiftleft}, \code{sail\_shiftright} & Logical shifts by an integer count; the
+  vacated bits are zero. \\
+\code{Some(x)}, \code{None()} & A value that is present or absent (the type \code{option}). \\
+\code{X(r)}, \code{X(r) = v} & Read, write register \code{r} (\autoref{sec:registers}). \\
+\code{let}, \code{if}, \code{match} & A local binding, a conditional and a pattern match;
+  \code{\{ a; b \}} runs \code{a}, then \code{b}. \\
+\code{scattered}, \code{function clause} & A function defined by clauses placed next to the
+  definitions they belong to: every instruction adds one clause to \code{encode},
+  \code{decode} and \code{execute}. \\
+\bottomrule
+\end{tabular}
+\end{display}
+
+% =============================================================================================
+\section{Machine state}\label{sec:state}
+% =============================================================================================
+
+The architectural state of a TARA machine is held in the Sail registers declared in
+\code{machine.sail}: the register file, PC, the memory and the halt latch. Two more registers
+are not architectural state proper: \sym{tararegisterzKEYS}{KEYS} latches the input lines and
+\sym{tararegisterznextPC}{nextPC} is scratch through which an instruction proposes its
+successor.
+
+\subsection{Types}\label{sec:types}
+
+The sizes of the machine are named once.
+
+\keep{\taratypeword\taratypebyte\taratyperegidx\taratypeaddress\taratyperegfile\taratypememory}
+
+A \sym{taratypezword}{word} is the width of a register, of PC and of an instruction; an
+\sym{taratypezaddress}{address} is the 11-bit byte address that selects one of the 2048 bytes of
+memory; a \sym{taratypezregidx}{regidx} is a register number. The model binds \code{-} to
+bit-vector subtraction and \code{\textasciicircum} to bitwise exclusive or; this is notation only,
+the operations come from Sail's library.
+
+% The macro names of overloads carry a letter that counts the earlier overloads of the operator
+% in Sail's library (B: the second, C: the third); they change when the library does.
+\keep{\taraoverloadBzEightoperatorzZerozDzNine\taraoverloadBzEightoperatorzZerozQzNine}
+
+\subsection{Registers}\label{sec:registers}
+
+The register file \sym{tararegisterzGPR}{GPR} holds R0 to R7, each 16 bits wide. R0 is an ordinary
+writable register: nothing is hard-wired to zero. Two registers have a role in the instruction
+set: R6 is the link register, written by \mnem{CALL} and read by \mnem{RET}, and R7 is the stack
+pointer, used by \mnem{PUSH} and \mnem{POP}; the model names them \sym{taraletzlr}{lr} and
+\sym{taraletzsp}{sp}. Registers are read and written by number through \sym{tarazX}{X}.
+
+\keep{\tararegisterGPR\taraletlr\taraletsp\taravalrX\tarafnrX\taravalwX\tarafnwX
+  \taraoverloadAX\label{tarazX}}
+
+The program counter \sym{tararegisterzPC}{PC} holds the byte address of the next instruction. It
+is 16 bits wide, but only 11 of them are kept: the RTL says ``16-bit \textperiodcentered{} +2 per
+fetch \textperiodcentered{} masked to 0x7FF''. The model writes PC only through
+\sym{tarazpczymask}{pc\_mask} (and sets it to 0 on reset), so PC wraps around at the end of the
+2~KB memory.
+
+\keep{\tararegisterPC\taravalpcMask\tarafnpcMask}
+
+The halt latch \sym{tararegisterzHALTED}{HALTED} is set by \mnem{HLT} and cleared by reset
+(\autoref{sec:halting}). The scratch register \sym{tararegisterznextPC}{nextPC} holds the
+successor of the current instruction while it executes (\autoref{sec:retire}); it is not
+architectural.
+
+\keep{\tararegisterHALTED\tararegisternextPC}
+
+\subsection{Memory and buses}\label{sec:memory}
+
+Memory is an array \sym{tararegisterzMEM}{MEM} of 2048 bytes at the addresses \code{0x000} to
+\code{0x7FF}. Code, data, stack, the input port and the framebuffer all live in it.
+
+\keep{\tararegisterMEM}
+
+\begin{display}
+\begin{tabular}{@{}ll@{}}
+\toprule
+Addresses & Contents \\
+\midrule
+\code{0x000}--\code{0x5FE} & Ordinary memory for program, data and stack (1535 bytes) \\
+\code{0x5FF} & Input port (\autoref{sec:input}) \\
+\code{0x600}--\code{0x7FF} & Framebuffer, 512 bytes (\autoref{sec:framebuffer}) \\
+\bottomrule
+\end{tabular}
+\end{display}
+
+The Studio manual suggests a conventional layout (code from \code{0x000}, data from
+\code{0x400}, a stack below \code{0x5F0}); the architecture enforces none of it.
+
+\paragraph{Byte bus.} \sym{tarazreadzybyte}{read\_byte} and
+\sym{tarazwritezybyte}{write\_byte} take a 16-bit address and use
+only its low 11 bits, so addresses wrap modulo 2048: an effective address computed as
+$0-1$ selects byte \code{0x7FF}, and \code{0xF802} selects byte \code{0x002}.
+
+\keep{\taravalreadByte\tarafnreadByte\taravalwriteByte\tarafnwriteByte}
+
+\paragraph{Word bus.} The RTL gives the rule ``word index = addr \guillemotright{} 1
+\textperiodcentered{} lane = addr[0]'' and stores words big-endian: the word at address $2k$
+has its high byte in byte $2k$ and its low byte in byte $2k+1$. A word access ignores address
+bit 0, so an access to the odd address $2k+1$ is an access to the word at $2k$, and the last
+word of memory is the one at \code{0x7FE}. A word access is two byte accesses, so a word access
+that covers \code{0x5FF} sees the input port (\autoref{sec:input}). Instruction fetch is a word
+read (\autoref{sec:step}); \sym{tarazreadzyword}{read\_word} and
+\sym{tarazwritezyword}{write\_word} are the word bus.
+
+\keep{\taravalreadWord\tarafnreadWord\taravalwriteWord\tarafnwriteWord}
+
+\subsection{Input port}\label{sec:input}
+
+``A byte read from \code{0x5FF} returns \{3'b000, QUIT, RIGHT, LEFT, DOWN, UP\}.'' The model
+keeps the five input lines in \sym{tararegisterzKEYS}{KEYS}, with UP in bit 0 and QUIT in bit 4,
+and \code{read\_byte} returns them, zero-extended, whenever the low 11 bits of the address are
+\sym{taraletzinputzyport}{input\_port}.
+
+\keep{\taraletinputPort\tararegisterKEYS}
+
+\begin{display}
+\begin{tabular}{@{}cccccc@{}}
+\toprule
+Bits 7--5 & Bit 4 & Bit 3 & Bit 2 & Bit 1 & Bit 0 \\
+\midrule
+\code{000} & QUIT & RIGHT & LEFT & DOWN & UP \\
+\bottomrule
+\end{tabular}
+\end{display}
+
+The drivers latch the lines once per step (\autoref{sec:execution}), so all reads of
+\code{0x5FF} during one instruction, including the fetch of the instruction itself, see the same
+value. How the lines are driven is up to the host; TARA Studio uses the arrow keys or W, A, S,
+D for the four directions and Q for QUIT. A store to \code{0x5FF} is not special:
+\code{write\_byte} writes the underlying memory byte, which no read returns.
+
+\subsection{Framebuffer}\label{sec:framebuffer}
+
+The 64$\times$64 framebuffer occupies \code{0x600} to \code{0x7FF}: 512 bytes, one bit per pixel,
+eight pixels per byte with the most significant bit on the left. Row 0 is the bottom of the
+display. The RTL gives the mapping: ``Pixel $(x, y)$: byte = \code{0x0600} + $y\times8$ +
+$x\div8$, bit = $7 - (x \bmod 8)$''. The model has no separate display state:
+\sym{tarazpixel}{pixel} reads the memory and tells whether the pixel $(x, y)$ is lit.
+
+\keep{\taravalpixel\tarafnpixel}
+
+% =============================================================================================
+\section{Instruction formats and opcodes}\label{sec:formats}
+% =============================================================================================
+
+\subsection{Formats}\label{sec:format-diagram}
+
+An instruction is one 16-bit word, stored big-endian like every word. Bits 15 to 11 hold the
+opcode; the other 11 bits are divided into fields by one of eight formats, F0 to F7 (the names
+are those of the Studio manual). A field written as zeros is padding: \code{decode} ignores
+it and \code{encode} writes it as zeros.
+
+\begin{display}
+\renewcommand{\arraystretch}{1.25}
+\begin{tabular}{@{}l@{\hspace{6pt}}*{16}{@{}>{\centering\arraybackslash}p{\bitwidth}@{}}%
+  >{\hspace{10pt}}l@{}}
+ & \bitnumber{15} & \bitnumber{14} & \bitnumber{13} & \bitnumber{12} & \bitnumber{11} &
+   \bitnumber{10} & \bitnumber{9} & \bitnumber{8} & \bitnumber{7} & \bitnumber{6} &
+   \bitnumber{5} & \bitnumber{4} & \bitnumber{3} & \bitnumber{2} & \bitnumber{1} &
+   \bitnumber{0} & \\
+\cline{2-17}
+\label{fmt:F0}F0 & \fld{5}{opcode} & \fldlast{11}{\code{00000000000}} &
+  \small NOP, HLT, RET \\ \cline{2-17}
+\label{fmt:F1}F1 & \fld{5}{opcode} & \fld{3}{\code{rd}} & \fld{3}{\code{rs1}} &
+  \fld{3}{\code{rs2}} & \fldlast{2}{\code{00}} &
+  \small ADD, SUB, MUL, AND, OR, XOR, SLT \\ \cline{2-17}
+\label{fmt:F2}F2 & \fld{5}{opcode} & \fld{3}{\code{rd}} & \fld{3}{\code{rs}} &
+  \fldlast{5}{\code{00000}} & \small MOV, NOT \\ \cline{2-17}
+\label{fmt:F3}F3 & \fld{5}{opcode} & \fld{3}{\code{rd}} &
+  \fldlast{8}{\code{imm} or \code{shamt}} & \small LIL, LIH, ADDI, SHL, SHR \\ \cline{2-17}
+\label{fmt:F4}F4 & \fld{5}{opcode} & \fld{3}{\code{rd}, \code{rs}} & \fld{3}{\code{base}} &
+  \fldlast{5}{\code{off}} & \small LDW, STW, LDB, STB \\ \cline{2-17}
+\label{fmt:F5}F5 & \fld{5}{opcode} & \fld{3}{\code{rs}} & \fldlast{8}{\code{off}} &
+  \small BZ, BN \\ \cline{2-17}
+\label{fmt:F6}F6 & \fld{5}{opcode} & \fldlast{11}{\code{off}} & \small JMP, CALL \\ \cline{2-17}
+\label{fmt:F7}F7 & \fld{5}{opcode} & \fld{3}{\code{rs}, \code{rd}} &
+  \fldlast{8}{\code{00000000}} & \small PUSH, POP \\ \cline{2-17}
+\end{tabular}
+\end{display}
+
+\subsection{Opcodes}\label{sec:opcodes}
+
+Opcodes 0 to 26 are assigned; 27 to 31 are not. The table summarises the \code{decode} clauses
+of \autoref{sec:isa}; where it and a clause differ, the clause is right.
+
+\begin{display}
+\small
+\begin{tabular}{@{}rcc@{\hspace{1.2em}}l@{\hspace{1.2em}}l@{\hspace{1.2em}}cr@{}}
+\toprule
+Opcode & Hex & Bits & Mnemonic & Syntax & Format & Page \\
+\midrule
+\forlistloop{\oprow}{\oplist}
+27--31 & \code{1B}--\code{1F} & \code{11011}--\code{11111} & \multicolumn{4}{l}{unassigned
+  (\code{decode} returns \code{None}, \autoref{sec:codec})} \\
+\bottomrule
+\end{tabular}
+\end{display}
+
+For example, the word \code{0x4C4C} is \code{01001} \code{100} \code{010} \code{011} \code{00}:
+opcode 9, format F1, with \code{rd} = 4, \code{rs1} = 2 and \code{rs2} = 3, which is
+\code{ADD R4, R2, R3}.
+
+\subsection{Operands}\label{sec:operands}
+
+The syntax lines of \autoref{sec:isa} write \code{Rd}, \code{Rs}, \code{Rs1}, \code{Rs2} and
+\code{Rb} for the register operands \code{rd}, \code{rs}, \code{rs1}, \code{rs2} and
+\code{base} of the model, and \code{imm}, \code{shamt} and \code{off} for the immediates.
+
+\begin{display}
+\small
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.27\linewidth}%
+  >{\centering\arraybackslash}p{2.2em}%
+  p{\dimexpr0.73\linewidth-2.2em-4\tabcolsep\relax}@{}}
+\toprule
+Field & Bits & Meaning \\
+\midrule
+\code{rd}, \code{rs}, \code{rs1}, \code{rs2}, \code{base} & 3 & A register number, 0 to 7.
+  \code{rd} is the destination; \code{rs}, \code{rs1} and \code{rs2} are sources; \code{base}
+  holds a memory address. \\
+\code{imm} & 8 & An immediate byte: unsigned for LIL and LIH, two's complement
+  ($-128$ to $127$) for ADDI. \\
+\code{shamt} & 8 & A shift count; only bits 4 to 0 are used. \\
+\code{off} (LDW, STW, LDB, STB) & 5 & A signed offset in bytes, $-16$ to $15$. \\
+\code{off} (BZ, BN) & 8 & A signed offset in instructions, $-128$ to $127$. \\
+\code{off} (JMP, CALL) & 11 & A signed offset in instructions, $-1024$ to $1023$. \\
+\bottomrule
+\end{tabular}
+\end{display}
+
+\subsection{Encoding, decoding and execution}\label{sec:codec}
+
+The type \code{instruction} is a union with one constructor per mnemonic; the constructors are
+declared by the \code{union clause} lines of \code{tara.sail}, with the operand types of the
+fields in the \code{decode} clauses of \autoref{sec:isa}. Three scattered functions are defined
+on it, one clause per instruction:
+\begin{itemize}
+\item \sym{tarazencode}{encode} turns an instruction into its 16-bit word: the opcode, then the
+  fields, with the padding written as zeros;
+\item \sym{tarazdecode}{decode} turns a word into an instruction, or \code{None}. Each clause
+  matches the opcode in bits 15 to 11 and ignores the padding, so every word with an assigned
+  opcode decodes and several words give the same instruction;
+\item \sym{tarazexecute}{execute} carries out an instruction. It reads and writes the state of
+  \autoref{sec:state}; it sees PC as the address of the instruction itself and proposes the
+  successor in \sym{tararegisterznextPC}{nextPC}, which the drivers commit
+  (\autoref{sec:retire}). An instruction reads its sources before it writes its result;
+  \mnem{PUSH} and \mnem{POP} are the only ones with two steps, and they perform them in the order
+  of their clauses.
+\end{itemize}
+
+\keep{\taratypeinstruction\taravalencode\taravaldecode\taravalexecute}
+
+The opcodes 27 to 31 are unassigned; the last clause of \code{decode} gives them no
+instruction.
+
+\keep{\tarafclNonedecode}
+
+% =============================================================================================
+\section{The instruction set}\label{sec:isa}
+% =============================================================================================
+
+Each entry gives the syntax, the opcode and the format of an instruction, a short description
+and the clauses of \code{encode}, \code{decode} and \code{execute} that define it. An
+instruction retires when its effect has been applied and PC has moved on (\autoref{sec:retire}).
+
+% ---------------------------------------------------------------------------------------------
+\group{System and data movement}{sec:isa-system}
+% ---------------------------------------------------------------------------------------------
+
+\mnem{NOP} and \mnem{HLT} take no operands. \mnem{MOV} copies a register; \mnem{LIL} and
+\mnem{LIH} build a 16-bit constant one byte at a time.
+
+\begin{instruction}{NOP}{Does nothing. The instruction retires and PC moves to the next word.}
+\tarafclNOPencode
+\tarafclNOPdecode
+\tarafclNOPexecute
+\end{instruction}
+
+\begin{instruction}{HLT}{Stops the CPU. HLT retires like any instruction, so PC advances by 2,
+  and then sets the halt latch \sym{tararegisterzHALTED}{HALTED}. From then on
+  \sym{tarazstep}{step} and \sym{tarazrunzyinstruction}{run\_instruction} return
+  \sym{tarazStopped}{Stopped} until \sym{tarazreset}{reset} clears the latch
+  (\autoref{sec:halting}).}
+\tarafclHLTencode
+\tarafclHLTdecode
+\tarafclHLTexecute
+\end{instruction}
+
+\begin{instruction}{MOV}{Copies \code{Rs} to \code{Rd}.}
+\tarafclMOVencode
+\tarafclMOVdecode
+\tarafclMOVexecute
+\end{instruction}
+
+\begin{instruction}{LIL}{Loads the immediate into the low byte of \code{Rd} and clears the upper
+  byte.}
+\tarafclLILencode
+\tarafclLILdecode
+\tarafclLILexecute
+\end{instruction}
+
+\begin{instruction}{LIH}{Loads the immediate into the upper byte of \code{Rd} and leaves the
+  low byte unchanged. LIL followed by LIH builds any 16-bit constant.}
+\tarafclLIHencode
+\tarafclLIHdecode
+\tarafclLIHexecute
+\end{instruction}
+
+% ---------------------------------------------------------------------------------------------
+\group{Memory}{sec:isa-memory}
+% ---------------------------------------------------------------------------------------------
+
+A memory instruction names a data register, a base register and a signed 5-bit offset in bytes.
+The effective address is the sum, computed modulo $2^{16}$; the rules of \autoref{sec:memory}
+then apply to it: only its low 11 bits count, and a word access ignores bit 0. Words are
+big-endian, and a read of \code{0x5FF} returns the input port (\autoref{sec:input}).
+
+\begin{instruction}{LDW}{Loads the word at the effective address \code{Rb + off} into
+  \code{Rd}.}
+\tarafclLDWencode
+\tarafclLDWdecode
+\tarafclLDWexecute
+\end{instruction}
+
+\begin{instruction}{STW}{Stores \code{Rs} as the word at the effective address
+  \code{Rb + off}, high byte first.}
+\tarafclSTWencode
+\tarafclSTWdecode
+\tarafclSTWexecute
+\end{instruction}
+
+\begin{instruction}{LDB}{Loads the byte at the effective address \code{Rb + off} into the low
+  byte of \code{Rd} and clears the upper byte.}
+\tarafclLDBencode
+\tarafclLDBdecode
+\tarafclLDBexecute
+\end{instruction}
+
+\begin{instruction}{STB}{Stores the low byte of \code{Rs} at the effective address
+  \code{Rb + off}.}
+\tarafclSTBencode
+\tarafclSTBdecode
+\tarafclSTBexecute
+\end{instruction}
+
+% ---------------------------------------------------------------------------------------------
+\group{Arithmetic}{sec:isa-arithmetic}
+% ---------------------------------------------------------------------------------------------
+
+Arithmetic is modulo $2^{16}$. There are no carry or overflow flags.
+
+\begin{instruction}{ADD}{Adds \code{Rs1} and \code{Rs2}, modulo $2^{16}$.}
 \tarafclADDencode
 \tarafclADDdecode
 \tarafclADDexecute
+\end{instruction}
+
+\begin{instruction}{SUB}{Subtracts \code{Rs2} from \code{Rs1}, modulo $2^{16}$.}
+\tarafclSUBencode
+\tarafclSUBdecode
+\tarafclSUBexecute
+\end{instruction}
+
+\begin{instruction}{ADDI}{Adds the immediate, sign-extended from 8 bits ($-128$ to $127$), to
+  \code{Rd}, modulo $2^{16}$.}
+\tarafclADDIencode
+\tarafclADDIdecode
+\tarafclADDIexecute
+\end{instruction}
+
+\begin{instruction}{MUL}{Stores the low 16 bits of the product of \code{Rs1} and \code{Rs2}.
+  The low 16 bits are the same whether the operands are read as signed or as unsigned.}
+\tarafclMULencode
+\tarafclMULdecode
+\tarafclMULexecute
+\end{instruction}
+
+% ---------------------------------------------------------------------------------------------
+\group{Logic}{sec:isa-logic}
+% ---------------------------------------------------------------------------------------------
+
+The logic instructions work on all 16 bits at once.
+
+\begin{instruction}{AND}{Bitwise and of \code{Rs1} and \code{Rs2}.}
+\tarafclANDencode
+\tarafclANDdecode
+\tarafclANDexecute
+\end{instruction}
+
+\begin{instruction}{OR}{Bitwise or of \code{Rs1} and \code{Rs2}.}
+\tarafclORencode
+\tarafclORdecode
+\tarafclORexecute
+\end{instruction}
+
+\begin{instruction}{XOR}{Bitwise exclusive or of \code{Rs1} and \code{Rs2}.}
+\tarafclXORencode
+\tarafclXORdecode
+\tarafclXORexecute
+\end{instruction}
+
+\begin{instruction}{NOT}{Bitwise complement of \code{Rs}.}
+\tarafclNOTencode
+\tarafclNOTdecode
+\tarafclNOTexecute
+\end{instruction}
+
+% ---------------------------------------------------------------------------------------------
+\group{Shifts}{sec:isa-shifts}
+% ---------------------------------------------------------------------------------------------
+
+Both shifts are logical and take their count from the low five bits of the immediate
+(``\code{shamt = imm8[4:0]}''); bits 7 to 5 of the field are ignored. The RTL does not say
+what a count of 16 or more does; the model shifts every bit out, giving zero
+(\autoref{app:assumptions}).
+
+\begin{instruction}{SHL}{Shifts \code{Rd} left by \code{shamt[4:0]}; zeros enter at the
+  right.}
+\tarafclSHLencode
+\tarafclSHLdecode
+\tarafclSHLexecute
+\end{instruction}
+
+\begin{instruction}{SHR}{Shifts \code{Rd} right by \code{shamt[4:0]}; zeros enter at the
+  left.}
+\tarafclSHRencode
+\tarafclSHRdecode
+\tarafclSHRexecute
+\end{instruction}
+
+% ---------------------------------------------------------------------------------------------
+\group{Comparison}{sec:isa-comparison}
+% ---------------------------------------------------------------------------------------------
+
+\begin{instruction}{SLT}{Sets \code{Rd} to 1 if \code{Rs1} is less than \code{Rs2}, both read
+  as signed 16-bit numbers, and to 0 otherwise.}
+\tarafclSLTencode
+\tarafclSLTdecode
+\tarafclSLTexecute
+\end{instruction}
+
+% ---------------------------------------------------------------------------------------------
+\group{Control flow}{sec:isa-control}
+% ---------------------------------------------------------------------------------------------
+
+A relative target is $\mathrm{PC} + 2 + 2\cdot\mathrm{off}$: the offset counts instructions
+and is relative to the instruction that follows. PC keeps only 11 bits, so targets wrap around
+the 2~KB memory (\autoref{sec:retire}). BZ and BN test their register itself, never the status
+flags.
+
+\begin{instruction}{BZ}{Branches if \code{Rs} is zero. Otherwise execution continues with the
+  next instruction.}
+\tarafclBZencode
+\tarafclBZdecode
+\tarafclBZexecute
+\end{instruction}
+
+\begin{instruction}{BN}{Branches if \code{Rs} is negative, that is, if its bit 15 is set.
+  Otherwise execution continues with the next instruction.}
+\tarafclBNencode
+\tarafclBNdecode
+\tarafclBNexecute
+\end{instruction}
+
+\begin{instruction}{JMP}{Jumps. The 11-bit offset ($-1024$ to $1023$ instructions) spans the
+  whole memory.}
+\tarafclJMPencode
+\tarafclJMPoffdecode
+\tarafclJMPexecute
+\end{instruction}
+
+\begin{instruction}{CALL}{Calls a subroutine: writes the address of the next instruction,
+  masked to 11 bits, to the link register R6 and jumps like JMP. CALL touches neither R7 nor
+  memory.}
+\tarafclCALLencode
+\tarafclCALLoffdecode
+\tarafclCALLexecute
+\end{instruction}
+
+\begin{instruction}{RET}{Returns: PC becomes the value of the link register R6, of which PC
+  keeps the low 11 bits.}
+\tarafclRETencode
+\tarafclRETdecode
+\tarafclRETexecute
+\end{instruction}
+
+% ---------------------------------------------------------------------------------------------
+\group{Stack}{sec:isa-stack}
+% ---------------------------------------------------------------------------------------------
+
+The stack is the memory addressed by R7. It grows downwards, one word at a time; there is no
+overflow check, and a program sets R7 before the first PUSH, because reset leaves registers
+alone. The two instructions follow the order of the ISA reference table, which matters when the
+register is R7 itself (\autoref{app:assumptions}).
+
+\begin{instruction}{PUSH}{Decrements R7 by 2, then stores \code{Rs} at the address in R7.
+  \code{Rs} is read after the decrement, so PUSH R7 stores the decremented stack pointer.}
+\tarafclPUSHencode
+\tarafclPUSHrsdecode
+\tarafclPUSHexecute
+\end{instruction}
+
+\begin{instruction}{POP}{Loads the word at the address in R7 into \code{Rd}, then increments R7
+  by 2. The increment comes last, so POP R7 leaves the loaded value plus 2.}
+\tarafclPOPencode
+\tarafclPOPrddecode
+\tarafclPOPexecute
+\end{instruction}
+
+% =============================================================================================
+\section{Execution}\label{sec:execution}
+% =============================================================================================
+
+The drivers of \code{step.sail} run one instruction per call. \sym{tarazstep}{step} and
+\sym{tarazrunzyinstruction}{run\_instruction} take the five input lines as their first argument
+and hold them for the duration of the call.
+
+\subsection{Results}\label{sec:results}
+
+A driver reports what happened with a \sym{taratypezretirement}{retirement}.
+
+\keep{\taratyperetirement}
+
+\begin{itemize}
+\item \phantomsection\label{tarazRetired}\code{Retired}: an instruction ran to completion.
+  HLT retires like any other instruction; it also sets the halt latch.
+\item \phantomsection\label{tarazStopped}\code{Stopped}: the CPU is halted and nothing
+  happened: no fetch, no input latched, no state changed.
+\item \phantomsection\label{tarazIllegal}\code{Illegal}: the fetched word has an unassigned
+  opcode (27 to 31); the payload is that word. The fetch advanced PC past the word; registers,
+  memory and the halt latch are unchanged. The model does not halt the CPU: what the hardware
+  does next is not published, so the host decides.
+\end{itemize}
+
+\subsection{Retiring an instruction}\label{sec:retire}
+
+\sym{tarazretire}{retire} runs a decoded instruction. The default successor is PC + 2;
+\sym{tarazexecute}{execute} may replace it in \sym{tararegisterznextPC}{nextPC}, and the result,
+masked to 11 bits, becomes PC. An instruction therefore sees PC as its own address, while the RTL
+has already incremented PC by the time the instruction executes; the PC-relative targets of
+\autoref{sec:isa} are written accordingly.
+
+\keep{\taravalretire\tarafnretire}
+
+\subsection{Fetch, decode, execute}\label{sec:step}
+
+\sym{tarazstep}{step} is the model of the processor: it runs the next instruction from memory.
+\begin{enumerate}
+\item If \sym{tararegisterzHALTED}{HALTED} is set it returns \sym{tarazStopped}{Stopped}.
+\item It latches the input lines in \sym{tararegisterzKEYS}{KEYS}.
+\item It fetches the word at PC with \sym{tarazreadzyword}{read\_word}. The fetch is an ordinary
+  word read:
+  it ignores bit 0 of PC, and it sees the input port if it covers \code{0x5FF}. It also sees
+  the stores of earlier instructions, which is how self-modifying code works.
+\item It decodes the word. For an assigned opcode it retires the instruction.
+\item For an unassigned opcode it advances PC to \sym{tarazpczymask}{pc\_mask}\code{(PC + 2)},
+  as the fetch steps of the RTL do for every word, and returns \sym{tarazIllegal}{Illegal} with
+  the word.
+\end{enumerate}
+
+\keep{\taravalstep\tarafnstep}
+
+\subsection{Running a decoded instruction}\label{sec:run}
+
+\sym{tarazrunzyinstruction}{run\_instruction} executes an instruction that is already decoded,
+as if it had been fetched from PC. It does no fetch; a halted CPU does nothing, as for
+\sym{tarazstep}{step}. It runs an instruction without placing it in memory.
+
+\keep{\taravalrunInstruction\tarafnrunInstruction}
+
+\subsection{Halting and reset}\label{sec:halting}
+
+\mnem{HLT} sets \sym{tararegisterzHALTED}{HALTED}. Once it is set, \sym{tarazstep}{step} and
+\sym{tarazrunzyinstruction}{run\_instruction} return \sym{tarazStopped}{Stopped} without
+touching the state, until \sym{tarazreset}{reset}, which ``clears halted state, and restarts from
+PC 0''; registers and memory are unchanged.
+
+\keep{\taravalreset\tarafnreset}
+
+% =============================================================================================
+\section{Assembly syntax}\label{sec:syntax}
+% =============================================================================================
+
+\code{syntax.sail} prints an instruction in the syntax of the TARA Studio assembler. Registers
+print as \code{R0} to \code{R7}. The immediates of LIL, LIH, SHL and SHR print as unsigned
+decimal numbers; the immediate of ADDI and all offsets print signed. A memory operand prints as
+\code{off(Rb)}. Branch and jump targets print as raw signed instruction offsets, so
+assembling the text gives back the canonical encoding. The Studio assembler also accepts a
+label in place of an offset. The file overloads \code{\textasciicircum} to concatenate strings.
+
+\keep{\taraoverloadCzEightoperatorzZerozQzNine\taravalreg\tarafnreg\taravalmem\tarafnmem}
+
+\keep{\taravalopOne\tarafnopOne\taravalopTwo\tarafnopTwo\taravalopThree\tarafnopThree}
+
+% The longest listing may continue on the next page.
+\par\nopagebreak\vspace{3pt}
+{\setlength{\parskip}{0pt}\taravalassembly\tarafnassembly}
+
+\clearpage
+\appendix
+% =============================================================================================
+\section{Assumptions}\label{app:assumptions}
+% =============================================================================================
+
+Where the RTL description is silent the model assumes the following.
+\begin{itemize}
+\item Shift counts of 16 to 31 (``\code{shamt = imm8[4:0]}'') shift out every bit
+  (\autoref{sec:isa-shifts}).
+\item PUSH R7 stores the decremented stack pointer and POP R7 leaves the loaded value plus 2.
+  This follows the order of the ISA reference table, and TARA Studio agrees.
+\item A word read that covers \code{0x5FF}, by LDW or by a fetch at \code{0x5FE}, gets the
+  input byte as its low half (\autoref{sec:memory}).
+\item A store to \code{0x5FF} writes the memory byte, which reads never return. Memory has a
+  single write port, and a byte store is a read-modify-write of a word.
+\item After the fetch of an opcode from 27 to 31 the model reports \code{Illegal} and does not
+  halt; the control ROM that would decide what happens next is unpublished
+  (\autoref{sec:results}).
+\item Reset clears the halt latch and sets PC to 0; registers and memory keep their values
+  (\autoref{sec:halting}).
+\item The input lines hold still for the duration of one instruction
+  (\autoref{sec:input}).
+\end{itemize}
+
+% =============================================================================================
+\section{Differences from TARA Studio}\label{app:studio}
+% =============================================================================================
+
+Where the RTL description and the TARA Studio simulator (taracpu 1.2.2) disagree, the model
+follows the RTL description.
+
+\begin{display}
+\small
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.28\linewidth}%
+  >{\raggedright\arraybackslash}p{0.34\linewidth}%
+  >{\raggedright\arraybackslash}p{\dimexpr0.38\linewidth-4\tabcolsep\relax}@{}}
+\toprule
+ & RTL description (the model) & TARA Studio \\
+\midrule
+Word access or fetch at an odd address & bit 0 is ignored: ``word index =
+  addr \guillemotright{} 1''
+  & bytes \code{addr} and \code{addr+1} \\
+Word access or fetch at \code{0x7FF} & the word at \code{0x7FE} & error; the CPU halts \\
+CALL at \code{0x7FE} & links \code{0x000}: PC is ``masked to 0x7FF'' & links \code{0x800} \\
+Reading \code{0x5FF} & the live input lines & memory, rewritten by the UI on key events \\
+Opcodes 27 to 31 & fetched like any word, so PC + 2 & error; the CPU halts, PC unchanged \\
+Q key & requests a reset; QUIT is the switch sw[4] & sets QUIT (bit 4 of \code{0x5FF}) \\
+\bottomrule
+\end{tabular}
+\end{display}
+
+% =============================================================================================
+\section{Example: Fibonacci}\label{app:example}
+% =============================================================================================
+
+The Fibonacci program of the hardware manual shows encodings and relative targets at work. R2
+and R3 hold two consecutive Fibonacci numbers and R5 counts the ten iterations. The assembly
+column is what \sym{tarazassembly}{assembly} prints.
+
+\begin{display}
+\small
+\begin{tabular}{@{}lll>{\raggedright\arraybackslash}p{0.4\linewidth}@{}}
+\toprule
+Address & Word & Assembly & Target \\
+\midrule
+\code{0x000} & \code{0x1A00} & \code{LIL R2, 0} & \\
+\code{0x002} & \code{0x1B01} & \code{LIL R3, 1} & \\
+\code{0x004} & \code{0x1D0A} & \code{LIL R5, 10} & \\
+\code{0x006} & \code{0xA505} & \code{BZ R5, 5} &
+  if R5 is 0: $\mathtt{0x006} + 2 + 2\cdot5 = \mathtt{0x012}$ \\
+\code{0x008} & \code{0x4C4C} & \code{ADD R4, R2, R3} & \\
+\code{0x00A} & \code{0x1260} & \code{MOV R2, R3} & \\
+\code{0x00C} & \code{0x1380} & \code{MOV R3, R4} & \\
+\code{0x00E} & \code{0x5DFF} & \code{ADDI R5, -1} & \\
+\code{0x010} & \code{0xB7FA} & \code{JMP -6} &
+  $\mathtt{0x010} + 2 - 2\cdot6 = \mathtt{0x006}$ \\
+\code{0x012} & \code{0x1640} & \code{MOV R6, R2} & \\
+\code{0x014} & \code{0x0800} & \code{HLT} & \\
+\bottomrule
+\end{tabular}
+\end{display}
+
+Started at PC 0, the program retires 66 instructions and halts with R2 = \code{0x0037} (55, the
+tenth Fibonacci number), R3 = R4 = \code{0x0059}, R5 = 0 and R6 = \code{0x0037}. PC is
+\code{0x0016}: HLT retires, so PC has advanced past it.
 
 \end{document}

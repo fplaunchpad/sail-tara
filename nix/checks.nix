@@ -23,6 +23,7 @@ let
       ../tools
       ../typings
       ../tests
+      ../doc/tara.tex
     ];
   };
 in

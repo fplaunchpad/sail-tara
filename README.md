@@ -14,7 +14,7 @@ A Sail model of TARA, the 16-bit teaching CPU of IIT Madras CS2300, and the tool
 | `emulator/c/`, `emulator/ocaml/` | The C and OCaml emulators |
 | `rocq/` | Runs the generated Rocq model; proves `decode (encode i) = Some i` |
 | `lean/` | Lean smoke test: the hardware manual's Fibonacci program on the generated Lean model |
-| `doc/` | LaTeX document |
+| `doc/` | The specification, typeset from the model's own definitions (`just doc`: build/doc/tara.pdf) |
 | `tests/` | pytest suite: the emulators against the reference model |
 | `tests/programs/` | Test programs, in assembly |
 | `tools/tara/` | `tara-asm`, and the reference model: TARA Studio's CPU with the RTL corrections below |
