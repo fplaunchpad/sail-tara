@@ -1,7 +1,7 @@
 # Typecheck the model.
 [group('model')]
 check-model:
-    sail --just-check model/tara.sail
+    sail --just-check model/syntax.sail
 
 # Typecheck the Sail test suite.
 [group('model')]

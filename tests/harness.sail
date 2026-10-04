@@ -1,8 +1,7 @@
-/* Test fixtures only. Production instruction semantics does not pass snapshots
- * or transition records. These helpers install state, run the native Sail
- * model, and collect observations so regression cases remain easy to compare.
+/* Test fixtures only: install a state, run the native Sail model, and
+ * snapshot the result so regression cases compare plain values.
  */
-$include "../model/tara.sail"
+$include "../model/syntax.sail"
 
 struct state = {
   regs : regfile,
@@ -11,16 +10,13 @@ struct state = {
   halted : bool
 }
 
-struct transition = { result : retirement, state : state, events : events }
+struct transition = { result : retirement, state : state }
 
 val zero_state : unit -> state
 function zero_state() = struct {
   regs = vector_init(8, 0x0000), pc = 0x0000,
   mem = vector_init(2048, 0x00), halted = false
 }
-
-val read_reg : (state, regidx) -> word
-function read_reg(s, r) = s.regs[unsigned(r)]
 
 val snapshot : unit -> state
 function snapshot() = struct { regs = GPR, pc = PC, mem = MEM, halted = HALTED }
@@ -34,35 +30,25 @@ function install_state(s) = {
 }
 
 val observe : retirement -> transition
-function observe(result) = struct { result = result, state = snapshot(), events = Events }
+function observe(result) = struct { result = result, state = snapshot() }
 
-val execute_from : (environment, state, instruction) -> transition
-function execute_from(env, s, insn) = {
+val execute_from : (bits(5), state, instruction) -> transition
+function execute_from(keys, s, insn) = {
   install_state(s);
-  let result = run_instruction(env, insn);
-  observe(result)
+  observe(run_instruction(keys, insn))
 }
 
-val step_from : (environment, state) -> transition
-function step_from(env, s) = {
+val step_from : (bits(5), state) -> transition
+function step_from(keys, s) = {
   install_state(s);
-  let result = step(env);
-  observe(result)
+  observe(step(keys))
 }
 
-val step_from_with : (environment, opcode_table, state) -> transition
-function step_from_with(env, table, s) = {
-  install_state(s);
-  let result = step_with(env, table);
-  observe(result)
-}
-
-/* Raw fixture loading deliberately bypasses devices; not a CPU store. */
+/* Raw fixture loading of the aligned word at addr; bypasses the bus. */
 val seed_word : (state, word, word) -> state
 function seed_word(s, addr, value) = {
   var result : state = s;
-  let following : word = addr + 0x0001;
-  result.mem[unsigned(addr[10..0])] = value[15..8];
-  result.mem[unsigned(following[10..0])] = value[7..0];
+  result.mem[unsigned(addr[10..1] @ 0b0)] = value[15..8];
+  result.mem[unsigned(addr[10..1] @ 0b1)] = value[7..0];
   result
 }

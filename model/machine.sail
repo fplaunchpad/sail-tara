@@ -1,11 +1,9 @@
-/* Machine support: state, specification boundaries, and the byte bus.
- * Instruction-specific arithmetic stays beside the instruction in tara.sail.
- * The byte bus is total after word alignment is checked. This is essential to
- * the unchanged-architecture boundary contract; exceptions do not roll back.
+/* TARA machine state and memory buses.
+ * Quoted rules come from the RTL description on the TARA website; README.md
+ * lists the assumptions made where it is silent.
  */
 default Order dec
 $include <prelude.sail>
-$include <generic_equality.sail>
 
 /* Only notation: the operations themselves come from Sail's library. */
 overload operator - = {sub_bits}
@@ -14,16 +12,22 @@ overload operator ^ = {xor_vec}
 type word = bits(16)
 type byte = bits(8)
 type regidx = bits(3)
-type opcode = bits(5)
-type physical_address = bits(11)
+type address = bits(11)
 type regfile = vector(8, word)
 type memory = vector(2048, byte)
 
-/* These four registers are the architectural state. R0 is writable. */
+/* Architectural state. R0 is an ordinary writable register. The Z/N/C/V
+ * status register is "observational only" and is not modelled. */
 register GPR : regfile
 register PC : word
 register MEM : memory
 register HALTED : bool
+
+/* The five input lines, held by the drivers for the duration of one step. */
+register KEYS : bits(5)
+
+/* Driver scratch: the successor PC proposed by the current instruction. */
+register nextPC : word
 
 function rX(r : regidx) -> word = GPR[unsigned(r)]
 
@@ -34,131 +38,40 @@ overload X = {rX, wX}
 let lr : regidx = 0b110
 let sp : regidx = 0b111
 
-/* Driver scratch, NOT a ninth general register or extra architectural PC.
- * retire sets this to PC+2; branches replace it; only retirement commits PC. */
-register nextPC : word
+/* "PC 16-bit · +2 per fetch · masked to 0x7FF": every PC write keeps 11 bits. */
+function pc_mask(value : word) -> word = 0b00000 @ value[10..0]
 
-/* Tags distinguish instruction identity from numeric opcodes. The enum order
- * is not an encoding assignment. Only encoding.sail interprets opcode numbers. */
-enum mnemonic = {
-  M_NOP, M_HLT, M_MOV, M_LIL, M_LIH, M_LDW, M_STW, M_LDB, M_STB,
-  M_ADD, M_SUB, M_ADDI, M_MUL, M_AND, M_OR, M_XOR, M_NOT, M_SHL,
-  M_SHR, M_SLT, M_BZ, M_BN, M_JMP, M_CALL, M_RET, M_PUSH, M_POP
+/* Byte bus: the low 11 address bits select a byte of the 2 KB memory.
+ * "A byte read from 0x5FF returns {3'b000, QUIT, RIGHT, LEFT, DOWN, UP}";
+ * a store to 0x5FF still writes the RAM byte, which reads never return. */
+let input_port : address = 0b10111111111
+
+function read_byte(addr : word) -> byte = {
+  let a : address = addr[10..0];
+  if a == input_port then 0b000 @ KEYS else MEM[unsigned(a)]
 }
 
-union issue = {
-  OddInstructionFetch : word,
-  OddWordAccess : word,
-  UnverifiedOpcode : opcode,
-  NoncanonicalPadding : word,
-  NoninjectiveOpcodeMap : unit,
-  MissingEncoding : mnemonic
+function write_byte(addr : word, value : byte) -> unit = {
+  MEM[unsigned(addr[10..0])] = value
 }
 
-/* A Sail control-flow exception, NOT a TARA trap. Catching it does not roll
- * back writes. Every possible boundary must precede architectural writes. */
-union exception = { SpecificationBoundary : issue }
+/* Word bus: "word index = addr » 1 · lane = addr[0]", big-endian bytes.
+ * A word access ignores address bit 0, and is two byte accesses in effect. */
+function read_word(addr : word) -> word =
+  read_byte(addr[15..1] @ 0b0) @ read_byte(addr[15..1] @ 0b1)
 
-union retirement = {
-  Retired : unit,
-  Stopped : unit,
-  NeedsSpecification : issue
+function write_word(addr : word, value : word) -> unit = {
+  write_byte(addr[15..1] @ 0b0, value[15..8]);
+  write_byte(addr[15..1] @ 0b1, value[7..0])
 }
 
-function check_word_alignment(addr : word) -> unit = {
-  if addr[0] == bitone then throw(SpecificationBoundary(OddWordAccess(addr)))
-}
+/* The 64x64 framebuffer at 0x600-0x7FF, one bit per pixel, row 0 at the
+ * bottom: "Pixel (x, y): byte = 0x0600 + y×8 + x÷8, bit = 7 − (x mod 8)". */
+val pixel : (range(0, 63), range(0, 63)) -> bool
 
-/* Platform inputs and observations are model bookkeeping, not CPU registers.
- * Platform is fixed for one instruction attempt. Events retain the previous
- * public convention: fetch slots 0,1 and data slots 2,3, in INDEX order.
- * Instruction clauses never handle these slots themselves. */
-union environment = {
-  PlainRAM : unit,
-  KeyboardFramebuffer : bits(5)
-}
-
-union event = {
-  InputRead : (physical_address, byte),
-  InputWriteIgnored : (physical_address, byte),
-  FramebufferWrite : (physical_address, byte)
-}
-
-type events = vector(4, option(event))
-register Platform : environment = PlainRAM()
-register Events : events = [None(), None(), None(), None()]
-
-/* Name access roles at call sites; flatten them only for the public trace.
- * Fetch bytes occupy slots 0,1; data bytes occupy slots 2,3. */
-enum access_kind = { Fetch, Data }
-type byte_index = range(0, 1)
-
-function event_slot(kind : access_kind, index : byte_index) -> range(0, 3) =
-  match kind { Fetch => index, Data => 2 + index }
-
-let keyboard_address = 1535
-let framebuffer_start = 1536
-
-/* Internal byte bus. Low 11 address bits select physical memory.
- * Each byte access fills exactly one observation slot, including None. */
-function bus_read_byte(addr : word, kind : access_kind, index : byte_index) -> byte = {
-  let p : physical_address = addr[10..0];
-  let slot = event_slot(kind, index);
-  Events[slot] = None();
-  match Platform {
-    KeyboardFramebuffer(keys) =>
-      if unsigned(p) == keyboard_address then {
-        let value : byte = 0b000 @ keys;
-        Events[slot] = Some(InputRead(p, value));
-        value
-      } else MEM[unsigned(p)],
-    PlainRAM() => MEM[unsigned(p)]
-  }
-}
-
-function bus_write_byte(addr : word, value : byte,
-                        kind : access_kind, index : byte_index) -> unit = {
-  let p : physical_address = addr[10..0];
-  let slot = event_slot(kind, index);
-  Events[slot] = None();
-  match Platform {
-    KeyboardFramebuffer(_) =>
-      if unsigned(p) == keyboard_address then {
-        Events[slot] = Some(InputWriteIgnored(p, value))
-      } else {
-        MEM[unsigned(p)] = value;
-        if unsigned(p) >= framebuffer_start then
-          Events[slot] = Some(FramebufferWrite(p, value))
-      },
-    PlainRAM() => { MEM[unsigned(p)] = value }
-  }
-}
-
-/* Big-endian word bus. Callers check alignment before making either access.
- * Separate lets make the high-byte / low-byte observation order explicit. */
-function bus_read_word(addr : word, kind : access_kind) -> word = {
-  let hi = bus_read_byte(addr, kind, 0);
-  let lo = bus_read_byte(addr + 0x0001, kind, 1);
-  hi @ lo
-}
-
-function bus_write_word(addr : word, value : word, kind : access_kind) -> unit = {
-  bus_write_byte(addr, value[15..8], kind, 0);
-  bus_write_byte(addr + 0x0001, value[7..0], kind, 1)
-}
-
-/* Instruction-facing data access. Odd words fail before any data observation
- * or architectural write; the underlying byte bus has no later failures. */
-function load_byte(addr : word) -> byte = bus_read_byte(addr, Data, 0)
-
-function store_byte(addr : word, value : byte) -> unit = bus_write_byte(addr, value, Data, 0)
-
-function load_word(addr : word) -> word = {
-  check_word_alignment(addr);
-  bus_read_word(addr, Data)
-}
-
-function store_word(addr : word, value : word) -> unit = {
-  check_word_alignment(addr);
-  bus_write_word(addr, value, Data)
+function pixel(x, y) = {
+  let column : bits(6) = get_slice_int(6, x, 0);
+  let row : bits(6) = get_slice_int(6, y, 0);
+  let pixels = MEM[unsigned(0b11 @ row @ column[5..3])];
+  pixels[7 - unsigned(column[2..0])] == bitone
 }

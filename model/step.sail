@@ -1,46 +1,51 @@
-/* One attempt, one input snapshot. These are the public retirement drivers.
- * Only GPR, PC, MEM and HALTED are architectural. Events, Platform and nextPC
- * are driver bookkeeping, excluded from the unchanged-architecture contract.
+/* Drivers. Each call takes the five input lines, held for its duration, and
+ * retires at most one instruction. A halted CPU does nothing until reset.
  */
-function begin_attempt(env : environment) -> unit = {
-  Platform = env;
-  Events = vector_init(4, None())
+union retirement = {
+  Retired : unit,
+  Stopped : unit,
+  Illegal : word
 }
 
-/* Internal worker, called only after the halted check. On a boundary, execute
- * has not written architectural state. Sail exceptions provide NO rollback.
- * A successful HLT still reaches the PC assignment below and retires once. */
+/* The successor defaults to PC + 2; execute may replace it before the commit. */
 function retire(insn : instruction) -> retirement = {
   nextPC = PC + 0x0002;
   execute(insn);
-  PC = nextPC;
+  PC = pc_mask(nextPC);
   Retired()
 }
 
-/* Decoded instructions have no fetch and do not require an aligned PC. */
-function run_instruction(env : environment, insn : instruction) -> retirement = {
-  begin_attempt(env);
-  if HALTED then return Stopped();
-  try { retire(insn) } catch {
-    SpecificationBoundary(reason) => NeedsSpecification(reason)
-  }
-}
+/* Execute a decoded instruction as if it had been fetched from PC. */
+val run_instruction : (bits(5), instruction) -> retirement
 
-/* Fetch from LIVE unified memory. Keep fetch observations even if decode or
- * data alignment reaches a boundary. Check the opcode table before fetching:
- * an invalid table must not cause an input read at a memory-mapped PC. */
-function step_with(env : environment, table : opcode_table) -> retirement = {
-  begin_attempt(env);
-  if HALTED then return Stopped();
-  if PC[0] == bitone then return NeedsSpecification(OddInstructionFetch(PC));
-  try {
-    check_opcodes(table);
-    let raw = bus_read_word(PC, Fetch);
-    let insn = decode_with(table, raw);
+function run_instruction(keys, insn) =
+  if HALTED then Stopped() else {
+    KEYS = keys;
     retire(insn)
-  } catch {
-    SpecificationBoundary(reason) => NeedsSpecification(reason)
   }
-}
 
-function step(env : environment) -> retirement = step_with(env, evidenced_opcodes())
+/* Fetch from live memory, decode and execute. The fetch steps that precede
+ * decoding advance PC for every word; an unassigned opcode stops there. */
+val step : bits(5) -> retirement
+
+function step(keys) =
+  if HALTED then Stopped() else {
+    KEYS = keys;
+    let raw = read_word(PC);
+    match decode(raw) {
+      Some(insn) => retire(insn),
+      None() => {
+        PC = pc_mask(PC + 0x0002);
+        Illegal(raw)
+      }
+    }
+  }
+
+/* The reset button: "clears halted state, and restarts from PC 0".
+ * Registers and memory keep their values. */
+val reset : unit -> unit
+
+function reset() = {
+  PC = 0x0000;
+  HALTED = false
+}
