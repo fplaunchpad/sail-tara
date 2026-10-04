@@ -4,7 +4,7 @@ import "settings.just"
 set working-directory := ".."
 
 # Sail sources, formatted and checked together.
-sources := "model/*.sail emulator/*.sail lean/*.sail"
+sources := "model/*.sail model/instructions/*.sail emulator/*.sail lean/*.sail"
 # Formatter settings; line_width is also the limit for every Sail line.
 config := "sail_config.json"
 width := shell('jq .fmt.line_width "$1"', config)

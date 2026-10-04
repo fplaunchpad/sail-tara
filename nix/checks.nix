@@ -19,7 +19,8 @@
 }:
 
 let
-  # The Python sources and their configuration, writable for the tools' caches.
+  # The Python sources and their configuration, writable for the tools' caches. The tests of the
+  # specification run Sail on the model, which they copy.
   pythonSource = lib.fileset.toSource {
     root = ../.;
     fileset = lib.fileset.unions [
@@ -27,16 +28,20 @@ let
       ../tools
       ../typings
       ../tests
-      ../doc/tara.tex
+      ../model
     ];
   };
 in
 {
-  # The emulator test suite: both emulators against the reference model.
+  # The test suite: both emulators against the reference model, and the specification written
+  # from the model.
   tests =
     runCommand "tests"
       {
-        nativeBuildInputs = [ pythonTest ];
+        nativeBuildInputs = [
+          pythonTest
+          sail
+        ];
         env.PYTHONPATH = "${taracpu}/share/taracpu";
       }
       ''

@@ -7,7 +7,8 @@ A Sail model of TARA, the 16-bit teaching CPU of IIT Madras CS2300, and the tool
 | Path | Contents |
 |---|---|
 | `model/machine.sail` | State, memory buses, input port, framebuffer |
-| `model/tara.sail` | Each instruction's operands, encoding and semantics |
+| `model/tara.sail` | The instruction functions (encode, decode, execute) and the order of the groups |
+| `model/instructions/` | One file per instruction group: operands, encoding, semantics and description |
 | `model/step.sail` | Drivers: `step`, `run_instruction`, `reset` |
 | `model/syntax.sail` | Assembly syntax, for disassembly |
 | `emulator/host.sail` | Host interface shared by the emulators |
@@ -15,7 +16,7 @@ A Sail model of TARA, the 16-bit teaching CPU of IIT Madras CS2300, and the tool
 | `rocq/` | Runs the generated Rocq model; proves `decode (encode i) = Some i` |
 | `lean/` | Lean smoke test: the hardware manual's Fibonacci program on the generated Lean model |
 | `lem/` | Lem: the generated Lem is typechecked, and its OCaml extraction runs the Fibonacci program |
-| `doc/` | The specification, typeset from the model's own definitions (`just doc`: build/doc/tara.pdf) |
+| `doc/` | The specification's LaTeX frame; its content is written from the model by `tools/tara/specification.py` |
 | `tests/` | pytest suite: the emulators against the reference model |
 | `tests/programs/` | Test programs, in assembly |
 | `tools/tara/` | `tara-asm`, and the reference model: TARA Studio's CPU with the RTL corrections below |
@@ -29,6 +30,7 @@ Run everything inside `nix develop` (or direnv). `just` lists the modules and re
 just test                  # test both emulators; pytest options pass through, e.g. -k tara-c
 just c                     # build build/c/tara-c; likewise ocaml, rocq, lean, lem and doc
 just lean smoke            # run the Fibonacci program on the generated Lean model
+just doc                   # the specification, build/doc/tara.pdf; just doc html for tara.html
 just lem smoke             # the same on the OCaml extraction of the generated Lem
 just c run prog.tara -t    # assemble a program and run it; likewise ocaml
 just c play prog.tara      # assemble a program and play it in the terminal

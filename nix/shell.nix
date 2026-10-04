@@ -17,6 +17,7 @@
   lean,
   lean-sail,
   texlive,
+  asciidoctor,
   python,
   pythonTest,
   uv,
@@ -50,6 +51,7 @@ mkShell {
     rocqPackages.rocq-core
     lean
     texlive
+    asciidoctor
     # Python tooling: locked dev tools via uv; Pyright needs Node.
     python
     uv

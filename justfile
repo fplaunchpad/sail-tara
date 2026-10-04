@@ -33,7 +33,7 @@ list:
     @just --list
 
 # Build the emulators, the Rocq, Lean and Lem definitions and the PDF.
-build: c::build ocaml::build rocq::build lean::build lem::build doc::build
+build: c::build ocaml::build rocq::build lean::build lem::build doc::build doc::html
 
 # Test the emulators against the reference model; ARGS go to pytest (e.g. -k tara-c).
 test *args: c::build ocaml::build
