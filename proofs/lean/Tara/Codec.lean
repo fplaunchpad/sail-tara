@@ -4,16 +4,14 @@ import Tara.Decode
 # The instruction codec
 
 `encdec_forwards` writes an instruction as a 16-bit word: a 5-bit opcode, then operand fields.
-`decode` reads the opcode and the fields back through `encdec_backwards`, ignoring the unused
-bits. The round trip is proved without computing over the 30355 instructions: the
-fields of an encoded word are read back by general lemmas about `extractLsb` of an append.
+`decode` reads the opcode and the fields back through `encdec_backwards`, ignoring the unused bits.
+The round trip is proved without computing over the 30355 instructions: core lemmas about
+`extractLsb'` of an append read each field of an encoded word back.
 -/
 
 namespace Tara.Proofs
 
 open Tara Tara.Functions
-
-deriving instance DecidableEq for instruction
 
 /-- The opcode assigned to each instruction constructor. -/
 def opcode : instruction → BitVec 5
@@ -45,107 +43,17 @@ def opcode : instruction → BitVec 5
   | .PUSH _ => 0b11001#5
   | .POP _ => 0b11010#5
 
-/-! ## Reading fields back from an encoded word -/
-
-/-- The opcode of `op ++ rest`. -/
-theorem extract_op (op : BitVec 5) (rest : BitVec 11) : (op +++ rest).extractLsb 15 11 = op :=
-  BitVec.extractLsb'_append_eq_left
-
 /-- Encoded instructions carry the opcode assigned to their constructor. -/
 theorem encode_opcode (i : instruction) : (encdec_forwards i).extractLsb 15 11 = opcode i := by
   cases i <;> exact BitVec.extractLsb'_append_eq_left
 
-/-- Bits 10 to 8 of `op ++ (a ++ b)`: the first register field. -/
-theorem extract_rd (op : BitVec 5) (a : BitVec 3) (b : BitVec 8) :
-    (op +++ (a +++ b)).extractLsb 10 8 = a := by
-  show (op ++ (a ++ b)).extractLsb' 8 3 = a
-  rw [BitVec.extractLsb'_append_eq_of_add_le (by omega)]
-  exact BitVec.extractLsb'_append_eq_left
-
-/-- Bits 7 to 0 of `op ++ (a ++ b)`: the 8-bit immediate. -/
-theorem extract_imm (op : BitVec 5) (a : BitVec 3) (b : BitVec 8) :
-    (op +++ (a +++ b)).extractLsb 7 0 = b := by
-  show (op ++ (a ++ b)).extractLsb' 0 8 = b
-  rw [BitVec.extractLsb'_append_eq_of_add_le (by omega)]
-  exact BitVec.extractLsb'_append_eq_right
-
-/-- Bits 7 to 5 of `op ++ (a ++ (d ++ e))`: the second register field. -/
-theorem extract_rs (op : BitVec 5) (a : BitVec 3) (d : BitVec 3) (e : BitVec 5) :
-    (op +++ (a +++ (d +++ e))).extractLsb 7 5 = d := by
-  show (op ++ (a ++ (d ++ e))).extractLsb' 5 3 = d
-  rw [BitVec.extractLsb'_append_eq_of_add_le (by omega),
-    BitVec.extractLsb'_append_eq_of_add_le (by omega)]
-  exact BitVec.extractLsb'_append_eq_left
-
-/-- Bits 4 to 0 of `op ++ (a ++ (d ++ e))`: the 5-bit offset. -/
-theorem extract_off5 (op : BitVec 5) (a : BitVec 3) (d : BitVec 3) (e : BitVec 5) :
-    (op +++ (a +++ (d +++ e))).extractLsb 4 0 = e := by
-  show (op ++ (a ++ (d ++ e))).extractLsb' 0 5 = e
-  rw [BitVec.extractLsb'_append_eq_of_add_le (by omega),
-    BitVec.extractLsb'_append_eq_of_add_le (by omega)]
-  exact BitVec.extractLsb'_append_eq_right
-
-/-- Bits 4 to 2 of `op ++ (a ++ (d ++ (e ++ g)))`: the third register field. -/
-theorem extract_rs2 (op : BitVec 5) (a : BitVec 3) (d : BitVec 3) (e : BitVec 3) (g : BitVec 2) :
-    (op +++ (a +++ (d +++ (e +++ g)))).extractLsb 4 2 = e := by
-  show (op ++ (a ++ (d ++ (e ++ g)))).extractLsb' 2 3 = e
-  rw [BitVec.extractLsb'_append_eq_of_add_le (by omega),
-    BitVec.extractLsb'_append_eq_of_add_le (by omega),
-    BitVec.extractLsb'_append_eq_of_add_le (by omega)]
-  exact BitVec.extractLsb'_append_eq_left
-
-/-- Bits 10 to 0 of `op ++ rest`: the 11-bit offset. -/
-theorem extract_off11 (op : BitVec 5) (rest : BitVec 11) : (op +++ rest).extractLsb 10 0 = rest :=
-  BitVec.extractLsb'_append_eq_right
-
-/-! ## The round trip -/
-
-/-- Read the operand fields of an encoded word back, wherever `decode` extracts them. -/
-local macro "read_fields" : tactic =>
-  `(tactic| repeat (first
-      | rw [extract_rd] | rw [extract_imm] | rw [extract_rs]
-      | rw [extract_off5] | rw [extract_rs2] | rw [extract_off11]))
-
-/-- Unfold `decode` on an encoded word, find its opcode, and read the fields back. -/
-local macro "roundtrip" : tactic =>
-  `(tactic| (simp only [decode, encdec_backwards, Sail.BitVec.extractLsb, ignored_backwards,
-               Sail.BitVec.length]
-             rw [encode_opcode]
-             simp only [opcode, encdec_forwards, ignored_forwards]
-             simp (config := {decide := true}) only [ite_true, ite_false, ↓reduceIte]
-             read_fields
-             try rfl))
-
 /-- Decoding an encoded instruction gives the instruction back. -/
 theorem decode_encode (i : instruction) : decode (encdec_forwards i) = some i := by
-  cases i with
-  | NOP u => cases u; roundtrip
-  | HLT u => cases u; roundtrip
-  | MOV a => obtain ⟨rd, rs⟩ := a; roundtrip
-  | LIL a => obtain ⟨rd, imm⟩ := a; roundtrip
-  | LIH a => obtain ⟨rd, imm⟩ := a; roundtrip
-  | LDW a => obtain ⟨rd, base, off⟩ := a; roundtrip
-  | STW a => obtain ⟨rs, base, off⟩ := a; roundtrip
-  | LDB a => obtain ⟨rd, base, off⟩ := a; roundtrip
-  | STB a => obtain ⟨rs, base, off⟩ := a; roundtrip
-  | ADD a => obtain ⟨rd, rs1, rs2⟩ := a; roundtrip
-  | SUB a => obtain ⟨rd, rs1, rs2⟩ := a; roundtrip
-  | ADDI a => obtain ⟨rd, imm⟩ := a; roundtrip
-  | MUL a => obtain ⟨rd, rs1, rs2⟩ := a; roundtrip
-  | AND a => obtain ⟨rd, rs1, rs2⟩ := a; roundtrip
-  | OR a => obtain ⟨rd, rs1, rs2⟩ := a; roundtrip
-  | XOR a => obtain ⟨rd, rs1, rs2⟩ := a; roundtrip
-  | NOT a => obtain ⟨rd, rs⟩ := a; roundtrip
-  | SHL a => obtain ⟨rd, shamt⟩ := a; roundtrip
-  | SHR a => obtain ⟨rd, shamt⟩ := a; roundtrip
-  | SLT a => obtain ⟨rd, rs1, rs2⟩ := a; roundtrip
-  | BZ a => obtain ⟨rs, off⟩ := a; roundtrip
-  | BN a => obtain ⟨rs, off⟩ := a; roundtrip
-  | JMP a => roundtrip
-  | CALL a => roundtrip
-  | RET u => cases u; roundtrip
-  | PUSH a => roundtrip
-  | POP a => roundtrip
+  cases i <;> simp (config := {decide := true}) (disch := omega) only [decode, encdec_backwards,
+    encdec_forwards, ignored_forwards, ignored_backwards, ignored_backwards_matches,
+    Sail.BitVec.extractLsb, Sail.BitVec.length, BitVec.extractLsb,
+    BitVec.extractLsb'_append_eq_of_add_le, BitVec.extractLsb'_append_eq_left,
+    BitVec.extractLsb'_eq_self, Bool.true_and, ↓reduceIte] <;> rfl
 
 /-- Distinct instructions have distinct encodings. -/
 theorem encode_injective : Function.Injective encdec_forwards := by
