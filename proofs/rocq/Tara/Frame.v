@@ -24,39 +24,36 @@ Definition redirects (i : instruction) : bool :=
 
 (** * What an instruction keeps *)
 
-(** A register is kept by [m] when it holds the same value in every state that [m] ends in: [Safe]
-    with the invariant that the register holds a given value. A write to another register keeps
-    it, and [execute] writes only to the registers that the instruction is meant to change. *)
+(** [m] keeps register [r] when [r] holds the same value in every state that [m] ends in: [Safe]
+    with the invariant that [r] holds a given value. A write to another register keeps it, and
+    [execute] writes only to the registers that the instruction is meant to change. *)
+Abbreviation Keeps r m := (forall c, Safe (fun rs => register_lookup r rs = c) m).
+
 Lemma keeps_write r r' v c :
   register_beq r r' = false -> forall rs, register_lookup r rs = c ->
   register_lookup r (register_set r' v rs) = c.
 Proof. intros H rs E. rewrite irrelevant_register_set by exact H. exact E. Qed.
 #[local] Hint Resolve keeps_write : safe_writes.
 
-Lemma execute_keeps_mem i :
-  writes_memory i = false -> forall c, Safe (fun rs => register_lookup MEM rs = c) (execute i).
-Proof. intros H c. destruct_instruction i; try (simpl in H; discriminate). all: safe. Qed.
+Lemma execute_keeps_mem i : writes_memory i = false -> Keeps MEM (execute i).
+Proof. intros H c. destruct_instruction i; try discriminate. all: safe. Qed.
 
-Lemma execute_keeps_halted i :
-  halts i = false -> forall c, Safe (fun rs => register_lookup HALTED rs = c) (execute i).
-Proof. intros H c. destruct_instruction i; try (simpl in H; discriminate). all: safe. Qed.
+Lemma execute_keeps_halted i : halts i = false -> Keeps HALTED (execute i).
+Proof. intros H c. destruct_instruction i; try discriminate. all: safe. Qed.
 
-Lemma execute_keeps_next_pc i :
-  redirects i = false -> forall c, Safe (fun rs => register_lookup nextPC rs = c) (execute i).
-Proof. intros H c. destruct_instruction i; try (simpl in H; discriminate). all: safe. Qed.
+Lemma execute_keeps_next_pc i : redirects i = false -> Keeps nextPC (execute i).
+Proof. intros H c. destruct_instruction i; try discriminate. all: safe. Qed.
 
 #[local] Hint Resolve execute_keeps_mem execute_keeps_halted : safe_actions.
 
 (** [run_instruction] adds writes to KEYS, nextPC and PC, and nothing else. *)
 Lemma run_instruction_keeps_mem keys i :
-  writes_memory i = false -> forall c,
-  Safe (fun rs => register_lookup MEM rs = c) (run_instruction keys i).
-Proof. intros H c. unfold run_instruction. safe. Qed.
+  writes_memory i = false -> Keeps MEM (run_instruction keys i).
+Proof. intros H c. safe. Qed.
 
 Lemma run_instruction_keeps_halted keys i :
-  halts i = false -> forall c,
-  Safe (fun rs => register_lookup HALTED rs = c) (run_instruction keys i).
-Proof. intros H c. unfold run_instruction. safe. Qed.
+  halts i = false -> Keeps HALTED (run_instruction keys i).
+Proof. intros H c. safe. Qed.
 
 (** * Memory *)
 
@@ -64,8 +61,7 @@ Proof. intros H c. unfold run_instruction. safe. Qed.
 Theorem only_stores_change_memory keys i s r s' :
   exec (run_instruction keys i) s = Some (r, s') -> writes_memory i = false -> mem s' = mem s.
 Proof.
-  intros He H.
-  exact (exec_safe _ _ (run_instruction_keeps_mem keys i H (mem s)) s r s' eq_refl He).
+  intros He H. exact (exec_safe _ _ (run_instruction_keeps_mem keys i H _) s r s' eq_refl He).
 Qed.
 
 (** * HALTED *)
@@ -74,8 +70,7 @@ Qed.
 Theorem only_hlt_changes_halted keys i s r s' :
   exec (run_instruction keys i) s = Some (r, s') -> halts i = false -> halted s' = halted s.
 Proof.
-  intros He H.
-  exact (exec_safe _ _ (run_instruction_keeps_halted keys i H (halted s)) s r s' eq_refl He).
+  intros He H. exact (exec_safe _ _ (run_instruction_keeps_halted keys i H _) s r s' eq_refl He).
 Qed.
 
 Lemma retire_hlt_eval rs :
@@ -106,13 +101,10 @@ Lemma retire_sequential_eval i rs :
     register_lookup PC rs' = pc_mask (add_vec (register_lookup PC rs) (Ox"0002")).
 Proof.
   intros H.
-  destruct (execute_keeps_next_pc i H
-      (register_lookup nextPC (register_set nextPC (add_vec (register_lookup PC rs) (Ox"0002")) rs))
-      (register_set nextPC (add_vec (register_lookup PC rs) (Ox"0002")) rs) eq_refl)
-    as ([] & rs2 & Hx & Hn).
-  exists (register_set PC (pc_mask (register_lookup nextPC rs2)) rs2). split.
-  - unfold retire. eval_simp. rewrite Hx. eval_simp. reflexivity.
-  - rewrite register_lookup_set, Hn, register_lookup_set. reflexivity.
+  set (rs1 := register_set nextPC (add_vec (register_lookup PC rs) (Ox"0002")) rs).
+  destruct (execute_keeps_next_pc i H _ rs1 eq_refl) as ([] & rs2 & Hx & Hn).
+  eexists. split; [exact (retire_eval i rs rs2 Hx)|].
+  rewrite register_lookup_set, Hn. subst rs1. lookup_simp. reflexivity.
 Qed.
 
 (** Running an instruction that is not a branch retires it and moves PC to the next word, wrapping
@@ -136,13 +128,7 @@ Theorem step_runs_instruction keys s raw i :
   halted s = false -> fetch keys s = Some raw -> decode raw = Some i ->
   exec (step keys) s = exec (run_instruction keys i) s.
 Proof.
-  intros Hh Hf Hd. pose proof (proj1 (fetch_eval keys s raw) Hf) as Hr. unfold exec.
-  rewrite (step_retire_eval keys (regs s) raw i Hh Hr Hd).
-  rewrite (run_instruction_eval keys i (regs s) Hh). reflexivity.
+  intros Hh Hf Hd. apply fetch_eval in Hf. unfold exec.
+  rewrite (step_retire_eval keys (regs s) raw i Hh Hf Hd), (run_instruction_eval keys i _ Hh).
+  reflexivity.
 Qed.
-
-Print Assumptions only_stores_change_memory.
-Print Assumptions only_hlt_changes_halted.
-Print Assumptions hlt_halts.
-Print Assumptions non_branches_advance_pc.
-Print Assumptions step_runs_instruction.

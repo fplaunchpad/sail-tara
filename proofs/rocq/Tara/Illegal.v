@@ -13,24 +13,13 @@ Definition opcode (w : mword 16) : Z := uint (subrange_vec_dec w 15 11).
 
 (** * Decoding *)
 
-(** [encdec] only looks at the opcode to tell whether the word is an instruction, so the proof
-    abstracts the opcode and checks its 32 values. *)
 Lemma decode_is_none w : is_none (decode w) = Z.leb 27 (opcode w).
-Proof.
-  unfold decode, opcode, encdec_backwards_matches, encdec_backwards. cbv beta zeta.
-  generalize (subrange_vec_dec w 15 11) as op.
-  refine (fun op : mword 5 => _). revert op.
-  refine (bool_decide_unpack _ _); vm_compute; reflexivity.
-Qed.
+Proof. unfold decode, opcode, encdec_backwards_matches, encdec_backwards. by_opcode w. Qed.
 
 (** A word fails to decode exactly when its opcode is 27 or more, for all 65536 words. *)
 Theorem decode_none_iff w : decode w = None <-> 27 <= opcode w.
 Proof.
-  pose proof (decode_is_none w) as H. destruct (decode w); simpl in H; split; intros G.
-  - discriminate.
-  - symmetry in H. apply Z.leb_nle in H. contradiction.
-  - apply Z.leb_le. symmetry. exact H.
-  - reflexivity.
+  rewrite <- Z.leb_le, <- decode_is_none. destruct (decode w); cbn; split; congruence.
 Qed.
 
 (** * Fetching an unassigned word *)
@@ -46,18 +35,10 @@ Theorem step_illegal keys s raw :
     uint (pc s') = (uint (pc s) + 2) mod 2048 /\ lines s' = keys /\
     gpr s' = gpr s /\ mem s' = mem s /\ halted s' = halted s /\ next_pc s' = next_pc s.
 Proof.
-  intros Hh Hf Hd. pose proof (proj1 (fetch_eval keys s raw) Hf) as Hr.
-  set (rs1 := register_set KEYS keys (regs s)) in *.
-  set (rs2 := register_set PC (pc_mask (add_vec (register_lookup PC rs1) (Ox"0002"))) rs1).
-  exists (with_regs s rs2). repeat split.
-  - unfold exec. rewrite (step_illegal_eval keys (regs s) raw Hh Hr Hd). reflexivity.
-  - unfold pc, regs, with_regs in *. cbn. subst rs2 rs1. lookup_simp.
-    rewrite pc_mask_add2. reflexivity.
-  - unfold lines, regs, with_regs. cbn. subst rs2 rs1. lookup_simp. reflexivity.
-  - unfold gpr, regs, with_regs. cbn. subst rs2 rs1. lookup_simp. reflexivity.
-  - unfold mem, regs, with_regs. cbn. subst rs2 rs1. lookup_simp. reflexivity.
-  - unfold halted, regs, with_regs. cbn. subst rs2 rs1. lookup_simp. reflexivity.
-  - unfold next_pc, regs, with_regs. cbn. subst rs2 rs1. lookup_simp. reflexivity.
+  intros Hh Hf Hd. apply fetch_eval in Hf.
+  eexists. split; [unfold exec; rewrite (step_illegal_eval keys (regs s) raw Hh Hf Hd); done|].
+  unfold pc, lines, gpr, mem, halted, next_pc, regs. cbn [with_regs ss_regstate]. lookup_simp.
+  rewrite pc_mask_add2. repeat split.
 Qed.
 
 (** And only then: [Illegal] comes from a running CPU that fetched a word it cannot decode. *)
@@ -66,17 +47,13 @@ Theorem illegal_only keys s raw s' :
   halted s = false /\ fetch keys s = Some raw /\ decode raw = None.
 Proof.
   intros He. destruct (halted s) eqn:Hh.
-  - rewrite (halted_step keys s Hh) in He. discriminate.
-  - destruct (fetch_progress keys s) as (raw0 & Hf).
-    pose proof (proj1 (fetch_eval keys s raw0) Hf) as Hr.
-    destruct (decode raw0) as [i|] eqn:Hd.
-    + unfold exec in He. rewrite (step_retire_eval keys (regs s) raw0 i Hh Hr Hd) in He.
-      destruct (retire_returns i (register_set KEYS keys (regs s))) as (rs' & Hv).
-      rewrite Hv in He. discriminate.
-    + destruct (step_illegal keys s raw0 Hh Hf Hd) as (s'' & He' & _).
-      rewrite He in He'. injection He' as <- _. auto.
+  { rewrite (halted_step keys s Hh) in He. discriminate. }
+  destruct (fetch_progress keys s) as (raw0 & Hf).
+  destruct (decode raw0) as [i|] eqn:Hd.
+  - apply fetch_eval in Hf. unfold exec in He.
+    rewrite (step_retire_eval keys (regs s) raw0 i Hh Hf Hd) in He.
+    destruct (retire_returns i (register_set KEYS keys (regs s))) as [rs' Hv].
+    rewrite Hv in He. discriminate.
+  - destruct (step_illegal keys s raw0 Hh Hf Hd) as (s'' & He' & _).
+    rewrite He in He'. injection He' as <- _. auto.
 Qed.
-
-Print Assumptions decode_none_iff.
-Print Assumptions step_illegal.
-Print Assumptions illegal_only.

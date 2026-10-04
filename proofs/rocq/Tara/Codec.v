@@ -1,8 +1,8 @@
 (** The instruction codec round-trips: decoding an encoded instruction gives the instruction back.
 
-    No model function encodes, so this theorem is the test of [encdec]'s forwards direction. The
-    proof is by exhaustion: operands are at most 11 bits wide, so each constructor has at most 2048
-    values, and [vm_compute] decides all of the 30355 instructions. *)
+    The model only runs [encdec] backwards, in [step], so this theorem is what checks its forwards
+    direction. The proof is by exhaustion: operands are at most 11 bits wide, so each constructor
+    has at most 2048 values, and [vm_compute] decides all of the 30355 instructions. *)
 From Stdlib Require Import ZArith.
 From stdpp Require Import base finite bitvector.definitions.
 Require Import SailStdpp.Base.
@@ -21,10 +21,4 @@ From Tara Require Import Tara_types Tara Decode.
     same name. Each case reverts the constructor's operands and checks every value of them. *)
 Theorem instruction_roundtrip :
   forall i : instruction, Tara.Decode.decode (encdec_forwards i) = Some i.
-Proof.
-  intros i; destruct i;
-    match goal with x : _ |- _ => revert x end;
-    refine (bool_decide_unpack _ _); vm_compute; reflexivity.
-Qed.
-
-Print Assumptions instruction_roundtrip.
+Proof. intros i; destruct i; match goal with x : _ |- _ => revert x end; exhaust. Qed.

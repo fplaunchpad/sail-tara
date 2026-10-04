@@ -13,13 +13,13 @@ Proof. destruct_instruction i. all: safe. Qed.
 #[local] Hint Resolve execute_total : safe_actions.
 
 Lemma step_total keys : Total (step keys).
-Proof. unfold step. safe. Qed.
+Proof. safe. Qed.
 
 Lemma run_instruction_total keys i : Total (run_instruction keys i).
-Proof. unfold run_instruction. safe. Qed.
+Proof. safe. Qed.
 
 Lemma reset_total : Total (reset tt).
-Proof. unfold reset. safe. Qed.
+Proof. safe. Qed.
 
 (** [step] completes from every machine and every setting of the input lines. *)
 Theorem step_progress keys s : exists r s', exec (step keys) s = Some (r, s').
@@ -47,7 +47,7 @@ Proof. apply (exec_total _ reset_total). Qed.
 (** Reading a word changes no register. *)
 Lemma read_word_pure addr rs : exists raw, eval (read_word addr) rs = Some (raw, rs).
 Proof.
-  assert (H : Safe (fun rs' => rs' = rs) (read_word addr)) by (unfold read_word; safe).
+  assert (H : Safe (fun rs' => rs' = rs) (read_word addr)) by safe.
   destruct (H rs eq_refl) as (raw & rs' & Hv & ->). eauto.
 Qed.
 
@@ -57,14 +57,9 @@ Lemma fetch_eval keys s raw :
   eval (read_word (register_lookup PC (register_set KEYS keys (regs s))))
        (register_set KEYS keys (regs s)) = Some (raw, register_set KEYS keys (regs s)).
 Proof.
-  unfold fetch. change (exec (write_reg KEYS keys) s)
-    with (Some (tt, with_regs s (register_set KEYS keys (regs s)))). cbn.
-  set (rs1 := register_set KEYS keys (regs s)).
-  change (pc (with_regs s rs1)) with (register_lookup PC rs1).
-  destruct (read_word_pure (register_lookup PC rs1) rs1) as [raw0 Hr].
-  unfold exec. cbn. rewrite Hr. cbn. split; intros H.
-  - injection H as <-. reflexivity.
-  - injection H as <-. reflexivity.
+  destruct (read_word_pure (register_lookup PC (register_set KEYS keys (regs s)))
+              (register_set KEYS keys (regs s))) as [raw0 Hr].
+  unfold fetch, exec, pc. cbn. rewrite Hr. cbn. split; congruence.
 Qed.
 
 (** Fetching always yields a word. *)
@@ -74,9 +69,3 @@ Proof.
               (register_set KEYS keys (regs s))) as [raw Hr].
   exists raw. apply fetch_eval, Hr.
 Qed.
-
-Print Assumptions step_progress.
-Print Assumptions step_one_outcome.
-Print Assumptions run_instruction_progress.
-Print Assumptions reset_progress.
-Print Assumptions fetch_progress.

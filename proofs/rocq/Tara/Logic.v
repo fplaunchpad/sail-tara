@@ -81,10 +81,6 @@ Qed.
 Lemma Safe_if {A} I (b : bool) (m n : M A) : Safe I m -> Safe I n -> Safe I (if b then m else n).
 Proof. destruct b; auto. Qed.
 
-Lemma Safe_option {A B} I (o : option B) (f : B -> M A) (n : M A) :
-  (forall x, Safe I (f x)) -> Safe I n -> Safe I (match o with Some x => f x | None => n end).
-Proof. destruct o; auto. Qed.
-
 (** [step]'s decoding: a word that decodes runs [f] on its instruction, and any other runs [n]. *)
 Lemma Safe_decode {A} I w (f : instruction -> M A) (n : M A) :
   (forall i, Safe I (f i)) -> Safe I n ->
@@ -105,8 +101,7 @@ Create HintDb safe_writes.
 
 (** The model's own actions, which [safe] opens up on demand. *)
 Ltac unfold_actions :=
-  unfold rX, wX, read_byte, write_byte, read_word, write_word, retire, run_instruction, step,
-    reset,
+  unfold step, run_instruction, retire, reset, rX, wX, read_byte, write_byte, read_word, write_word,
     execute_NOP, execute_HLT, execute_MOV, execute_LIL, execute_LIH, execute_LDW, execute_STW,
     execute_LDB, execute_STB, execute_ADD, execute_SUB, execute_ADDI, execute_MUL, execute_AND,
     execute_OR, execute_XOR, execute_NOT, execute_SHL, execute_SHR, execute_SLT, execute_BZ,
@@ -119,8 +114,7 @@ Ltac safe :=
   repeat first
     [ progress cbv beta zeta
     | lazymatch goal with |- forall _, _ => intro end
-    | apply Safe_bind0 | apply Safe_decode | apply Safe_bind | apply Safe_if | apply Safe_option
-    | apply Safe_return
+    | apply Safe_bind0 | apply Safe_decode | apply Safe_bind | apply Safe_if | apply Safe_return
     | lazymatch goal with |- Safe _ (read_reg ?r) => exact (Safe_read _ r) end
     | lazymatch goal with
       | |- Safe _ (@write_reg _ _ _) =>

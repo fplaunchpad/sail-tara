@@ -6,7 +6,7 @@
     These equations are what the theorems about [step] are built from. *)
 From stdpp Require Import base.
 Require Import SailStdpp.Base SailStdpp.State_monad SailStdpp.State_lifting.
-From Tara Require Import Tara_types Tara Machine Logic PcMask Progress Decode.
+From Tara Require Import Tara_types Tara Machine Logic Progress Decode.
 
 (** A halted CPU stops, unchanged. *)
 Lemma step_halted_eval keys rs :
@@ -38,12 +38,23 @@ Proof.
   rewrite (encdec_backwards_decode raw i Hd). eval_simp. reflexivity.
 Qed.
 
-(** Retiring always completes with [Retired]. *)
-Lemma retire_returns i rs : exists rs', eval (retire i) rs = Some (Retired tt, rs').
+(** [retire] sets the next PC to PC + 2, executes the instruction, then moves PC to the masked
+    next PC. *)
+Lemma retire_eval i rs rs' :
+  eval (execute i) (register_set nextPC (add_vec (register_lookup PC rs) (Ox"0002")) rs)
+    = Some (tt, rs') ->
+  eval (retire i) rs
+    = Some (Retired tt, register_set PC (pc_mask (register_lookup nextPC rs')) rs').
+Proof. intros Hx. unfold retire. eval_simp. rewrite Hx. eval_simp. reflexivity. Qed.
+
+(** Retiring always completes with [Retired], PC at the masked next PC. *)
+Lemma retire_returns i rs :
+  exists rs', eval (retire i) rs
+    = Some (Retired tt, register_set PC (pc_mask (register_lookup nextPC rs')) rs').
 Proof.
   destruct (execute_total i (register_set nextPC (add_vec (register_lookup PC rs) (Ox"0002")) rs)
-              I) as (u & rs2 & Hx & _).
-  unfold retire. eval_simp. rewrite Hx. eval_simp. eauto.
+              I) as ([] & rs' & Hx & _).
+  eauto using retire_eval.
 Qed.
 
 (** A word that does not decode is illegal: KEYS, then PC. *)

@@ -23,6 +23,3 @@ Proof.
   intros H. unfold exec. rewrite (run_instruction_halted_eval keys i (regs s) H). cbn.
   rewrite with_regs_regs. reflexivity.
 Qed.
-
-Print Assumptions halted_step.
-Print Assumptions halted_run_instruction.
