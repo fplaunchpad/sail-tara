@@ -5,17 +5,18 @@ registers the option."""
 
 import difflib
 import functools
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from pathlib import Path
 
 import pytest
 
+from helpers.programs import PROGRAMS_DIRECTORY, ProgramImage
+from helpers.terminal import Session, Start
 from tara.asm import assemble_file
 from tara.emulator import Emulator
 from tara.image import Image
 from tara.transcript import Transcript
 
-PROGRAMS = Path(__file__).parent / "programs"
 # Each emulator's --disasm-all output, read once.
 disassembly_of = functools.cache(Emulator.disassembly)
 
@@ -76,7 +77,23 @@ def disassembly(emulator: Emulator) -> tuple[str, ...]:
 
 
 @pytest.fixture(scope="session")
-def program(assemble: Callable[[Path], Path]) -> Callable[[str], Path]:
+def program(assemble: Callable[[Path], Path]) -> ProgramImage:
     """The image of a program in tests/programs, by name."""
 
-    return lambda name: assemble(PROGRAMS / f"{name}.tara")
+    return lambda name: assemble(PROGRAMS_DIRECTORY / f"{name}.tara")
+
+
+@pytest.fixture
+def start(emulator: Emulator) -> Iterator[Start]:
+    """Starts interactive sessions of the emulator, and cleans up after them."""
+
+    sessions: list[Session] = []
+
+    def start(*arguments: str | Path) -> Session:
+        session = Session(emulator, *arguments)
+        sessions.append(session)
+        return session
+
+    yield start
+    for session in sessions:
+        session.close()

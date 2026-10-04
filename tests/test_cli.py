@@ -1,40 +1,32 @@
 """The emulators' command line: options, image formats, errors and exit status."""
 
-from collections.abc import Callable
 from pathlib import Path
 
 import pytest
 
+from helpers.assertions import assert_rejected
+from helpers.programs import ProgramImage
 from tara import reference
-from tara.emulator import Emulator, Run
+from tara.emulator import Emulator
 from tara.image import Image
 from tara.isa import MEMORY_BYTES
 from tara.keys import KeySchedule
 from tara.transcript import Status
-
-type Program = Callable[[str], Path]
 
 # The registers keys.tara loads from the input port, after 2, 3 and 4 retirements.
 INPUT_READS = (1, 3, 4)
 SPIN_STEP = "0000 b7ff " + "0000 " * 8 + "JMP -1"
 
 
-def assert_rejected(run: Run) -> None:
-    """A usage or input error: exit status 1, a message on stderr and nothing on stdout."""
-
-    assert (run.status, run.stdout) == (1, "")
-    assert run.stderr.strip()
-
-
 @pytest.mark.parametrize("keys", ["21", "0x15"])
-def test_keys_hold_the_input_lines(emulator: Emulator, program: Program, keys: str) -> None:
+def test_keys_hold_the_input_lines(emulator: Emulator, program: ProgramImage, keys: str) -> None:
     transcript = emulator.run("--keys", keys, program("keys")).transcript
 
     assert [transcript.registers[index] for index in INPUT_READS] == [0x15, 0x15, 0x15]
 
 
 def test_key_script_changes_the_input_lines(
-    emulator: Emulator, program: Program, tmp_path: Path
+    emulator: Emulator, program: ProgramImage, tmp_path: Path
 ) -> None:
     script = tmp_path / "keys.script"
     script.write_text("; STEP KEYS\n3 2 ; from the second read\n\n4 0x4\n")
@@ -44,27 +36,29 @@ def test_key_script_changes_the_input_lines(
     assert [transcript.registers[index] for index in INPUT_READS] == [1, 2, 4]
 
 
-def test_framebuffer_shows_the_pixels_set(emulator: Emulator, program: Program) -> None:
+def test_framebuffer_shows_the_pixels_set(emulator: Emulator, program: ProgramImage) -> None:
     transcript = emulator.run("--fb", program("pixels")).transcript
 
     assert transcript.pixels == {(0, 0), (63, 63)}
 
 
 @pytest.mark.parametrize("option", ["-n", "--max-steps"])
-def test_step_limit_ends_the_run(emulator: Emulator, program: Program, option: str) -> None:
+def test_step_limit_ends_the_run(emulator: Emulator, program: ProgramImage, option: str) -> None:
     run = emulator.run(option, "10", program("spin"))
 
     assert (run.status, run.transcript.status, run.transcript.steps) == (3, Status.LIMIT, 10)
 
 
 @pytest.mark.parametrize("option", ["-t", "--trace"])
-def test_trace_prints_a_line_per_step(emulator: Emulator, program: Program, option: str) -> None:
+def test_trace_prints_a_line_per_step(
+    emulator: Emulator, program: ProgramImage, option: str
+) -> None:
     transcript = emulator.run(option, "-n", "3", program("spin")).transcript
 
     assert [step.render() for step in transcript.trace] == [SPIN_STEP] * 3
 
 
-def test_illegal_opcode_ends_the_run(emulator: Emulator, program: Program) -> None:
+def test_illegal_opcode_ends_the_run(emulator: Emulator, program: ProgramImage) -> None:
     run = emulator.run("-t", program("illegal"))
     transcript = run.transcript
     last = transcript.trace[-1]
@@ -73,7 +67,7 @@ def test_illegal_opcode_ends_the_run(emulator: Emulator, program: Program) -> No
     assert (last.pc, last.word, last.assembly, transcript.pc) == (0x0006, 0xD800, "illegal", 8)
 
 
-def test_loads_hex_images(emulator: Emulator, program: Program, tmp_path: Path) -> None:
+def test_loads_hex_images(emulator: Emulator, program: ProgramImage, tmp_path: Path) -> None:
     memory = Image(program("keys")).read()
     words = [int.from_bytes(memory[index : index + 2]) for index in range(0, len(memory), 2)]
     image = tmp_path / "keys.hex"
@@ -101,7 +95,7 @@ def test_loads_hex_images(emulator: Emulator, program: Program, tmp_path: Path) 
         pytest.param(["--interactive"], id="interactive-without-a-terminal"),
     ],
 )
-def test_rejects_bad_options(emulator: Emulator, program: Program, options: list[str]) -> None:
+def test_rejects_bad_options(emulator: Emulator, program: ProgramImage, options: list[str]) -> None:
     assert_rejected(emulator.run(*options, program("keys")))
 
 
@@ -118,7 +112,7 @@ def test_rejects_bad_options(emulator: Emulator, program: Program, options: list
     ],
 )
 def test_rejects_bad_key_scripts(
-    emulator: Emulator, program: Program, tmp_path: Path, script: str
+    emulator: Emulator, program: ProgramImage, tmp_path: Path, script: str
 ) -> None:
     path = tmp_path / "keys.script"
     path.write_text(script)
@@ -151,5 +145,5 @@ def test_requires_an_image(emulator: Emulator) -> None:
     assert_rejected(emulator.run())
 
 
-def test_disassembly_takes_no_image(emulator: Emulator, program: Program) -> None:
+def test_disassembly_takes_no_image(emulator: Emulator, program: ProgramImage) -> None:
     assert_rejected(emulator.run("--disasm-all", program("keys")))

@@ -32,7 +32,7 @@ pythonpath = ["tools"]
 line-length = 100
 # Ruff's Python 3.15 support is preview-only; no 3.15-only syntax is used.
 target-version = "py314"
-src = ["tools"]
+src = ["tools", "tests"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "RUF", "PERF", "PTH"]
@@ -43,7 +43,7 @@ pythonVersion = "3.15"
 typeCheckingMode = "strict"
 include = ["tools", "typings", "tests"]
 exclude = [".venv", "result", "build"]
-extraPaths = ["tools"]
+extraPaths = ["tools", "tests"]
 stubPath = "typings"
 reportUnnecessaryTypeIgnoreComment = "error"
 reportMatchNotExhaustive = "error"
