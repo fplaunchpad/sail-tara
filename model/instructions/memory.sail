@@ -10,9 +10,7 @@ access ignores bit 0, and the byte at `0x5FF` reads as the input port.
 $anchor memory
 
 union clause instruction = LDW : (regidx, regidx, bits(5))
-function clause encode(LDW(rd, base, off)) = 0b00101 @ rd @ base @ off
-function clause decode(0b00101 @ rd : regidx @ base : regidx @ off : bits(5)) =
-    Some(LDW(rd, base, off))
+mapping clause encdec = LDW(rd, base, off) <-> 0b00101 : opcode @ rd @ base @ off
 /*!
 Loads the word at `base + off` into `rd`. */
 function clause execute(LDW(rd, base, off)) = {
@@ -20,9 +18,7 @@ function clause execute(LDW(rd, base, off)) = {
 }
 
 union clause instruction = STW : (regidx, regidx, bits(5))
-function clause encode(STW(rs, base, off)) = 0b00110 @ rs @ base @ off
-function clause decode(0b00110 @ rs : regidx @ base : regidx @ off : bits(5)) =
-    Some(STW(rs, base, off))
+mapping clause encdec = STW(rs, base, off) <-> 0b00110 : opcode @ rs @ base @ off
 /*!
 Stores `rs` as the word at `base + off`. */
 function clause execute(STW(rs, base, off)) = {
@@ -30,9 +26,7 @@ function clause execute(STW(rs, base, off)) = {
 }
 
 union clause instruction = LDB : (regidx, regidx, bits(5))
-function clause encode(LDB(rd, base, off)) = 0b00111 @ rd @ base @ off
-function clause decode(0b00111 @ rd : regidx @ base : regidx @ off : bits(5)) =
-    Some(LDB(rd, base, off))
+mapping clause encdec = LDB(rd, base, off) <-> 0b00111 : opcode @ rd @ base @ off
 /*!
 Loads the byte at `base + off` into `rd`, zero-extended. */
 function clause execute(LDB(rd, base, off)) = {
@@ -40,9 +34,7 @@ function clause execute(LDB(rd, base, off)) = {
 }
 
 union clause instruction = STB : (regidx, regidx, bits(5))
-function clause encode(STB(rs, base, off)) = 0b01000 @ rs @ base @ off
-function clause decode(0b01000 @ rs : regidx @ base : regidx @ off : bits(5)) =
-    Some(STB(rs, base, off))
+mapping clause encdec = STB(rs, base, off) <-> 0b01000 : opcode @ rs @ base @ off
 /*!
 Stores the low byte of `rs` at `base + off`. */
 function clause execute(STB(rs, base, off)) = {

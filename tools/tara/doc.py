@@ -3,8 +3,7 @@ in AsciiDoc, from the instruction metadata that the Sail plugin in tools/sail-do
 model."""
 
 import itertools
-import math
-from collections.abc import Sequence
+import re
 from dataclasses import dataclass
 from enum import StrEnum, auto
 from pathlib import Path
@@ -21,16 +20,16 @@ from tara.asciidoc import (
     Code,
     Column,
     Inline,
+    LineBreak,
     Link,
     Row,
     Table,
     Text,
 )
 
-OPCODE = "opcode"  # the label of fixed bits that the model leaves unnamed
-HEX_DIGIT_BITS = 4
 # A tint of the accent colour of styles.css and theme.yml; Asciidoctor takes only literal colours.
 UNASSIGNED_BACKGROUND = "#F6DADF"
+MNEMONIC = re.compile(r"[\w.]+")
 FORMATS = "formats.adoc"
 OPCODES = "opcodes.adoc"
 INSTRUCTIONS = "instructions.adoc"
@@ -39,7 +38,8 @@ type Slot = tuple[str, int]
 
 
 class Fixed(msgspec.Struct, frozen=True, tag="fixed", tag_field="kind"):
-    """Bits that an instruction's decode clause fixes, with the name the model gives them."""
+    """Bits that an instruction's encoding fixes, with the name of the type that annotates
+    them."""
 
     name: str | None
     bits: str
@@ -50,7 +50,7 @@ class Fixed(msgspec.Struct, frozen=True, tag="fixed", tag_field="kind"):
 
     @property
     def label(self) -> str:
-        return self.name or OPCODE
+        return self.name or ""
 
     @property
     def pattern(self) -> str:
@@ -58,7 +58,7 @@ class Fixed(msgspec.Struct, frozen=True, tag="fixed", tag_field="kind"):
 
 
 class Operand(msgspec.Struct, frozen=True, tag="operand", tag_field="kind"):
-    """Bits that a decode clause binds to a name."""
+    """Bits that an encoding binds to a name."""
 
     name: str
     width: int
@@ -73,7 +73,7 @@ class Operand(msgspec.Struct, frozen=True, tag="operand", tag_field="kind"):
 
 
 class Ignored(msgspec.Struct, frozen=True, tag="ignored", tag_field="kind"):
-    """Bits that a decode clause ignores."""
+    """Bits that an encoding ignores."""
 
     width: int
 
@@ -89,57 +89,25 @@ class Ignored(msgspec.Struct, frozen=True, tag="ignored", tag_field="kind"):
 type Field = Fixed | Operand | Ignored
 
 
-class Selector(StrEnum):
-    """How the Sail Asciidoctor plugin finds a clause: by the constructor that its pattern takes
-    apart or its body builds, or by the constructor on the left or the right of a mapping
-    clause."""
-
-    PATTERN = auto()
-    BODY = auto()
-    LEFT = auto()
-    RIGHT = auto()
-
-
-class Clause(msgspec.Struct, frozen=True):
-    """An instruction's clause of the function or mapping `function`."""
-
-    function: str
-    selector: Selector
-    documented: bool
-
-    def attributes(self, instruction: Instruction) -> str:
-        """The attributes that select this clause of `instruction`."""
-
-        match self.selector:
-            case Selector.PATTERN:
-                return f'clause="{instruction.pattern}"'
-            case Selector.BODY:
-                return f"grep=\\b{instruction.constructor}\\("
-            case Selector.LEFT:
-                return f'type=mapping,left-clause="{instruction.pattern}"'
-            case Selector.RIGHT:
-                return f'type=mapping,right-clause="{instruction.pattern}"'
+def section_anchor(constructor: str) -> str:
+    return f"insn-{constructor}"
 
 
 class Instruction(msgspec.Struct, frozen=True, kw_only=True):
     """An instruction: its constructor, its assembly syntax, the fields of its word from the most
-    significant bit, and the clauses that handle it, in source order."""
+    significant bit, the condition its encoding is guarded by, and the statements that carry it
+    out, as the model writes them."""
 
     constructor: str
-    operand_count: int
     syntax: str
     fields: tuple[Field, ...]
-    clauses: tuple[Clause, ...]
+    condition: str | None
+    execution: tuple[str, ...]
 
     @property
-    def anchor(self) -> str:
-        return f"insn-{self.constructor}"
-
-    @property
-    def pattern(self) -> str:
-        """The pattern that takes the instruction apart, with wildcards for its operands."""
-
-        return f"{self.constructor}({', '.join(['_'] * self.operand_count)})"
+    def mnemonic(self) -> str:
+        match = MNEMONIC.match(self.syntax)
+        return match.group() if match else self.syntax
 
     @property
     def encoding(self) -> str:
@@ -151,13 +119,75 @@ class Instruction(msgspec.Struct, frozen=True, kw_only=True):
     def layout(self) -> tuple[Slot, ...]:
         return tuple((field.label, field.width) for field in self.fields)
 
+    def condition_cell(self) -> Cell:
+        return Cell(content=(Code(" ".join(self.condition.split())),) if self.condition else ())
+
+    def cells(self, format: Format) -> tuple[Cell, ...]:
+        """The instruction's syntax, linked to its section, its execution, a statement a line, and
+        its format."""
+
+        execution: list[Inline] = []
+        for statement in self.execution:
+            execution += [*([LineBreak()] if execution else []), Code(" ".join(statement.split()))]
+
+        return (
+            Cell(
+                content=(Link(target=section_anchor(self.constructor), content=Code(self.syntax)),)
+            ),
+            Cell(content=tuple(execution)),
+            Cell(content=(Link(target=format.anchor, content=Text(format.name)),)),
+        )
+
+
+class Selector(StrEnum):
+    """How the Sail Asciidoctor plugin finds a clause: by the pattern of a function clause, or by
+    the left or the right of a mapping clause."""
+
+    PATTERN = auto()
+    LEFT = auto()
+    RIGHT = auto()
+
+
+class Clause(msgspec.Struct, frozen=True):
+    """A clause of the function or mapping `function` that takes a constructor apart, which the
+    Sail Asciidoctor plugin finds by `pattern`."""
+
+    function: str
+    selector: Selector
+    pattern: str
+    documented: bool
+
+    @property
+    def attributes(self) -> str:
+        match self.selector:
+            case Selector.PATTERN:
+                return f'clause="{self.pattern}"'
+            case Selector.LEFT:
+                return f'type=mapping,left-clause="{self.pattern}"'
+            case Selector.RIGHT:
+                return f'type=mapping,right-clause="{self.pattern}"'
+
+
+class AnchorEntry(msgspec.Struct, frozen=True, tag="anchor", tag_field="kind"):
+    name: str
+
+    def section(self) -> str:
+        return f"include::sailcomment:{self.name}[type=anchor,indent=0]\n"
+
+
+class ConstructorEntry(msgspec.Struct, frozen=True, tag="constructor", tag_field="kind"):
+    """An instruction constructor and the clauses that take it apart, in source order."""
+
+    name: str
+    clauses: tuple[Clause, ...]
+
     def section(self, *, level: int) -> str:
-        """The instruction's section: the comments of its documented clauses, then every clause,
+        """The constructor's section: the comments of its documented clauses, then every clause,
         as the Sail Asciidoctor plugin includes them."""
 
         lines = [
-            f"[#{self.anchor}%breakable]",
-            f"{'=' * level} `{self.constructor}`",
+            f"[#{section_anchor(self.name)}%breakable]",
+            f"{'=' * level} `{self.name}`",
             "",
             "[.instruction%unbreakable]",
             "--",
@@ -166,33 +196,13 @@ class Instruction(msgspec.Struct, frozen=True, kw_only=True):
         for clause in self.clauses:
             if clause.documented:
                 lines += [
-                    f"include::sailcomment:{clause.function}[{clause.attributes(self)},indent=0]",
+                    f"include::sailcomment:{clause.function}[{clause.attributes},indent=0]",
                     "",
                 ]
 
-        lines += [f"sail::{clause.function}[{clause.attributes(self)}]" for clause in self.clauses]
+        lines += [f"sail::{clause.function}[{clause.attributes}]" for clause in self.clauses]
         lines += ["", "--", ""]
         return "\n".join(lines)
-
-
-class AnchorEntry(msgspec.Struct, frozen=True, tag="anchor", tag_field="kind"):
-    name: str
-
-
-class InstructionEntry(msgspec.Struct, frozen=True, tag="instruction", tag_field="kind"):
-    name: str
-
-
-class Fallback(msgspec.Struct, frozen=True):
-    """The clause of the function `function` that decodes the words of no instruction."""
-
-    function: str
-    documented: bool
-
-    def listing(self) -> str:
-        lines = [f"include::sailcomment:{self.function}[grep=None\\(,indent=0]", ""]
-        lines = [*(lines if self.documented else []), f"sail::{self.function}[grep=None\\(]"]
-        return "".join(f"\n{line}" for line in lines) + "\n"
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -217,12 +227,11 @@ class Format:
 
 class InstructionSet(msgspec.Struct, frozen=True, kw_only=True):
     """The instructions of an instruction set whose words are `word_width` bits, and the outline
-    of the files that define them: their documented anchors and instructions, in source order."""
+    of the files that define them: their documented anchors and constructors, in source order."""
 
     word_width: int
     instructions: tuple[Instruction, ...]
-    outline: tuple[AnchorEntry | InstructionEntry, ...]
-    fallback: Fallback
+    outline: tuple[AnchorEntry | ConstructorEntry, ...]
 
     @classmethod
     def read(cls, path: Path) -> Self:
@@ -235,12 +244,16 @@ class InstructionSet(msgspec.Struct, frozen=True, kw_only=True):
     @property
     def opcode_width(self) -> int | None:
         """The width of the opcode, if a single leading field of fixed bits of one width tells the
-        instructions apart; None if they are told apart otherwise."""
+        instructions apart and no encoding is guarded; None if they are told apart otherwise."""
 
         widths: set[int] = set()
         for instruction in self.instructions:
             first, *rest = instruction.fields
-            if not isinstance(first, Fixed) or any(isinstance(field, Fixed) for field in rest):
+            if (
+                not isinstance(first, Fixed)
+                or any(isinstance(field, Fixed) for field in rest)
+                or instruction.condition is not None
+            ):
                 return None
 
             widths.add(first.width)
@@ -263,12 +276,24 @@ class InstructionSet(msgspec.Struct, frozen=True, kw_only=True):
             for number, layout in enumerate(layouts, start=1)
         ]
 
+    def format_of(self) -> dict[Instruction, Format]:
+        return {
+            instruction: format for format in self.formats() for instruction in format.instructions
+        }
+
     def format_table(self) -> Table:
-        """A row per format, a column per bit. A field that sits at the same bits in the next
-        format spans its row too."""
+        """A row per format, and a column per run of bits that no format splits, headed by the
+        numbers of its first and last bits. A field that sits at the same bits in the next format
+        spans its row too."""
 
         formats = self.formats()
         placements = [set(format.placements) for format in formats]
+        boundaries = sorted(
+            {0, self.word_width}
+            | {offset + width for format in formats for offset, (_, width) in format.placements}
+            | {offset for format in formats for offset, _slot in format.placements}
+        )
+        runs = list(itertools.pairwise(boundaries))
         rows: list[Row] = []
         for index, format in enumerate(formats):
             cells = [Cell(content=(Anchor(format.anchor), Text(format.name)))]
@@ -283,47 +308,48 @@ class InstructionSet(msgspec.Struct, frozen=True, kw_only=True):
 
                     rows_spanned += 1
 
-                _offset, (label, width) = placement
+                offset, (label, width) = placement
                 cells.append(
                     Cell(
-                        content=(Code(label),),
-                        columns=width,
+                        content=(Code(label),) if label else (),
+                        columns=boundaries.index(offset + width) - boundaries.index(offset),
                         rows=rows_spanned,
                         alignment=CellAlignment.CENTER,
                     )
                 )
 
-            names = ", ".join(instruction.constructor for instruction in format.instructions)
-            rows.append(Row(cells=(*cells, Cell(content=(Code(names),)))))
+            mnemonics = ", ".join(instruction.mnemonic for instruction in format.instructions)
+            rows.append(Row(cells=(*cells, Cell(content=(Code(mnemonics),)))))
 
         return Table(
             columns=(
                 Column(width=2, alignment=Alignment.CENTER),
-                Column(width=1, alignment=Alignment.CENTER, repeat=self.word_width),
+                *(Column(width=end - start, alignment=Alignment.CENTER) for start, end in runs),
                 Column(width=5, alignment=Alignment.LEFT),
             ),
-            header=("Format", *map(str, reversed(range(self.word_width))), "Instructions"),
+            header=("Format", *(self.bit_range(start, end) for start, end in runs), "Instructions"),
             rows=tuple(rows),
             width=92,
         )
 
-    def opcodes(self) -> str:
-        """The opcode table if a leading opcode tells the instructions apart, with the decode
-        clause for unassigned opcodes if there are any; otherwise the encoding table and that
-        clause."""
+    def bit_range(self, start: int, end: int) -> str:
+        """The numbers of the first and last bits of the run of bits `start` to `end` from the
+        top of the word, most significant first."""
+
+        first, last = self.word_width - 1 - start, self.word_width - end
+        return str(first) if first == last else f"{first}\u2013{last}"
+
+    def opcodes(self) -> Table:
+        """The opcode table if a leading opcode tells the instructions apart, and otherwise the
+        encoding table."""
 
         width = self.opcode_width
-        if width is None:
-            return str(self.encoding_table()) + self.fallback.listing()
-
-        table = str(self.opcode_table(width))
-        return table if len(self.instructions) == 1 << width else table + self.fallback.listing()
+        return self.encoding_table() if width is None else self.opcode_table(width)
 
     def opcode_table(self, width: int) -> Table:
         """A row per opcode of `width` bits, and one per run of unassigned opcodes."""
 
-        digits = math.ceil(width / HEX_DIGIT_BITS)
-        formats = self.format_names()
+        format_of = self.format_of()
         by_opcode = {
             int(instruction.encoding[:width], 2): instruction for instruction in self.instructions
         }
@@ -335,9 +361,7 @@ class InstructionSet(msgspec.Struct, frozen=True, kw_only=True):
                     Row(
                         cells=(
                             Cell(content=(Text(str(opcode)),)),
-                            Cell(content=(Code(f"{opcode:0{digits}X}"),)),
-                            Cell(content=(Code(f"{opcode:0{width}b}"),)),
-                            *self.description(by_opcode[opcode], formats),
+                            *by_opcode[opcode].cells(format_of[by_opcode[opcode]]),
                         )
                     )
                     for opcode in opcodes
@@ -349,8 +373,6 @@ class InstructionSet(msgspec.Struct, frozen=True, kw_only=True):
                 Row(
                     cells=(
                         Cell(content=(Text("-".join(map(str, ends))),)),
-                        Cell(content=dashed([f"{opcode:0{digits}X}" for opcode in ends])),
-                        Cell(content=dashed([f"{opcode:0{width}b}" for opcode in ends])),
                         Cell(
                             content=(Text("unassigned"),),
                             columns=3,
@@ -364,27 +386,27 @@ class InstructionSet(msgspec.Struct, frozen=True, kw_only=True):
         return Table(
             columns=(
                 Column(width=2, alignment=Alignment.CENTER),
-                Column(width=2, alignment=Alignment.CENTER),
-                Column(width=4, alignment=Alignment.CENTER),
-                Column(width=3),
                 Column(width=5),
+                Column(width=10),
                 Column(width=2, alignment=Alignment.CENTER),
             ),
-            header=("Opcode", "Hex", "Bits", "Mnemonic", "Syntax", "Format"),
+            header=("Opcode", "Syntax", "Execution", "Format"),
             rows=tuple(rows),
-            width=72,
+            width=100,
         )
 
     def encoding_table(self) -> Table:
         """A row per instruction, by encoding: its fixed bits, `x` for operand bits and `-` for
-        ignored bits, a field at a time."""
+        ignored bits, a field at a time, and the condition it is guarded by if any is."""
 
-        formats = self.format_names()
+        format_of = self.format_of()
+        guarded = any(instruction.condition is not None for instruction in self.instructions)
         rows = tuple(
             Row(
                 cells=(
                     Cell(content=(Code(" ".join(field.pattern for field in instruction.fields)),)),
-                    *self.description(instruction, formats),
+                    *([instruction.condition_cell()] if guarded else []),
+                    *instruction.cells(format_of[instruction]),
                 )
             )
             for instruction in self.by_encoding
@@ -392,60 +414,30 @@ class InstructionSet(msgspec.Struct, frozen=True, kw_only=True):
         return Table(
             columns=(
                 Column(width=6, alignment=Alignment.CENTER),
-                Column(width=3),
+                *([Column(width=3)] if guarded else []),
                 Column(width=5),
+                Column(width=8),
                 Column(width=2, alignment=Alignment.CENTER),
             ),
-            header=("Encoding", "Mnemonic", "Syntax", "Format"),
-            rows=rows,
-            width=92,
-        )
-
-    def format_names(self) -> dict[str, Format]:
-        return {
-            instruction.constructor: format
-            for format in self.formats()
-            for instruction in format.instructions
-        }
-
-    @staticmethod
-    def description(instruction: Instruction, formats: dict[str, Format]) -> tuple[Cell, ...]:
-        """An instruction's mnemonic, syntax and format cells."""
-
-        format = formats[instruction.constructor]
-        return (
-            Cell(
-                content=(Link(target=instruction.anchor, content=Code(instruction.constructor)),),
-                alignment=CellAlignment.CENTER,
+            header=(
+                "Encoding",
+                *(["Condition"] if guarded else []),
+                "Syntax",
+                "Execution",
+                "Format",
             ),
-            Cell(content=(Code(instruction.syntax),)),
-            Cell(content=(Link(target=format.anchor, content=Text(format.name)),)),
+            rows=rows,
+            width=100,
         )
 
     def sections(self, *, level: int) -> str:
         """The outline: each documented anchor of the files that define instructions, and each
-        instruction's section at heading `level`, in source order."""
+        constructor's section at heading `level`, in source order."""
 
-        by_constructor = {instruction.constructor: instruction for instruction in self.instructions}
-        blocks: list[str] = []
-        for entry in self.outline:
-            match entry:
-                case AnchorEntry(name=name):
-                    blocks.append(f"include::sailcomment:{name}[type=anchor,indent=0]\n")
-                case InstructionEntry(name=name):
-                    blocks.append(by_constructor[name].section(level=level))
-
-        return "\n".join(blocks)
-
-
-def dashed(spellings: Sequence[str]) -> tuple[Inline, ...]:
-    """Each of `spellings` as code, with a dash between them."""
-
-    inlines: list[Inline] = [Code(spellings[0])]
-    for spelling in spellings[1:]:
-        inlines += [Text("-"), Code(spelling)]
-
-    return tuple(inlines)
+        return "\n".join(
+            entry.section() if isinstance(entry, AnchorEntry) else entry.section(level=level)
+            for entry in self.outline
+        )
 
 
 @click.command()
@@ -465,7 +457,7 @@ def main(metadata: Path, directory: Path, section_level: int) -> None:
     instruction_set = InstructionSet.read(metadata)
     directory.mkdir(parents=True, exist_ok=True)
     (directory / FORMATS).write_text(str(instruction_set.format_table()))
-    (directory / OPCODES).write_text(instruction_set.opcodes())
+    (directory / OPCODES).write_text(str(instruction_set.opcodes()))
     (directory / INSTRUCTIONS).write_text(instruction_set.sections(level=section_level))
 
 

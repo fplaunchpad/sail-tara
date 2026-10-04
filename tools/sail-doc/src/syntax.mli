@@ -1,10 +1,12 @@
-(** Each instruction's assembly syntax, as [(constructor, template)], from the clauses of the
-    mapping [assembly] among [mappings]. A template is a clause's text with each printed operand
-    shown by its name in decode (or in the clause, if decode computes it), and each mapping from
-    unit, such as a separator, inlined; the right side of a clause may only concatenate those and
-    string literals. *)
+open Libsail
+
+(** An instruction's assembly syntax, from the first clause of the mapping [assembly] among
+    [mappings] that applies to it. Its right side may concatenate strings and mappings applied to
+    an operand, which shows the operand's name, or to a constant or unit, which shows the text of
+    the mapping's clause for it, as for a mnemonic or a separator. *)
 val read
-  :  mappings:Sail_ast.Mapping_clause.t list
+  :  env:Type_check.Env.t
+  -> mappings:Sail_ast.Mapping_clause.t list
   -> assembly:string
-  -> Decode.t list
-  -> (string * string) list
+  -> Encoding.t
+  -> string option

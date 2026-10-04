@@ -1,6 +1,6 @@
-(** A field of an instruction word: bits a decode clause fixes (named if the pattern names them with
-    [as]), an operand it binds, or bits it ignores. In JSON, an object whose [kind] is [fixed],
-    [operand] or [ignored]. *)
+(** A field of an instruction word: bits an encoding clause fixes (named by the type synonym that
+    annotates them, if any), an operand it binds, or bits it ignores. In JSON, an object whose
+    [kind] is [fixed], [operand] or [ignored]. *)
 
 module Fixed : sig
   type t =

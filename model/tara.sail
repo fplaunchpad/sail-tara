@@ -11,19 +11,37 @@ $include "machine.sail"
 $anchor section_instruction_set
 
 /*!
-An instruction is one word: a 5-bit opcode in bits 15 to 11, then its operand fields. Bits that no
-field uses are padding, which `decode` ignores and `encode` writes as zeros, so several words can
-decode to the same instruction. The formats group the instructions by the names and widths of their
-fields.
+An instruction is one word: a 5-bit opcode in bits 15 to 11, then its operand fields. `encdec` maps
+each instruction to its word and back. Bits that no field uses are ignored: encoding writes them as
+zeros and decoding accepts any value, so several words can decode to the same instruction. The
+formats group the instructions by the names and widths of their fields.
  */
 $anchor encoding
+
+/* The bits that tell the instructions apart; encodings name them by annotating them. */
+type opcode = bits(5)
+
+/*!
+`width` bits that decoding ignores: encoding writes them as zeros, and decoding accepts any
+value.
+ */
+val ignored : forall 'n, 'n >= 0. int('n) <-> bits('n)
+
+mapping ignored = {
+    forwards width => sail_zeros(width),
+    backwards bits => length(bits),
+}
 
 /*!
 === Instruction formats */
 $anchor section_instruction_formats
 
 /*!
-=== Opcodes */
+=== Opcodes
+
+Opcodes 27 to 31 are unassigned: no clause of `encdec` matches their words, and `step` reports them
+as `Illegal`.
+ */
 $anchor section_opcodes
 
 /*!
@@ -41,14 +59,10 @@ $anchor operands
 scattered union instruction
 
 /*!
-The word of an instruction: its opcode and fields, with zeros for padding. */
-val encode : instruction -> word
-scattered function encode
-
-/*!
-The instruction in a word, or `None`. Each clause matches an opcode and ignores the padding. */
-val decode : word -> option(instruction)
-scattered function decode
+Maps each instruction to its word, and each word with an assigned opcode back to its instruction.
+ */
+val encdec : instruction <-> word
+scattered mapping encdec
 
 /*!
 Carries out an instruction. It sees PC as the address of the instruction itself, and leaves the
@@ -67,13 +81,8 @@ $include "instructions/comparison.sail"
 $include "instructions/control_flow.sail"
 $include "instructions/stack.sail"
 
-/*!
-Opcodes 27 to 31 are unassigned: they decode to `None`, and `step` reports them as `Illegal`. */
-function clause decode(_) = None()
-
 end instruction
-end encode
-end decode
+end encdec
 end execute
 
 $include "step.sail"

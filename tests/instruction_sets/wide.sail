@@ -10,28 +10,28 @@ overload operator ^ = {concat_str}
 type word = bits(32)
 type regidx = bits(5)
 
+val ignored : forall 'n, 'n >= 0. int('n) <-> bits('n)
+mapping ignored = { forwards width => sail_zeros(width), backwards bits => length(bits) }
+
 scattered union instruction
 union clause instruction = ADD : (regidx, regidx, regidx)
 union clause instruction = LOAD : (regidx, regidx, bits(16))
 union clause instruction = HALT : unit
 end instruction
 
-val encode : instruction -> word
-scattered function encode
-function clause encode(ADD(rd, rs, rt)) = 0b000001 @ rd @ rs @ rt @ 0b00000000000
-function clause encode(LOAD(rd, base, offset)) = 0b000010 @ rd @ base @ offset
-function clause encode(HALT()) = 0b111111 @ 0b00000000000000000000000000
-end encode
+val encdec : instruction <-> word
+scattered mapping encdec
+mapping clause encdec = ADD(rd, rs, rt) <-> 0b000001 @ rd @ rs @ rt @ ignored(11)
+mapping clause encdec = LOAD(rd, base, offset) <-> 0b000010 @ rd @ base @ offset
+mapping clause encdec = HALT() <-> 0b111111 @ ignored(26)
+end encdec
 
-val decode : word -> option(instruction)
-scattered function decode
-function clause decode(0b000001 @ rd : regidx @ rs : regidx @ rt : regidx @ _ : bits(11)) =
-  Some(ADD(rd, rs, rt))
-function clause decode(0b000010 @ rd : regidx @ base : regidx @ offset : bits(16)) =
-  Some(LOAD(rd, base, offset))
-function clause decode(0b111111 @ _ : bits(26)) = Some(HALT())
-function clause decode(_) = None()
-end decode
+val execute : instruction -> unit
+scattered function execute
+function clause execute(ADD(_, _, _)) = ()
+function clause execute(LOAD(_, _, _)) = ()
+function clause execute(HALT()) = ()
+end execute
 
 mapping reg_name : regidx <-> string = {
   forwards value => "r" ^ dec_bits_5(value),

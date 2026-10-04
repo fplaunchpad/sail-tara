@@ -65,12 +65,11 @@ function step(keys) =
     } else {
         KEYS = keys;
         let raw = read_word(PC);
-        match decode(raw) {
-            Some(insn) => retire(insn),
-            None() => {
-                PC = pc_mask(PC + 0x0002);
-                Illegal(raw)
-            },
+        if encdec_backwards_matches(raw) then {
+            retire(encdec(raw))
+        } else {
+            PC = pc_mask(PC + 0x0002);
+            Illegal(raw)
         }
     }
 

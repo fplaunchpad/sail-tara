@@ -77,20 +77,14 @@ class Workspace:
             raise AssertionError(f"just {' '.join(arguments)} failed:\n{run.stdout}{run.stderr}")
 
 
-class FunctionClause(msgspec.Struct, kw_only=True):
+class FunctionClause(msgspec.Struct):
     source: str
-    pattern: dict[str, object] | None = None
-    body: str | None = None
+    pattern: dict[str, object]
 
     def matches(self, constructor: str) -> bool:
         """Whether the clause takes `constructor` apart."""
 
-        return self.pattern is not None and self.pattern.get("id") == constructor
-
-    def builds(self, constructor: str) -> bool:
-        """Whether the clause returns `Some(constructor(...))`, as a decode clause does."""
-
-        return (self.body or "").startswith(f"Some({constructor}(")
+        return self.pattern.get("id") == constructor
 
 
 class Function(msgspec.Struct):
@@ -110,12 +104,11 @@ class Mapping(msgspec.Struct):
 
 
 class Functions(msgspec.Struct):
-    encode: Function
-    decode: Function
     execute: Function
 
 
 class Mappings(msgspec.Struct):
+    encdec: Mapping
     assembly: Mapping
 
 
@@ -130,14 +123,13 @@ class Bundle(msgspec.Struct):
         return msgspec.json.decode(path.read_bytes(), type=cls)
 
     def clauses(self, constructor: str) -> list[str]:
-        """The encode, decode, execute and assembly clauses of `constructor`, normalized."""
+        """The encdec, execute and assembly clauses of `constructor`, normalized."""
 
-        functions = self.functions
-        encode = [c.source for c in functions.encode.function if c.matches(constructor)]
-        decode = [c.source for c in functions.decode.function if c.builds(constructor)]
-        execute = [c.source for c in functions.execute.function if c.matches(constructor)]
-        assembly = [c.source for c in self.mappings.assembly.mapping if c.matches(constructor)]
-        return [normalize(source) for source in (*encode, *decode, *execute, *assembly)]
+        mappings = self.mappings
+        encdec = [c.source for c in mappings.encdec.mapping if c.matches(constructor)]
+        execute = [c.source for c in self.functions.execute.function if c.matches(constructor)]
+        assembly = [c.source for c in mappings.assembly.mapping if c.matches(constructor)]
+        return [normalize(source) for source in (*encdec, *execute, *assembly)]
 
 
 @dataclass(eq=False, kw_only=True)

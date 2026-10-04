@@ -7,7 +7,7 @@ A Sail model of TARA, the 16-bit teaching CPU of IIT Madras CS2300, and the tool
 | Path | Contents |
 |---|---|
 | `model/machine.sail` | State, memory buses, input port, framebuffer |
-| `model/tara.sail` | The instruction functions (encode, decode, execute) and the order of the groups |
+| `model/tara.sail` | The instruction union, `encdec`, `execute` and the order of the groups |
 | `model/instructions/` | One file per instruction group: operands, encoding, semantics and description |
 | `model/step.sail` | Drivers: `step`, `run_instruction`, `reset` |
 | `model/syntax.sail` | Assembly syntax, for disassembly |

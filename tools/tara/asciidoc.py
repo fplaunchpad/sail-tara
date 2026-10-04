@@ -74,7 +74,15 @@ class Background:
         return f"{{set:{BACKGROUND}:{self.color}}}" if self.color else f"{{set:{BACKGROUND}!}}"
 
 
-type Inline = Text | Code | Anchor | Link | Background
+@dataclass(frozen=True)
+class LineBreak:
+    """A hard line break inside a cell."""
+
+    def __str__(self) -> str:
+        return " +\n"
+
+
+type Inline = Text | Code | Anchor | Link | Background | LineBreak
 
 
 @dataclass(frozen=True, kw_only=True)

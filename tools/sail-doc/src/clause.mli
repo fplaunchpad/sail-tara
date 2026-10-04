@@ -1,26 +1,33 @@
 open Core
 open Libsail
 
-(** How a clause is found among its function's or mapping's: by the constructor its pattern takes
-    apart, by the constructor its body builds (as a decode clause's does), or by the constructor
-    on the left or right of a mapping clause. *)
+(** Which side of its clause a constructor is on: the pattern of a function clause, or the left
+    or right of a mapping clause. *)
 module Selector : sig
   type t =
     | Pattern
-    | Body
     | Left
     | Right
 end
 
-(** A clause of the function or mapping [name] for one instruction. In JSON, [name] is
-    [function]. *)
+(** A clause of the function or mapping [name] that takes a constructor apart: [pattern] is the
+    constructor with the constants the Sail Asciidoctor plugin can match (enum members, binary
+    and hexadecimal literals) and wildcards for the other arguments, which is how the plugin finds
+    the clause. In JSON, [name] is [function]. *)
 type t =
   { name : string
   ; selector : Selector.t
+  ; pattern : string
   ; documented : bool
   }
 [@@deriving yojson_of]
 
-(** The clauses of every function and mapping that take an instruction apart or build one, by
-    constructor, in source order. *)
-val read : ast:Type_check.typed_ast -> constructors:String.Set.t -> t list String.Map.t
+(** The clauses of every function and mapping that take one of [constructors] apart, by
+    constructor, in source order. The plugin takes the first clause that a pattern matches, so a
+    clause whose pattern also matches an earlier clause of the same function cannot be shown, and
+    is an error. *)
+val read
+  :  ast:Type_check.typed_ast
+  -> env:Type_check.Env.t
+  -> constructors:String.Set.t
+  -> t list String.Map.t

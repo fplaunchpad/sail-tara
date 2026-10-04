@@ -1,6 +1,16 @@
 (library
  (name tara_doc_tables)
- (modules sail_ast word_field decode syntax clause outline instruction_set main)
+ (modules
+  sail_ast
+  tagged
+  word_field
+  encoding
+  syntax
+  execution
+  clause
+  outline
+  instruction_set
+  main)
  (libraries core libsail yojson ppx_yojson_conv_lib ppx_string.runtime)
  (preprocess (pps ppx_jane ppx_yojson_conv))
  ; Warning 4 comes from deliberately fail-closed matches on Sail's extensible AST.

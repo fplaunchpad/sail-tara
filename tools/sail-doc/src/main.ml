@@ -2,16 +2,20 @@ open Core
 open Libsail
 
 (* Sail's options are Arg specifications, which can only set references. *)
-let decode = ref "decode"
+let encdec = ref "encdec"
 let assembly = ref "assembly"
+let execute = ref "execute"
+
+let option name reference description =
+  ( Flag.create ~prefix:[ "doc-tables" ] ~arg:"NAME" name
+  , Arg.Set_string reference
+  , [%string "%{description} (default %{!reference})"] )
+;;
 
 let options =
-  [ ( Flag.create ~prefix:[ "doc-tables" ] ~arg:"NAME" "decode"
-    , Arg.Set_string decode
-    , "the decode function (default decode)" )
-  ; ( Flag.create ~prefix:[ "doc-tables" ] ~arg:"NAME" "assembly"
-    , Arg.Set_string assembly
-    , "the mapping of instructions to assembly text (default assembly)" )
+  [ option "encdec" encdec "the mapping of instructions to words"
+  ; option "assembly" assembly "the mapping of instructions to assembly text"
+  ; option "execute" execute "the function that carries out an instruction"
   ]
 ;;
 
@@ -20,7 +24,12 @@ let run output (state : Interactive.State.istate) =
   | None -> Sail_ast.fail_at Parse_ast.Unknown "--doc-tables writes to the file given with -o"
   | Some path ->
     let json =
-      Instruction_set.read ~ast:state.ast ~env:state.env ~decode:!decode ~assembly:!assembly
+      Instruction_set.read
+        ~ast:state.ast
+        ~env:state.env
+        ~encdec:!encdec
+        ~assembly:!assembly
+        ~execute:!execute
       |> Instruction_set.yojson_of_t
       |> Yojson.Safe.pretty_to_string
     in
@@ -32,7 +41,7 @@ let () =
     (Target.register
        ~name:"doc-tables"
        ~flag:"doc-tables"
-       ~description:"Write the instruction set's encodings and syntax as JSON"
+       ~description:"Write the instruction set's encodings, syntax and execution as JSON"
        ~options
        ~skip_initial_rewrite:true
        run

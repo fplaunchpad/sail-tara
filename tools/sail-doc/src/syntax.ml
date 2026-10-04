@@ -2,69 +2,53 @@ open Core
 open Libsail
 open Extraction.Ast
 
-let rec template ~mappings ~operand pattern =
+let rec template ~env ~mappings ~lookup pattern =
+  let location = Sail_ast.mpat_location pattern in
   match Sail_ast.unwrap_mpat pattern with
   | MP_aux (MP_lit (L_aux (L_string text, _)), _) -> text
   | MP_aux (MP_string_append parts, _) ->
-    List.map parts ~f:(template ~mappings ~operand) |> String.concat
-  | MP_aux (MP_app (mapping, [ argument ]), _) when Sail_ast.is_unit_mpat argument ->
-    constant ~mappings (Sail_ast.id_string mapping) (Sail_ast.mpat_location pattern)
-  | MP_aux (MP_app (_, [ MP_aux (MP_id binder, _) ]), _) -> operand (Sail_ast.id_string binder)
-  | piece ->
-    Sail_ast.fail_at
-      (Sail_ast.mpat_location piece)
-      "assembly syntax must concatenate strings, operands and mappings from unit"
-
-(* The text of a mapping from unit, such as a separator. *)
-and constant ~mappings name location =
-  match
-    List.find mappings ~f:(fun ({ name = mapping; left; _ } : Sail_ast.Mapping_clause.t) ->
-      String.equal mapping name && Sail_ast.is_unit_mpat left)
-  with
-  | Some { right; _ } ->
-    let operand binder =
-      Sail_ast.fail_at location [%string "%{name} prints %{binder}, which is not an operand"]
+    List.map parts ~f:(template ~env ~mappings ~lookup) |> String.concat
+  | MP_aux (MP_app (mapping, [ argument ]), _) ->
+    let mapping = Sail_ast.id_string mapping in
+    (* The text of the clause of the mapping for a constant, such as a mnemonic or a separator. *)
+    let inline constant =
+      let clause =
+        List.find mappings ~f:(fun ({ name; left; _ } : Sail_ast.Mapping_clause.t) ->
+          String.equal name mapping
+          && [%equal: Sail_ast.Argument.t] (Sail_ast.Argument.of_mpat env left) (Constant constant))
+      in
+      match clause with
+      | Some { right; _ } ->
+        let lookup binder =
+          Sail_ast.fail_at location [%string "%{mapping} prints %{binder}, which is not an operand"]
+        in
+        template ~env ~mappings ~lookup right
+      | None -> Sail_ast.fail_at location [%string "%{mapping} has no clause for %{constant}"]
     in
-    template ~mappings ~operand right
-  | None -> Sail_ast.fail_at location [%string "%{name} does not map unit to text"]
+    (match Sail_ast.Argument.of_mpat env argument with
+     | Constant constant -> inline constant
+     | Binder binder ->
+       (match (lookup binder : Encoding.Argument.t) with
+        | Operand name -> name
+        | Constant constant -> inline constant)
+     | Wildcard | Other ->
+       Sail_ast.fail_at location "a mapping in assembly syntax must print an operand or a constant")
+  | _ -> Sail_ast.fail_at location "assembly syntax must concatenate strings and mappings"
 ;;
 
-let read ~mappings ~assembly (instructions : Decode.t list) =
-  List.filter mappings ~f:(fun ({ name; _ } : Sail_ast.Mapping_clause.t) ->
-    String.equal name assembly)
-  |> List.map ~f:(fun { left; right; location; _ } ->
-    let constructor, arguments =
-      match Sail_ast.constructor_mpat left with
-      | Some application -> application
-      | None -> Sail_ast.fail_at location "an assembly clause must take an instruction apart"
+let read ~env ~mappings ~assembly (instruction : Encoding.t) =
+  List.find_map mappings ~f:(fun ({ name; left; right; _ } : Sail_ast.Mapping_clause.t) ->
+    let%bind.Option () = Option.some_if (String.equal name assembly) () in
+    let%bind.Option constructor, patterns = Sail_ast.constructor_mpat left in
+    let patterns = List.map patterns ~f:(Sail_ast.Argument.of_mpat env) in
+    let%map.Option bindings = Encoding.bindings instruction (constructor, patterns) in
+    let lookup binder =
+      match List.Assoc.find bindings binder ~equal:String.equal with
+      | Some argument -> argument
+      | None ->
+        Sail_ast.fail_at
+          (Sail_ast.mpat_location right)
+          [%string "%{binder} is not an operand of %{constructor}"]
     in
-    let operands =
-      match
-        List.find instructions ~f:(fun instruction ->
-          String.equal instruction.constructor constructor)
-      with
-      | Some { operands; _ } -> operands
-      | None -> Sail_ast.fail_at location [%string "%{constructor} has no decode clause"]
-    in
-    let binders =
-      List.map arguments ~f:(fun argument ->
-        match Sail_ast.unwrap_mpat argument with
-        | MP_aux (MP_id id, _) -> Sail_ast.id_string id
-        | argument ->
-          Sail_ast.fail_at (Sail_ast.mpat_location argument) "assembly operands must be names")
-    in
-    let names =
-      match List.zip binders operands with
-      | Ok names -> names
-      | Unequal_lengths ->
-        Sail_ast.fail_at location [%string "%{constructor} has other operands in decode"]
-    in
-    let operand binder =
-      match List.Assoc.find names binder ~equal:String.equal with
-      | Some name -> Option.value name ~default:binder
-      | None -> Sail_ast.fail_at location [%string "%{binder} is not an operand of %{constructor}"]
-    in
-    match template ~mappings ~operand right with
-    | "" -> Sail_ast.fail_at location [%string "%{constructor} has no assembly syntax"]
-    | text -> constructor, text)
+    template ~env ~mappings ~lookup right)
 ;;

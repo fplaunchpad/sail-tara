@@ -6,18 +6,10 @@ open Ppx_yojson_conv_lib.Yojson_conv.Primitives
 module Instruction = struct
   type t =
     { constructor : string
-    ; operand_count : int
     ; syntax : string
     ; fields : Word_field.t list
-    ; clauses : Clause.t list
-    }
-  [@@deriving yojson_of]
-end
-
-module Fallback = struct
-  type t =
-    { name : string [@key "function"]
-    ; documented : bool
+    ; condition : string option
+    ; execution : string list
     }
   [@@deriving yojson_of]
 end
@@ -26,71 +18,68 @@ type t =
   { word_width : int
   ; instructions : Instruction.t list
   ; outline : Outline.t
-  ; fallback : Fallback.t
   }
 [@@deriving yojson_of]
 
-(* The constructors of the union that the assembly mapping maps to text, with their locations. *)
-let constructors env ~assembly =
-  let location = Parse_ast.Unknown in
-  let _, mapping = Type_check.Env.get_val_spec (Ast_util.mk_id assembly) env in
-  match mapping with
-  | Typ_aux (Typ_bidir (instruction, _), _) ->
-    (match Type_check.Env.expand_synonyms env instruction with
-     | Typ_aux (Typ_id union, _) ->
-       (match Ast_compare.Bindings.find_opt union (Type_check.Env.get_variants env) with
-        | Some (_, constructors) ->
-          List.map constructors ~f:(fun (Tu_aux (Tu_ty_id (_, id), annot)) ->
-            Sail_ast.id_string id, annot.loc)
-        | None -> Sail_ast.fail_at location [%string "%{assembly} must map a union to text"])
-     | _ -> Sail_ast.fail_at location [%string "%{assembly} must map a union to text"])
-  | _ -> Sail_ast.fail_at location [%string "%{assembly} must be a mapping"]
+(* The constructors of the union that the encoding mapping maps to words, with their locations,
+   and the width of a word. *)
+let signature env ~encdec =
+  let fail () = Sail_ast.fail_at Parse_ast.Unknown [%string "%{encdec} must map a union to bits"] in
+  match Type_check.Env.get_val_spec (Ast_util.mk_id encdec) env with
+  | _, Typ_aux (Typ_bidir (union, word), _) ->
+    let constructors =
+      match Type_check.Env.expand_synonyms env union with
+      | Typ_aux (Typ_id union, _) ->
+        (match Ast_compare.Bindings.find_opt union (Type_check.Env.get_variants env) with
+         | Some (_, constructors) ->
+           List.map constructors ~f:(fun (Tu_aux (Tu_ty_id (_, id), annot)) ->
+             Sail_ast.id_string id, annot.loc)
+         | None -> fail ())
+      | _ -> fail ()
+    in
+    (match Sail_ast.bits_width env word with
+     | Some width -> constructors, width
+     | None -> fail ())
+  | _ -> fail ()
 ;;
 
-let read ~ast ~env ~decode ~assembly =
-  let decoded, fallback =
-    Sail_ast.function_clauses ast
-    |> List.filter ~f:(fun ({ name; _ } : Sail_ast.Function_clause.t) -> String.equal name decode)
-    |> Decode.read env
+let read ~ast ~env ~encdec ~assembly ~execute =
+  let constructors, word_width = signature env ~encdec in
+  let mappings = Sail_ast.mapping_clauses ast in
+  let encodings =
+    List.filter mappings ~f:(fun { name; _ } -> String.equal name encdec) |> Encoding.read env
   in
-  let syntaxes = Syntax.read ~mappings:(Sail_ast.mapping_clauses ast) ~assembly decoded in
-  let constructors = constructors env ~assembly in
-  let clauses =
-    Clause.read ~ast ~constructors:(List.map constructors ~f:fst |> String.Set.of_list)
-  in
+  List.iter constructors ~f:(fun (constructor, location) ->
+    if
+      not (List.exists encodings ~f:(fun encoding -> String.equal encoding.constructor constructor))
+    then Sail_ast.fail_at location [%string "%{encdec} has no clause for %{constructor}"]);
+  let functions = Sail_ast.function_clauses ast in
   let instructions =
-    List.map constructors ~f:(fun (constructor, location) ->
-      let missing function_name =
-        Sail_ast.fail_at location [%string "%{function_name} has no clause for %{constructor}"]
+    List.map encodings ~f:(fun encoding ->
+      let required name = function
+        | Some found -> found
+        | None ->
+          Sail_ast.fail_at
+            encoding.location
+            [%string "%{name} has no clause for %{Encoding.to_string encoding}"]
       in
-      let ({ operands; fields; _ } : Decode.t) =
-        match
-          List.find decoded ~f:(fun instruction -> String.equal instruction.constructor constructor)
-        with
-        | Some instruction -> instruction
-        | None -> missing decode
-      in
-      let syntax =
-        match List.Assoc.find syntaxes constructor ~equal:String.equal with
-        | Some syntax -> syntax
-        | None -> missing assembly
-      in
-      ({ constructor
-       ; operand_count = List.length operands
-       ; syntax
-       ; fields
-       ; clauses = Map.find clauses constructor |> Option.value ~default:[]
+      ({ constructor = encoding.constructor
+       ; syntax = Syntax.read ~env ~mappings ~assembly encoding |> required assembly
+       ; fields = encoding.fields
+       ; condition = encoding.condition
+       ; execution = Execution.read ~env ~functions ~execute encoding |> required execute
        }
        : Instruction.t))
   in
-  let word_width =
-    match decoded with
-    | { fields; _ } :: _ -> List.sum (module Int) fields ~f:Word_field.width
-    | [] -> 0
+  let clauses =
+    Clause.read ~ast ~env ~constructors:(List.map constructors ~f:fst |> String.Set.of_list)
   in
-  { word_width
-  ; instructions
-  ; outline = Outline.read ~ast ~constructors
-  ; fallback = { name = decode; documented = fallback.documented }
-  }
+  let outline =
+    Outline.read
+      ~ast
+      ~constructors:
+        (List.map constructors ~f:(fun (name, location) ->
+           ({ name; clauses = Map.find_multi clauses name } : Outline.Item.Constructor.t), location))
+  in
+  { word_width; instructions; outline }
 ;;

@@ -30,13 +30,8 @@ let width = function
   | Operand { width; _ } | Ignored { width } -> width
 ;;
 
-let tagged kind = function
-  | `Assoc fields -> `Assoc (("kind", `String kind) :: fields)
-  | json -> json
-;;
-
 let yojson_of_t = function
-  | Fixed field -> tagged "fixed" (Fixed.yojson_of_t field)
-  | Operand field -> tagged "operand" (Operand.yojson_of_t field)
-  | Ignored field -> tagged "ignored" (Ignored.yojson_of_t field)
+  | Fixed field -> Tagged.json ~kind:"fixed" (Fixed.yojson_of_t field)
+  | Operand field -> Tagged.json ~kind:"operand" (Operand.yojson_of_t field)
+  | Ignored field -> Tagged.json ~kind:"ignored" (Ignored.yojson_of_t field)
 ;;

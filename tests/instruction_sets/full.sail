@@ -1,5 +1,4 @@
-/* An instruction set that assigns every opcode. Its decode still ends with the fallback, which
-   the documentation plugin requires. */
+/* An instruction set that assigns every opcode. */
 
 default Order dec
 $include <prelude.sail>
@@ -9,23 +8,25 @@ overload operator ^ = {concat_str}
 
 type word = bits(4)
 
+val ignored : forall 'n, 'n >= 0. int('n) <-> bits('n)
+mapping ignored = { forwards width => sail_zeros(width), backwards bits => length(bits) }
+
 scattered union instruction
 union clause instruction = ZERO : unit
 union clause instruction = ONE : bits(3)
 end instruction
 
-val encode : instruction -> word
-scattered function encode
-function clause encode(ZERO()) = 0b0 @ 0b000
-function clause encode(ONE(value)) = 0b1 @ value
-end encode
+val encdec : instruction <-> word
+scattered mapping encdec
+mapping clause encdec = ZERO() <-> 0b0 @ ignored(3)
+mapping clause encdec = ONE(value) <-> 0b1 @ value
+end encdec
 
-val decode : word -> option(instruction)
-scattered function decode
-function clause decode(0b0 @ _ : bits(3)) = Some(ZERO())
-function clause decode(0b1 @ value : bits(3)) = Some(ONE(value))
-function clause decode(_) = None()
-end decode
+val execute : instruction -> unit
+scattered function execute
+function clause execute(ZERO()) = ()
+function clause execute(ONE(_)) = ()
+end execute
 
 val assembly : instruction <-> string
 scattered mapping assembly

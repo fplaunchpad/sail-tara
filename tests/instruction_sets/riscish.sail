@@ -1,6 +1,6 @@
 /* A 32-bit instruction set laid out like RISC-V: the opcode in the low bits, fixed bits in the
-   middle too, instructions that share an opcode, anchors between instructions, and functions
-   named neither encode nor execute. */
+   middle too, a constructor that stands for two instructions, a guarded encoding, and anchors
+   between instructions. */
 
 default Order dec
 $include <prelude.sail>
@@ -8,9 +8,19 @@ $include <mapping.sail>
 $include <dec_bits.sail>
 $include <hex_bits.sail>
 overload operator ^ = {concat_str}
+overload operator - = {sub_bits}
 
 type word = bits(32)
 type regidx = bits(5)
+type opcode = bits(7)
+type funct3 = bits(3)
+type funct7 = bits(7)
+
+enum rop = {RISCV_ADD, RISCV_SUB}
+
+val X : regidx -> word
+val set_X : (regidx, word) -> unit
+val load : word -> word
 
 scattered union instruction
 
@@ -18,36 +28,42 @@ scattered union instruction
 === Register arithmetic */
 $anchor register_arithmetic
 
-union clause instruction = ADD : (regidx, regidx, regidx)
-union clause instruction = SUB : (regidx, regidx, regidx)
+union clause instruction = RTYPE : (regidx, regidx, regidx, rop)
 
 /*!
-=== Loads */
+=== Loads and shifts */
 $anchor loads
 
-union clause instruction = LW : (regidx, regidx, bits(12))
+union clause instruction = LW : (bits(12), regidx, regidx)
+union clause instruction = SLLI : (bits(6), regidx, regidx)
 
 end instruction
 
-val decode : word -> option(instruction)
-scattered function decode
-function clause decode((0b0000000 as funct7) @ rs2 : regidx @ rs1 : regidx @ (0b000 as funct3)
-                       @ rd : regidx @ 0b0110011) = Some(ADD(rd, rs1, rs2))
-function clause decode((0b0100000 as funct7) @ rs2 : regidx @ rs1 : regidx @ (0b000 as funct3)
-                       @ rd : regidx @ 0b0110011) = Some(SUB(rd, rs1, rs2))
-function clause decode(imm : bits(12) @ rs1 : regidx @ (0b010 as funct3) @ rd : regidx
-                       @ 0b0000011) = Some(LW(rd, rs1, imm))
-function clause decode(_) = None()
-end decode
+val encdec : instruction <-> word
+scattered mapping encdec
+mapping clause encdec = RTYPE(rs2, rs1, rd, RISCV_ADD)
+  <-> 0b0000000 : funct7 @ rs2 @ rs1 @ 0b000 : funct3 @ rd @ 0b0110011 : opcode
+mapping clause encdec = RTYPE(rs2, rs1, rd, RISCV_SUB)
+  <-> 0b0100000 : funct7 @ rs2 @ rs1 @ 0b000 : funct3 @ rd @ 0b0110011 : opcode
+mapping clause encdec = LW(imm, rs1, rd) <-> imm @ rs1 @ 0b010 : funct3 @ rd @ 0b0000011 : opcode
+mapping clause encdec = SLLI(shamt, rs1, rd) if shamt[5] == bitzero
+  <-> 0b000000 @ shamt @ rs1 @ 0b001 : funct3 @ rd @ 0b0010011 : opcode if shamt[5] == bitzero
+end encdec
 
-val semantics : instruction -> unit
-scattered function semantics
+val execute : instruction -> unit
+scattered function execute
 /*!
 Adds `rs1` and `rs2` into `rd`. */
-function clause semantics(ADD(rd, rs1, rs2)) = ()
-function clause semantics(SUB(rd, rs1, rs2)) = ()
-function clause semantics(LW(rd, rs1, imm)) = ()
-end semantics
+function clause execute(RTYPE(rs2, rs1, rd, RISCV_ADD)) = set_X(rd, X(rs1) + X(rs2))
+function clause execute(RTYPE(rs2, rs1, rd, RISCV_SUB)) = set_X(rd, X(rs1) - X(rs2))
+function clause execute(LW(imm, rs1, rd)) = {
+  let address = X(rs1) + sail_sign_extend(imm, 32);
+  set_X(rd, load(address))
+}
+function clause execute(SLLI(shamt, rs1, rd)) = set_X(rd, sail_shiftleft(X(rs1), unsigned(shamt)))
+end execute
+
+mapping rtype_mnemonic : rop <-> string = { RISCV_ADD <-> "add", RISCV_SUB <-> "sub" }
 
 mapping reg_name : regidx <-> string = {
   forwards value => "x" ^ dec_bits_5(value),
@@ -56,10 +72,10 @@ mapping reg_name : regidx <-> string = {
 
 val assembly : instruction <-> string
 scattered mapping assembly
+mapping clause assembly = RTYPE(rs2, rs1, rd, op)
+  <-> rtype_mnemonic(op) ^ " " ^ reg_name(rd) ^ ", " ^ reg_name(rs1) ^ ", " ^ reg_name(rs2)
 mapping clause assembly =
-  ADD(rd, rs1, rs2) <-> "add " ^ reg_name(rd) ^ ", " ^ reg_name(rs1) ^ ", " ^ reg_name(rs2)
-mapping clause assembly =
-  SUB(rd, rs1, rs2) <-> "sub " ^ reg_name(rd) ^ ", " ^ reg_name(rs1) ^ ", " ^ reg_name(rs2)
-mapping clause assembly =
-  LW(rd, rs1, imm) <-> "lw " ^ reg_name(rd) ^ ", " ^ hex_bits_12(imm) ^ "(" ^ reg_name(rs1) ^ ")"
+  LW(imm, rs1, rd) <-> "lw " ^ reg_name(rd) ^ ", " ^ hex_bits_12(imm) ^ "(" ^ reg_name(rs1) ^ ")"
+mapping clause assembly = SLLI(shamt, rs1, rd)
+  <-> "slli " ^ reg_name(rd) ^ ", " ^ reg_name(rs1) ^ ", " ^ hex_bits_6(shamt)
 end assembly

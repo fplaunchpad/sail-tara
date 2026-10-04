@@ -10,8 +10,7 @@ bit out, leaving zero.
 $anchor shifts
 
 union clause instruction = SHL : (regidx, bits(8))
-function clause encode(SHL(rd, shamt)) = 0b10001 @ rd @ shamt
-function clause decode(0b10001 @ rd : regidx @ shamt : bits(8)) = Some(SHL(rd, shamt))
+mapping clause encdec = SHL(rd, shamt) <-> 0b10001 : opcode @ rd @ shamt
 /*!
 Shifts `rd` left by `shamt[4:0]`, filling with zeros. */
 function clause execute(SHL(rd, shamt)) = {
@@ -19,8 +18,7 @@ function clause execute(SHL(rd, shamt)) = {
 }
 
 union clause instruction = SHR : (regidx, bits(8))
-function clause encode(SHR(rd, shamt)) = 0b10010 @ rd @ shamt
-function clause decode(0b10010 @ rd : regidx @ shamt : bits(8)) = Some(SHR(rd, shamt))
+mapping clause encdec = SHR(rd, shamt) <-> 0b10010 : opcode @ rd @ shamt
 /*!
 Shifts `rd` right by `shamt[4:0]`, filling with zeros. */
 function clause execute(SHR(rd, shamt)) = {

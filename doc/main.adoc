@@ -102,6 +102,12 @@ include::sailcomment:section_instruction_set[type=anchor,indent=0]
 
 include::sailcomment:encoding[type=anchor,indent=0]
 
+sail::opcode[type=type]
+
+include::sailcomment:ignored[type=val,indent=0]
+
+sail::ignored[type=val]
+
 include::sailcomment:section_instruction_formats[type=anchor,indent=0]
 
 include::formats.adoc[]
@@ -114,13 +120,9 @@ include::sailcomment:operands[type=anchor,indent=0]
 
 sail::instruction[type=type]
 
-include::sailcomment:encode[type=val,indent=0]
+include::sailcomment:encdec[type=val,indent=0]
 
-sail::encode[type=val]
-
-include::sailcomment:decode[type=val,indent=0]
-
-sail::decode[type=val]
+sail::encdec[type=val]
 
 include::sailcomment:execute[type=val,indent=0]
 

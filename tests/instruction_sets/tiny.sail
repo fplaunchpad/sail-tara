@@ -8,24 +8,25 @@ overload operator ^ = {concat_str}
 
 type word = bits(12)
 
+val ignored : forall 'n, 'n >= 0. int('n) <-> bits('n)
+mapping ignored = { forwards width => sail_zeros(width), backwards bits => length(bits) }
+
 scattered union instruction
 union clause instruction = Tiny : (bits(2), bits(3))
 union clause instruction = Stop : unit
 end instruction
 
-val encode : instruction -> word
-scattered function encode
-function clause encode(Tiny(first, second)) = 0x2 @ first @ second @ 0b000
-function clause encode(Stop()) = 0x1 @ 0b00000000
-end encode
+val encdec : instruction <-> word
+scattered mapping encdec
+mapping clause encdec = Tiny(first, second) <-> 0x2 @ first @ second @ ignored(3)
+mapping clause encdec = Stop() <-> 0x1 @ ignored(8)
+end encdec
 
-val decode : word -> option(instruction)
-scattered function decode
-function clause decode(0x2 @ first : bits(2) @ second : bits(3) @ _ : bits(3)) =
-  Some(Tiny(first, second))
-function clause decode(0x1 @ _ : bits(8)) = Some(Stop())
-function clause decode(_) = None()
-end decode
+val execute : instruction -> unit
+scattered function execute
+function clause execute(Tiny(_, _)) = ()
+function clause execute(Stop()) = ()
+end execute
 
 mapping separator : unit <-> string = { () <-> ":" }
 mapping repeat_operand : bits(3) <-> string = {

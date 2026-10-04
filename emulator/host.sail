@@ -103,9 +103,10 @@ function host_step(keys) = {
 
 val host_disasm : bits(16) -> string
 
-function host_disasm(w) = match decode(w) {
-    Some(insn) => assembly(insn),
-    None() => "illegal",
+function host_disasm(w) = if encdec_backwards_matches(w) then {
+    assembly(encdec(w))
+} else {
+    "illegal"
 }
 
 /* The step just taken: its PC and word, the registers after it, and its

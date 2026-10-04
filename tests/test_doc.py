@@ -14,15 +14,15 @@ from tara.asciidoc import Text
 from tara.doc import (
     OPCODES,
     AnchorEntry,
-    Fallback,
+    ConstructorEntry,
     Field,
     Fixed,
     Ignored,
     Instruction,
-    InstructionEntry,
     InstructionSet,
     Operand,
     Selector,
+    section_anchor,
 )
 
 needs_plugin = pytest.mark.skipif(
@@ -57,14 +57,14 @@ def test_section_shows_the_instruction_s_clauses(
 ) -> None:
     clauses = Bundle.read(built.output / BUNDLE).clauses(mnemonic)
 
-    assert len(clauses) == 4
+    assert len(clauses) == 3
     assert specification.listings(f"insn-{mnemonic}") == clauses
 
 
 @needs_plugin
 def test_opcode_table_agrees_with_studio(specification: Specification) -> None:
     _header, *rows = specification.table("Opcode")
-    assigned = {int(row[0]): row[3] for row in rows if row[0].isdecimal()}
+    assigned = {int(row[0]): row[1].split()[0] for row in rows if row[0].isdecimal()}
 
     assert assigned == OP_NAME
     assert [row[0] for row in rows if not row[0].isdecimal()] == ["27-31"]
@@ -75,6 +75,16 @@ def test_format_table_lists_each_instruction_once(specification: Specification) 
     _header, *rows = specification.table("Format")
 
     assert sorted(name for row in rows for name in row[-1].split(", ")) == MNEMONICS
+
+
+@needs_plugin
+def test_opcode_table_shows_what_each_instruction_does(specification: Specification) -> None:
+    _header, *rows = specification.table("Opcode")
+    execution = {row[1].split()[0]: row[2] for row in rows if row[0].isdecimal()}
+
+    assert execution["NOP"] == ""
+    assert execution["ADD"] == "X(rd) = X(rs1) + X(rs2)"
+    assert execution["PUSH"] == "X(sp) = X(sp) - 0x0002 write_word(X(sp), X(rs))"
 
 
 @needs_plugin
@@ -92,8 +102,7 @@ def test_follows_changes_to_the_model(tmp_path: Path) -> None:
             "union clause instruction = NOP : unit",
             "union clause instruction = IDLE : unit",
         ),
-        (DATA_MOVEMENT, "encode(NOP())", "encode(IDLE())"),
-        (DATA_MOVEMENT, "Some(NOP())", "Some(IDLE())"),
+        (DATA_MOVEMENT, "encdec = NOP()", "encdec = IDLE()"),
         (DATA_MOVEMENT, "execute(NOP())", "execute(IDLE())"),
         (DATA_MOVEMENT, "Does nothing.", "Waits for a step."),
         (SYNTAX, 'assembly = NOP() <-> "NOP"', 'assembly = IDLE() <-> "IDLE"'),
@@ -103,12 +112,12 @@ def test_follows_changes_to_the_model(tmp_path: Path) -> None:
 
     workspace.build("doc", "html")
     specification = Specification.read(workspace.output / HTML)
-    opcodes = {row[3]: row for row in specification.table("Opcode")}
+    opcodes = {row[1].split()[0]: row for row in specification.table("Opcode")}
 
     assert "Waits for a step." in specification.text
-    assert len(specification.listings("insn-IDLE")) == 4
+    assert len(specification.listings("insn-IDLE")) == 3
     assert specification.listings("insn-NOP") == []
-    assert (opcodes["IDLE"][4], opcodes["MOV"][4]) == ("IDLE", "MOV rd; rs")
+    assert (opcodes["IDLE"][1], opcodes["MOV"][1]) == ("IDLE", "MOV rd; rs")
 
 
 @needs_plugin
@@ -123,24 +132,26 @@ def test_follows_changes_to_the_model(tmp_path: Path) -> None:
             [
                 (
                     DATA_MOVEMENT,
-                    "union clause instruction = NOP : unit\n",
-                    "union clause instruction = NOP : unit\nfunction clause decode(_) = None()\n",
-                ),
-                ("model/tara.sail", "function clause decode(_) = None()\n", ""),
-            ],
-            id="fallback-before-the-last-clause",
-        ),
-        pytest.param(
-            [
-                (DATA_MOVEMENT, "function clause encode(NOP()) = 0b00000 @ 0b00000000000\n", ""),
-                (
-                    DATA_MOVEMENT,
-                    "function clause decode(0b00000 @ _ : bits(11)) = Some(NOP())\n",
+                    "mapping clause encdec = NOP() <-> 0b00000 : opcode @ ignored(11)\n",
                     "",
                 ),
                 (SYNTAX, 'mapping clause assembly = NOP() <-> "NOP"\n', ""),
             ],
             id="instruction-without-clauses",
+        ),
+        pytest.param(
+            [(DATA_MOVEMENT, "HLT() <-> 0b00001", "HLT() <-> 0b00000")],
+            id="two-instructions-with-one-encoding",
+        ),
+        pytest.param(
+            [
+                (
+                    DATA_MOVEMENT,
+                    "function clause execute(NOP()) = ()\n",
+                    "function clause execute(NOP()) = ()\nfunction clause execute(NOP()) = ()\n",
+                )
+            ],
+            id="clause-hidden-by-an-earlier-one",
         ),
     ],
 )
@@ -158,21 +169,8 @@ def test_rejects_a_model_it_cannot_tabulate(
     assert not (workspace.output / METADATA).exists()
 
 
-def described(field: Field) -> str:
-    """A field as `name=bits` if it is fixed, `name:width` if an operand, and `_:width` if
-    ignored."""
-
-    match field:
-        case Fixed(name=name, bits=bits):
-            return f"{name or ''}={bits}"
-        case Operand(name=name, width=width):
-            return f"{name}:{width}"
-        case Ignored(width=width):
-            return f"_:{width}"
-
-
 # Each test instruction set's word width, opcode width (None: no single leading opcode) and
-# instructions, with their syntax and fields.
+# instructions, with their constructors, syntax and fields.
 INSTRUCTION_SET_CASES = [
     pytest.param(
         "tiny",
@@ -208,18 +206,27 @@ INSTRUCTION_SET_CASES = [
         None,
         [
             (
-                "ADD",
+                "RTYPE",
                 "add rd, rs1, rs2",
-                ["funct7=0000000", "rs2:5", "rs1:5", "funct3=000", "rd:5", "=0110011"],
+                ["funct7=0000000", "rs2:5", "rs1:5", "funct3=000", "rd:5", "opcode=0110011"],
             ),
             (
-                "SUB",
+                "RTYPE",
                 "sub rd, rs1, rs2",
-                ["funct7=0100000", "rs2:5", "rs1:5", "funct3=000", "rd:5", "=0110011"],
+                ["funct7=0100000", "rs2:5", "rs1:5", "funct3=000", "rd:5", "opcode=0110011"],
             ),
-            ("LW", "lw rd, imm(rs1)", ["imm:12", "rs1:5", "funct3=010", "rd:5", "=0000011"]),
+            (
+                "LW",
+                "lw rd, imm(rs1)",
+                ["imm:12", "rs1:5", "funct3=010", "rd:5", "opcode=0000011"],
+            ),
+            (
+                "SLLI",
+                "slli rd, rs1, shamt",
+                ["=000000", "shamt:6", "rs1:5", "funct3=001", "rd:5", "opcode=0010011"],
+            ),
         ],
-        id="opcode-in-the-low-bits",
+        id="risc-v-like",
     ),
 ]
 
@@ -242,6 +249,28 @@ include::instructions.adoc[]
 """
 
 
+def described(field: Field) -> str:
+    """A field as `name=bits` if it is fixed, `name:width` if an operand, and `_:width` if
+    ignored."""
+
+    match field:
+        case Fixed(name=name, bits=bits):
+            return f"{name or ''}={bits}"
+        case Operand(name=name, width=width):
+            return f"{name}:{width}"
+        case Ignored(width=width):
+            return f"_:{width}"
+
+
+def install(tmp_path: Path, name: str) -> Workspace:
+    """A workspace whose model is the test instruction set `name`, with its sections built."""
+
+    workspace = Workspace.copy(tmp_path)
+    workspace.install(INSTRUCTION_SETS / f"{name}.sail")
+    workspace.build("doc", "sections")
+    return workspace
+
+
 @needs_plugin
 @pytest.mark.parametrize(
     ("name", "word_width", "opcode_width", "instructions"), INSTRUCTION_SET_CASES
@@ -253,10 +282,8 @@ def test_documents_other_instruction_sets(
     opcode_width: int | None,
     instructions: list[tuple[str, str, list[str]]],
 ) -> None:
-    workspace = Workspace.copy(tmp_path)
-    workspace.install(INSTRUCTION_SETS / f"{name}.sail")
+    workspace = install(tmp_path, name)
     workspace.build("doc", "bundle")
-    workspace.build("doc", "sections")
     instruction_set = InstructionSet.read(workspace.output / METADATA)
     document = workspace.output / "document.adoc"
     document.write_text(DOCUMENT)
@@ -275,64 +302,74 @@ def test_documents_other_instruction_sets(
     )
     assert rendered.returncode == 0, rendered.stderr
     specification = Specification.read(workspace.output / "document.html")
-    for instruction in instruction_set.instructions:
-        assert len(specification.listings(instruction.anchor)) == len(instruction.clauses)
+    for entry in instruction_set.outline:
+        if isinstance(entry, ConstructorEntry):
+            assert len(specification.listings(section_anchor(entry.name))) == len(entry.clauses)
 
 
 @needs_plugin
-def test_follows_the_source_order_of_anchors_and_instructions(tmp_path: Path) -> None:
-    workspace = Workspace.copy(tmp_path)
-    workspace.install(INSTRUCTION_SETS / "riscish.sail")
-    workspace.build("doc", "sections")
+def test_follows_the_source_order_of_anchors_and_constructors(tmp_path: Path) -> None:
+    instruction_set = InstructionSet.read(install(tmp_path, "riscish").output / METADATA)
 
-    instruction_set = InstructionSet.read(workspace.output / METADATA)
-    add = next(i for i in instruction_set.instructions if i.constructor == "ADD")
-
-    assert instruction_set.outline == (
-        AnchorEntry(name="register_arithmetic"),
-        InstructionEntry(name="ADD"),
-        InstructionEntry(name="SUB"),
-        AnchorEntry(name="loads"),
-        InstructionEntry(name="LW"),
-    )
-    assert [(c.function, c.selector, c.documented) for c in add.clauses] == [
-        ("decode", Selector.BODY, False),
-        ("semantics", Selector.PATTERN, True),
-        ("assembly", Selector.LEFT, False),
+    assert [(type(entry), entry.name) for entry in instruction_set.outline] == [
+        (AnchorEntry, "register_arithmetic"),
+        (ConstructorEntry, "RTYPE"),
+        (AnchorEntry, "loads"),
+        (ConstructorEntry, "LW"),
+        (ConstructorEntry, "SLLI"),
+    ]
+    rtype = instruction_set.outline[1]
+    assert isinstance(rtype, ConstructorEntry)
+    assert [(c.function, c.selector, c.pattern, c.documented) for c in rtype.clauses] == [
+        ("encdec", Selector.LEFT, "RTYPE(_, _, _, RISCV_ADD)", False),
+        ("encdec", Selector.LEFT, "RTYPE(_, _, _, RISCV_SUB)", False),
+        ("execute", Selector.PATTERN, "RTYPE(_, _, _, RISCV_ADD)", True),
+        ("execute", Selector.PATTERN, "RTYPE(_, _, _, RISCV_SUB)", False),
+        ("assembly", Selector.LEFT, "RTYPE(_, _, _, _)", False),
     ]
 
 
 @needs_plugin
-def test_leaves_out_the_fallback_when_every_opcode_is_assigned(tmp_path: Path) -> None:
-    workspace = Workspace.copy(tmp_path)
-    workspace.install(INSTRUCTION_SETS / "full.sail")
-    workspace.build("doc", "sections")
+def test_reads_the_execution_and_condition_of_each_instruction(tmp_path: Path) -> None:
+    instruction_set = InstructionSet.read(install(tmp_path, "riscish").output / METADATA)
 
-    opcodes = (workspace.output / OPCODES).read_text()
+    assert [(i.mnemonic, i.execution, i.condition) for i in instruction_set.instructions] == [
+        ("add", ("set_X(rd, X(rs1) + X(rs2))",), None),
+        ("sub", ("set_X(rd, X(rs1) - X(rs2))",), None),
+        (
+            "lw",
+            ("let address = X(rs1) + sail_sign_extend(imm, 32)", "set_X(rd, load(address))"),
+            None,
+        ),
+        (
+            "slli",
+            ("set_X(rd, sail_shiftleft(X(rs1), unsigned(shamt)))",),
+            "shamt[5] == bitzero",
+        ),
+    ]
+
+
+@needs_plugin
+def test_has_no_unassigned_row_when_every_opcode_is_assigned(tmp_path: Path) -> None:
+    opcodes = (install(tmp_path, "full").output / OPCODES).read_text()
 
     assert "unassigned" not in opcodes
-    assert "None" not in opcodes
 
 
-def instruction(opcode: int, *, field: str) -> Instruction:
+def instruction(opcode: int, *, field: str, condition: str | None = None) -> Instruction:
     """An instruction of an 8-bit instruction set with a 4-bit opcode and one 4-bit field."""
 
     return Instruction(
         constructor=f"I{opcode}",
-        operand_count=1,
-        syntax=f"I{opcode} {field}",
-        fields=(Fixed(name=None, bits=f"{opcode:04b}"), Operand(name=field, width=4)),
-        clauses=(),
+        syntax=f"i{opcode} {field}",
+        fields=(Fixed(name="opcode", bits=f"{opcode:04b}"), Operand(name=field, width=4)),
+        condition=condition,
+        execution=(),
     )
 
 
 def instruction_set(instructions: tuple[Instruction, ...]) -> InstructionSet:
-    return InstructionSet(
-        word_width=8,
-        instructions=instructions,
-        outline=(),
-        fallback=Fallback(function="decode", documented=False),
-    )
+    return InstructionSet(word_width=8, instructions=instructions, outline=())
 
 
 def test_opcode_table_runs_unassigned_opcodes_together() -> None:
@@ -346,6 +383,15 @@ def test_opcode_table_runs_unassigned_opcodes_together() -> None:
     ]
 
 
+def test_tabulates_guarded_encodings_with_their_conditions() -> None:
+    guarded = instruction_set(
+        (instruction(0, field="x"), instruction(1, field="x", condition="x != 0b0000"))
+    )
+
+    assert guarded.opcode_width is None
+    assert guarded.opcodes().header == ("Encoding", "Condition", "Syntax", "Execution", "Format")
+
+
 def test_format_table_merges_a_field_across_formats() -> None:
     table = instruction_set(tuple(instruction(opcode, field=f"f{opcode}") for opcode in range(10)))
 
@@ -355,4 +401,4 @@ def test_format_table_merges_a_field_across_formats() -> None:
     assert [row.cells[0].content[-1] for row in rows] == [
         Text(f"F{number}") for number in range(1, 11)
     ]
-    assert [(cell.columns, cell.rows) for cell in opcode_cells] == [(4, 10)]
+    assert [(cell.columns, cell.rows) for cell in opcode_cells] == [(1, 10)]

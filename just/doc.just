@@ -35,7 +35,7 @@ bundle: documentation-sources
 specification: bundle
     cp doc/main.adoc doc/styles.css doc/theme.yml doc/cover.svg doc/sections.rb "{{ out }}/"
 
-# Derive the instruction metadata from the model's decode function and assembly mapping.
+# Derive the instruction metadata from the model's encdec and assembly mappings and execute.
 [private]
 metadata: (build-dir "doc")
     sail -plugin "$TARA_DOC_PLUGIN" --doc-tables -o "{{ out }}/tables.json" model/syntax.sail
