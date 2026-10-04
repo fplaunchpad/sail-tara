@@ -19,11 +19,7 @@ void init_key_script(struct key_script *script, uint8_t initial) {
   *script = (struct key_script){.keys = initial};
 }
 
-void free_key_script(struct key_script *script) {
-  free(script->changes);
-  script->changes = NULL;
-  script->count = script->capacity = 0;
-}
+void free_key_script(struct key_script *script) { free(script->changes); }
 
 static bool append(struct key_script *script, struct key_change change) {
   if (script->count == script->capacity) {

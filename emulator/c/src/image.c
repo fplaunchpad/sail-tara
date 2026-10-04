@@ -20,9 +20,9 @@
 #define READ_CHUNK 4096
 #define MAX_FILE_BYTES ((size_t)1024 * 1024)
 
-enum format { FORMAT_BIN, FORMAT_HEX };
+enum format { FORMAT_UNKNOWN, FORMAT_BIN, FORMAT_HEX };
 
-/* A file's contents, read whole. */
+/* A file's contents, read whole: data is NULL if it could not be read. */
 struct contents {
   char *data;
   size_t size;
@@ -52,16 +52,15 @@ static const char *suffix(const char *path) {
   return dot && dot != name && dot[1] ? dot : NULL;
 }
 
-static bool format_of(const char *path, enum format *format) {
+static enum format format_of(const char *path) {
   const char *dot = suffix(path);
   if (dot && strcmp(dot, ".bin") == 0) {
-    *format = FORMAT_BIN;
-  } else if (dot && strcmp(dot, ".hex") == 0) {
-    *format = FORMAT_HEX;
-  } else {
-    return false;
+    return FORMAT_BIN;
   }
-  return true;
+  if (dot && strcmp(dot, ".hex") == 0) {
+    return FORMAT_HEX;
+  }
+  return FORMAT_UNKNOWN;
 }
 
 static bool place_byte(struct loader *loader, uint8_t value) {
@@ -73,17 +72,21 @@ static bool place_byte(struct loader *loader, uint8_t value) {
 }
 
 static bool place_word(struct loader *loader, uint16_t word) {
-  return place_byte(loader, (uint8_t)(word >> CHAR_BIT)) && place_byte(loader, (uint8_t)word);
+  if (!place_byte(loader, (uint8_t)(word >> CHAR_BIT))) {
+    return false;
+  }
+  return place_byte(loader, (uint8_t)word);
 }
 
-/* Read the whole file at path into memory; on failure, report it. */
-static bool read_contents(const char *path, struct contents *contents) {
+/* Read the whole file at path into memory; on failure, report it and return no data. */
+static struct contents read_contents(const char *path) {
+  struct contents read = {.data = NULL, .size = 0};
   FILE *file = fopen(path, "rb");
   if (!file) {
-    return report_system_error(errno, "%s", path);
+    report_system_error(errno, "%s", path);
+    return read;
   }
 
-  struct contents read = {.data = NULL, .size = 0};
   for (size_t count = READ_CHUNK; count == READ_CHUNK;) {
     if (read.size > MAX_FILE_BYTES) {
       report_error("%s: larger than %zu bytes, too large for an image", path, MAX_FILE_BYTES);
@@ -104,13 +107,12 @@ static bool read_contents(const char *path, struct contents *contents) {
   }
 
   fclose(file);
-  *contents = read;
-  return true;
+  return read;
 
 fail:
   free(read.data);
   fclose(file);
-  return false;
+  return (struct contents){.data = NULL, .size = 0};
 }
 
 static bool load_bin(struct loader *loader, const struct contents *contents) {
@@ -187,13 +189,13 @@ static bool load_hex(struct loader *loader, const struct contents *contents) {
 }
 
 bool load_program(const char *path) {
-  enum format format;
-  if (!format_of(path, &format)) {
+  enum format format = format_of(path);
+  if (format == FORMAT_UNKNOWN) {
     return report_error("%s: expected a .bin or .hex image", path);
   }
 
-  struct contents contents = {.data = NULL, .size = 0};
-  if (!read_contents(path, &contents)) {
+  struct contents contents = read_contents(path);
+  if (!contents.data) {
     return false;
   }
 
