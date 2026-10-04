@@ -1,3 +1,7 @@
+/*!
+=== Data movement */
+$anchor section_data_movement
+
 /*! `NOP` and `HLT` take no operands. `MOV` copies a register; `LIL` and `LIH` build a 16-bit
 constant one byte at a time.
  */

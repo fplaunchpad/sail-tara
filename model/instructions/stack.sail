@@ -1,3 +1,7 @@
+/*!
+=== Stack */
+$anchor section_stack
+
 /*! The stack is the memory addressed by R7. It grows downwards, one word at a time; there is no
 overflow check, and a program sets R7 before the first `PUSH`, because reset leaves registers alone.
 The two instructions follow the order of the ISA reference table, which matters when the register is

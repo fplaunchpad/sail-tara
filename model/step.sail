@@ -2,6 +2,10 @@
  * retires at most one instruction. A halted CPU does nothing until reset.
  */
 
+/*!
+== Execution */
+$anchor section_execution
+
 /*! The drivers run one instruction per call. `step` and `run_instruction` take the five input lines
 as their first argument and hold them for the duration of the call. A driver reports what happened
 with a `retirement`.

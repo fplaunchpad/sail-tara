@@ -1,3 +1,7 @@
+/*!
+=== Memory */
+$anchor section_memory
+
 /*! A memory instruction names a data register, a base register `base` and a signed offset `off` in
 bytes, -16 to 15. The effective address is `base + off`, which wraps at 16 bits; the rules of the
 byte and word buses (see `read_byte` and `read_word`) then apply to it: only its low 11 bits count,

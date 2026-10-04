@@ -1,3 +1,7 @@
+/*!
+=== Control flow */
+$anchor section_control_flow
+
 /*! A relative target is `PC + 2 + 2 * off`: the offset counts instructions and is relative to the
 instruction that follows. PC keeps only 11 bits, so targets wrap around the 2 KB memory. `BZ` and
 `BN` test their register itself, never the status flags.

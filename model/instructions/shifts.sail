@@ -1,3 +1,7 @@
+/*!
+=== Shifts */
+$anchor section_shifts
+
 /*! Both shifts are logical and take their count from the low five bits of the immediate ("shamt =
 imm8[4:0]"); bits 7 to 5 of the field are ignored.
  */

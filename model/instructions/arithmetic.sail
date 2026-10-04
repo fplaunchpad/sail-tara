@@ -1,3 +1,7 @@
+/*!
+=== Arithmetic */
+$anchor section_arithmetic
+
 /*! Arithmetic wraps at 16 bits. There are no carry or overflow flags: the status flags of the RTL
 are not modelled.
  */

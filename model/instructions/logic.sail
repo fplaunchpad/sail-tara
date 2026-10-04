@@ -1,3 +1,7 @@
+/*!
+=== Logic */
+$anchor section_logic
+
 /*! The logic instructions work on all 16 bits at once. */
 $anchor logic
 

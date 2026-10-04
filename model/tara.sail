@@ -14,13 +14,25 @@ $ifndef _TARA_SAIL
 $define _TARA_SAIL
 $include "machine.sail"
 
-/*! An instruction is one 16-bit word, stored big-endian like every word. Bits 15 to 11 hold the
-opcode; the other 11 bits are divided into fields by one of eight formats, F0 to F7 (the names are
-those of the Studio manual). A field written as zeros is padding: `decode` ignores it and `encode`
-writes it as zeros, so every word with an assigned opcode decodes, and several words give the same
-instruction.
+/*!
+== The instruction set */
+$anchor section_instruction_set
+
+/*! An instruction is one word, stored big-endian like every word. The opcode and operand fields
+are defined by `decode` and `encode`; fields written as zeros are padding. `decode` ignores the
+padding and `encode` writes it as zeros, so every word with an assigned opcode decodes, and several
+words give the same instruction. The format labels in the tables are derived from the ordered field
+names and widths, rather than maintained separately in the model.
  */
 $anchor encoding
+
+/*!
+=== Instruction formats */
+$anchor section_instruction_formats
+
+/*!
+=== Opcodes */
+$anchor section_opcodes
 
 /*! The operands of the instructions are named as follows.
 

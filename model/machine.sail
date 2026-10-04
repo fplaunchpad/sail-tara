@@ -6,6 +6,15 @@
 default Order dec
 $include <prelude.sail>
 
+/*!
+= The TARA Instruction Set Architecture */
+$anchor document_title
+
+/*!
+[.lead]
+Reference specification, typeset from the Sail model */
+$anchor document_subtitle
+
 /*! TARA (Teaching Architecture for RISC Assembly) is the 16-bit teaching processor of the course
 CS2300 at IIT Madras, developed and maintained by Ayon Chakraborty. A TARA machine has eight 16-bit
 general-purpose registers, a unified 2 KB byte-addressed memory, a memory-mapped input port with
@@ -22,6 +31,16 @@ definition that implements it; README.md lists them, and the points where the TA
 disagrees with the RTL description.
  */
 $anchor machine
+
+/*! This specification is typeset from the Sail model of TARA, in `model/`. Each listing is a
+definition as written there, and the text around it is the definition's documentation comment. The
+listings are normative: where text and listing disagree, the listing is right.
+ */
+$anchor document_introduction
+
+/*!
+== Machine state */
+$anchor section_machine
 
 /*! The sizes of the machine are named once: a `word` is the width of a register, of PC and of an
 instruction; an `address` is the 11-bit byte address that selects one of the 2048 bytes of memory; a

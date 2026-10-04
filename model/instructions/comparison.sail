@@ -1,3 +1,7 @@
+/*!
+=== Comparison */
+$anchor section_comparison
+
 /*! `SLT` is the only comparison, and it compares signed numbers. There is no unsigned comparison
 and no status flag to test: a program tests the result register with `BZ` or `BN`.
  */
