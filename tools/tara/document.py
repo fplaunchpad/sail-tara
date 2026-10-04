@@ -11,7 +11,7 @@ a document each, so that the two have the same content.
 import re
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from enum import StrEnum
+from enum import StrEnum, auto
 from pathlib import Path
 
 import click
@@ -50,13 +50,33 @@ SECTION_FILES = {
 INSTRUCTION_SET = "tara.sail"
 GROUP_DIRECTORY = "instructions"
 
+
 # What the model defines for each instruction, in the order of the listings of its entry. An
 # instruction is a clause of the function that defines it, `execute`.
-InstructionFunction = StrEnum("InstructionFunction", "ASSEMBLY ENCODE DECODE EXECUTE")
+class InstructionFunction(StrEnum):
+    """A function the model defines for every instruction."""
+
+    ASSEMBLY = auto()
+    ENCODE = auto()
+    DECODE = auto()
+    EXECUTE = auto()
+
+
 DEFINING = InstructionFunction.EXECUTE
 
+
 # What a definition is. The documentation of a type is not in the bundle, so a type has none.
-Category = StrEnum("Category", "TYPE REGISTER LET VAL FUNCTION CLAUSE")
+class Category(StrEnum):
+    """What a definition is."""
+
+    TYPE = auto()
+    REGISTER = auto()
+    LET = auto()
+    VAL = auto()
+    FUNCTION = auto()
+    CLAUSE = auto()
+
+
 SCATTERED_TYPE = "scattered"
 
 

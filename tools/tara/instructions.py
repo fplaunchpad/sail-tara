@@ -8,13 +8,21 @@ manual's: the model does not name its layouts, so this module does.
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass
-from enum import StrEnum
+from enum import StrEnum, auto
 
 import click
 
 from tara.sail_doc import Clause, TypeDefinition
 
-Role = StrEnum("Role", "REGISTER IMMEDIATE OFFSET PADDING")
+
+class Role(StrEnum):
+    """What a field of an instruction word holds."""
+
+    REGISTER = auto()
+    IMMEDIATE = auto()
+    OFFSET = auto()
+    PADDING = auto()
+
 
 # The type of the register fields, and the names of the offset and padding fields.
 REGISTER_TYPE = "regidx"
