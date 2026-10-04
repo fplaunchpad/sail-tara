@@ -1,0 +1,45 @@
+[project]
+name = "tara-tools"
+version = "0.1.0"
+description = "Reference-simulator wrappers and differential tests for the TARA Sail model"
+requires-python = ">=3.15.0rc2"
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "black>=26.5",
+    "pyright>=1.1.414",
+    "ruff>=0.16",
+]
+
+[tool.uv]
+package = false
+python-downloads = "never"
+default-groups = ["dev"]
+
+[tool.black]
+line-length = 100
+target-version = ["py315"]
+
+[tool.ruff]
+line-length = 100
+# Ruff's Python 3.15 support is preview-only; no 3.15-only syntax is used.
+target-version = "py314"
+src = ["tools"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF", "PERF", "PTH"]
+ignore = ["E501", "SIM108"]
+
+[tool.pyright]
+pythonVersion = "3.15"
+typeCheckingMode = "strict"
+include = ["tools", "typings"]
+exclude = [".venv", "result", "build"]
+extraPaths = ["tools"]
+stubPath = "typings"
+reportUnnecessaryTypeIgnoreComment = "error"
+reportMatchNotExhaustive = "error"
+# The TARA Studio modules exist only on PYTHONPATH at runtime (from the Nix
+# store); typings/ carries their stubs.
+reportMissingModuleSource = "none"

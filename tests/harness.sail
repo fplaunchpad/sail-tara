@@ -2,7 +2,7 @@
  * or transition records. These helpers install state, run the native Sail
  * model, and collect observations so regression cases remain easy to compare.
  */
-$include "../tara.sail"
+$include "../model/tara.sail"
 
 struct state = {
   regs : regfile,

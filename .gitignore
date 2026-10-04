@@ -1,3 +1,17 @@
+# Build outputs
 /build/
-/__pycache__/
-/validation/__pycache__/
+result
+result-*
+_build/
+.lake/
+
+# Sail
+sail_smt_cache
+
+# Python
+.venv/
+**/__pycache__/
+.ruff_cache/
+
+# Environment
+.direnv/
