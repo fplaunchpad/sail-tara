@@ -174,7 +174,10 @@ enum options_result options_parse(int argc, char *argv[], struct options *option
       given.others = true;
     }
   }
-  return check(options, &given, argc - optind, argv + optind) ? OPTIONS_OK : fail();
+  if (!check(options, &given, argc - optind, argv + optind)) {
+    return fail();
+  }
+  return OPTIONS_OK;
 }
 
 void options_print_usage(FILE *out) { fputs(USAGE, out); }

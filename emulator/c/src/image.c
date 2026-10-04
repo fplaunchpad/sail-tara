@@ -197,7 +197,12 @@ bool image_load(const char *path) {
   }
 
   struct loader loader = {.path = path, .address = 0};
-  bool loaded = format == FORMAT_HEX ? load_hex(&loader, &contents) : load_bin(&loader, &contents);
+  bool loaded = false;
+  if (format == FORMAT_HEX) {
+    loaded = load_hex(&loader, &contents);
+  } else {
+    loaded = load_bin(&loader, &contents);
+  }
   free(contents.data);
   return loaded;
 }

@@ -14,5 +14,8 @@ int disasm_run(void) {
     machine_print_disasm(stdout, (uint16_t)word);
     putchar('\n');
   }
-  return report_flush() ? EXIT_HALTED : EXIT_ERROR;
+  if (!report_flush()) {
+    return EXIT_ERROR;
+  }
+  return EXIT_HALTED;
 }

@@ -63,5 +63,8 @@ int batch_run(const struct options *options) {
   run_to_end(&run, &script, options->trace);
   print_result(&run, options->framebuffer);
   key_script_free(&script);
-  return report_flush() ? (int)run_exit_status(run.state) : EXIT_ERROR;
+  if (!report_flush()) {
+    return EXIT_ERROR;
+  }
+  return (int)run_exit_status(run.state);
 }
