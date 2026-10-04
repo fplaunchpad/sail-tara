@@ -85,6 +85,7 @@ def test_opcode_table_shows_what_each_instruction_does(specification: Specificat
     assert execution["NOP"] == ""
     assert execution["ADD"] == "R[rd] = R[rs1] + R[rs2]"
     assert execution["MUL"] == "R[rd] = (R[rs1] * R[rs2])(15:0)"
+    assert execution["LIH"] == "R[rd] = imm ++ R[rd](7:0)"
     assert execution["BZ"] == "if (R[rs] == 0) PC = PC + 2 + 2 * sext(off)"
     assert execution["PUSH"] == "R[sp] = R[sp] - 2 M[R[sp]](15:0) = R[rs]"
 

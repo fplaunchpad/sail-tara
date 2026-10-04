@@ -42,7 +42,11 @@ class Code:
     text: str
 
     def __str__(self) -> str:
-        return f"`+{escape(self.text)}+`"
+        if "+" not in self.text:
+            return f"`+{escape(self.text)}+`"
+
+        # A plus would end the `+...+` passthrough, so the pass macro carries the text instead.
+        return f"`pass:c[{escape(self.text).replace(']', '\\]')}]`"
 
 
 @dataclass(frozen=True)

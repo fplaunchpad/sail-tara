@@ -386,13 +386,13 @@ class InstructionSet(msgspec.Struct, frozen=True, kw_only=True):
         return Table(
             columns=(
                 Column(width=2, alignment=Alignment.CENTER),
-                Column(width=5),
-                Column(width=10),
+                Column(width=4),
+                Column(width=9),
                 Column(width=2, alignment=Alignment.CENTER),
             ),
             header=("Opcode", "Syntax", "Execution", "Format"),
             rows=tuple(rows),
-            width=100,
+            width=90,
         )
 
     def encoding_table(self) -> Table:
