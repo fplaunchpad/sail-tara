@@ -1,276 +1,239 @@
-"""Inspect generated documentation HTML without imposing its formatting."""
+"""The specification built apart from the repository, and what its HTML shows."""
 
+import os
+import shutil
+import subprocess
+from collections.abc import Iterator
+from dataclasses import dataclass, field
 from html.parser import HTMLParser
 from pathlib import Path
+from typing import Self, override
 
 import msgspec
+
+ROOT = Path(__file__).parents[2]
+INSTRUCTION_SETS = ROOT / "tests" / "instruction_sets"
+# What the documentation recipes read.
+SOURCES = ("justfile", "just", "model", "doc", "tools/tara", ".prettierrc.json")
+ENTRY_POINT = "model/syntax.sail"
+VOID_ELEMENTS = frozenset(
+    {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "wbr"}
+)
+
+
+@dataclass(frozen=True)
+class Workspace:
+    """A copy of the model, the documentation sources and the recipes, in which `just doc`
+    builds into build/doc without touching the repository."""
+
+    root: Path
+
+    @classmethod
+    def copy(cls, root: Path) -> Self:
+        for source in SOURCES:
+            origin, copy = ROOT / source, root / source
+            copy.parent.mkdir(parents=True, exist_ok=True)
+            if origin.is_dir():
+                shutil.copytree(origin, copy, ignore=shutil.ignore_patterns("__pycache__"))
+            else:
+                shutil.copy2(origin, copy)
+
+        return cls(root)
+
+    @property
+    def output(self) -> Path:
+        return self.root / "build" / "doc"
+
+    def install(self, instruction_set: Path) -> None:
+        """Make `instruction_set` the model the documentation recipes read."""
+
+        shutil.copy2(instruction_set, self.root / ENTRY_POINT)
+
+    def edit(self, path: str, old: str, new: str) -> None:
+        """Replace the one occurrence of `old` in the file at `path`."""
+
+        file = self.root / path
+        text = file.read_text()
+        if text.count(old) != 1:
+            raise AssertionError(f"{path}: {old!r} occurs {text.count(old)} times")
+
+        file.write_text(text.replace(old, new))
+
+    def just(self, *arguments: str) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            ["just", *arguments],
+            cwd=self.root,
+            env={**os.environ, "TARA_BUILD": str(self.root / "build")},
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+    def build(self, *arguments: str) -> None:
+        """Run `just` with `arguments`, which must succeed."""
+
+        run = self.just(*arguments)
+        if run.returncode != 0:
+            raise AssertionError(f"just {' '.join(arguments)} failed:\n{run.stdout}{run.stderr}")
 
 
 class FunctionClause(msgspec.Struct, kw_only=True):
     source: str
     pattern: dict[str, object] | None = None
     body: str | None = None
-    comment: str | None = None
+
+    def matches(self, constructor: str) -> bool:
+        """Whether the clause takes `constructor` apart."""
+
+        return self.pattern is not None and self.pattern.get("id") == constructor
+
+    def builds(self, constructor: str) -> bool:
+        """Whether the clause returns `Some(constructor(...))`, as a decode clause does."""
+
+        return (self.body or "").startswith(f"Some({constructor}(")
 
 
-class Function(msgspec.Struct, kw_only=True):
+class Function(msgspec.Struct):
     function: list[FunctionClause]
 
 
-class MappingClause(msgspec.Struct, kw_only=True):
+class MappingClause(msgspec.Struct):
     source: str
     left: dict[str, object]
 
+    def matches(self, constructor: str) -> bool:
+        return self.left.get("id") == constructor
 
-class Mapping(msgspec.Struct, kw_only=True):
+
+class Mapping(msgspec.Struct):
     mapping: list[MappingClause]
 
 
-class Functions(msgspec.Struct, kw_only=True):
+class Functions(msgspec.Struct):
     encode: Function
     decode: Function
     execute: Function
 
 
-class Mappings(msgspec.Struct, kw_only=True):
+class Mappings(msgspec.Struct):
     assembly: Mapping
 
 
-class SourceBundle(msgspec.Struct, kw_only=True):
+class Bundle(msgspec.Struct):
+    """Sail's documentation bundle: the source of every clause, which the specification shows."""
+
     functions: Functions
     mappings: Mappings
 
+    @classmethod
+    def read(cls, path: Path) -> Self:
+        return msgspec.json.decode(path.read_bytes(), type=cls)
 
-class InstructionListings(HTMLParser):
-    """Collect instruction source blocks, prose, and table cells from rendered HTML."""
+    def clauses(self, constructor: str) -> list[str]:
+        """The encode, decode, execute and assembly clauses of `constructor`, normalized."""
 
+        functions = self.functions
+        encode = [c.source for c in functions.encode.function if c.matches(constructor)]
+        decode = [c.source for c in functions.decode.function if c.builds(constructor)]
+        execute = [c.source for c in functions.execute.function if c.matches(constructor)]
+        assembly = [c.source for c in self.mappings.assembly.mapping if c.matches(constructor)]
+        return [normalize(source) for source in (*encode, *decode, *execute, *assembly)]
+
+
+@dataclass(eq=False, kw_only=True)
+class Element:
+    """An HTML element; `children` holds its elements and text in document order."""
+
+    tag: str
+    attributes: dict[str, str | None]
+    children: list[Element | str] = field(default_factory=list["Element | str"])
+
+    @classmethod
+    def parse(cls, html: str) -> Element:
+        builder = TreeBuilder()
+        builder.feed(html)
+        builder.close()
+        return builder.document
+
+    @property
+    def text(self) -> str:
+        return "".join(child if isinstance(child, str) else child.text for child in self.children)
+
+    def elements(self) -> Iterator[Element]:
+        """This element and every element inside it, in document order."""
+
+        yield self
+        for child in self.children:
+            if isinstance(child, Element):
+                yield from child.elements()
+
+
+class TreeBuilder(HTMLParser):
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
-        self.current: str | None = None
-        self.in_pre = False
-        self.preformatted: list[str] = []
-        self.source: list[str] | None = None
-        self.listings: dict[str, list[str]] = {}
-        self.text: list[str] = []
-        self.table: list[list[str]] | None = None
-        self.row: list[str] | None = None
-        self.cell: list[str] | None = None
-        self.cell_span = 1
-        self.row_spans: list[int] | None = None
-        self.tables: list[list[list[str]]] = []
-        self.table_spans: list[list[list[int]]] = []
-        self.current_table_spans: list[list[int]] | None = None
-        self.table_cell_alignments: list[list[list[tuple[str | None, str | None]]]] = []
-        self.current_table_cell_alignments: list[list[tuple[str | None, str | None]]] | None = None
-        self.current_row_cell_alignments: list[tuple[str | None, str | None]] | None = None
-        self.table_header_alignments: list[list[str]] = []
-        self.current_table_header_alignments: list[str] | None = None
-        self.cell_alignment: str | None = None
-        self.cell_alignments: tuple[str | None, str | None] | None = None
-        self.stylesheets: list[str] = []
-        self.toc_instruction_links: set[str] = set()
-        self.toc_instruction_code_links: set[str] = set()
-        self.toc_depth: int | None = None
-        self.current_instruction_link: str | None = None
-        self.instruction_heading_levels: dict[str, int] = {}
-        self.instruction_heading_families: dict[str, str] = {}
-        self.family_heading: str | None = None
+        self.document = Element(tag="", attributes={})
+        self.open = [self.document]
 
+    @override
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        attributes = dict(attrs)
-        if tag == "div":
-            if attributes.get("id") == "toc":
-                self.toc_depth = 1
-            elif self.toc_depth is not None:
-                self.toc_depth += 1
-        if tag in {"h1", "h2", "h3", "h4", "h5", "h6"}:
-            identifier = attributes.get("id")
-            heading_level = int(tag[1])
-            if identifier and identifier.startswith("insn-"):
-                constructor = identifier.removeprefix("insn-")
-                self.instruction_heading_levels[constructor] = heading_level
-                if self.family_heading is not None:
-                    self.instruction_heading_families[constructor] = self.family_heading
-            elif heading_level == 3 and identifier:
-                self.family_heading = identifier
-            self.current = (
-                identifier.removeprefix("insn-")
-                if identifier and identifier.startswith("insn-")
-                else None
-            )
-        elif tag == "pre":
-            self.in_pre = True
-            self.preformatted.append("")
-        elif tag == "code" and self.in_pre and self.current is not None:
-            self.source = []
-        elif tag == "link" and attributes.get("rel") == "stylesheet":
-            href = attributes.get("href")
-            if href is not None:
-                self.stylesheets.append(href)
-        elif tag == "a":
-            href = attributes.get("href") or ""
-            if self.toc_depth is not None and href.startswith("#insn-"):
-                self.current_instruction_link = href.removeprefix("#insn-")
-                self.toc_instruction_links.add(self.current_instruction_link)
-        elif tag == "code" and self.current_instruction_link is not None:
-            self.toc_instruction_code_links.add(self.current_instruction_link)
-        elif tag == "table":
-            self.table = []
-            self.current_table_spans = []
-            self.current_table_cell_alignments = []
-            self.current_table_header_alignments = []
-        elif tag == "tr" and self.table is not None:
-            self.row = []
-            self.row_spans = []
-            self.current_row_cell_alignments = []
-        elif tag in {"th", "td"} and self.row is not None:
-            self.cell = []
-            colspan = attributes.get("colspan")
-            self.cell_span = int(colspan) if colspan is not None else 1
-            classes = (attributes.get("class") or "").split()
-            self.cell_alignment = next(
-                (name.removeprefix("halign-") for name in classes if name.startswith("halign-")),
-                None,
-            )
-            vertical_alignment = next(
-                (name.removeprefix("valign-") for name in classes if name.startswith("valign-")),
-                None,
-            )
-            self.cell_alignments = self.cell_alignment, vertical_alignment
+        element = Element(tag=tag, attributes=dict(attrs))
+        self.open[-1].children.append(element)
+        if tag not in VOID_ELEMENTS:
+            self.open.append(element)
 
-    def handle_data(self, data: str) -> None:
-        self.text.append(data)
-        if self.source is not None:
-            self.source.append(data)
-        if self.in_pre:
-            self.preformatted[-1] += data
-        if self.cell is not None:
-            self.cell.append(data)
-
+    @override
     def handle_endtag(self, tag: str) -> None:
-        if tag == "div" and self.toc_depth is not None:
-            self.toc_depth -= 1
-            if self.toc_depth == 0:
-                self.toc_depth = None
-        elif tag == "a":
-            self.current_instruction_link = None
-        elif tag == "code" and self.source is not None:
-            if self.current is not None:
-                self.listings.setdefault(self.current, []).append("".join(self.source))
-            self.source = None
-        elif tag == "pre":
-            self.in_pre = False
-        elif tag in {"th", "td"} and self.cell is not None and self.row is not None:
-            self.row.append("".join(self.cell))
-            if self.row_spans is not None:
-                self.row_spans.append(self.cell_span)
-            if self.current_row_cell_alignments is not None and self.cell_alignments is not None:
-                self.current_row_cell_alignments.append(self.cell_alignments)
-            if tag == "th" and self.current_table_header_alignments is not None:
-                self.current_table_header_alignments.append(self.cell_alignment or "")
-            self.cell_alignment = None
-            self.cell_alignments = None
-            self.cell = None
-        elif (
-            tag == "tr"
-            and self.table is not None
-            and self.row is not None
-            and self.row_spans is not None
-            and self.current_table_spans is not None
-            and self.current_table_cell_alignments is not None
-            and self.current_row_cell_alignments is not None
-        ):
-            self.table.append(self.row)
-            self.current_table_spans.append(self.row_spans)
-            self.current_table_cell_alignments.append(self.current_row_cell_alignments)
-            self.row = None
-            self.row_spans = None
-            self.current_row_cell_alignments = None
-        elif tag == "table" and self.table is not None and self.current_table_spans is not None:
-            self.tables.append(self.table)
-            self.table_spans.append(self.current_table_spans)
-            if self.current_table_cell_alignments is not None:
-                self.table_cell_alignments.append(self.current_table_cell_alignments)
-            if self.current_table_header_alignments is not None:
-                self.table_header_alignments.append(self.current_table_header_alignments)
-            self.table = None
-            self.current_table_spans = None
-            self.current_table_cell_alignments = None
-            self.current_table_header_alignments = None
+        # Close the innermost open element with this tag, and any left open inside it.
+        for depth in reversed(range(1, len(self.open))):
+            if self.open[depth].tag == tag:
+                del self.open[depth:]
+                return
+
+    @override
+    def handle_data(self, data: str) -> None:
+        self.open[-1].children.append(data)
 
 
-def normalize_document_text(text: str) -> str:
-    """Normalize whitespace and inline code/emphasis delimiters for HTML comparisons."""
+@dataclass(frozen=True)
+class Specification:
+    """The rendered specification, with its text normalized as `normalize` does."""
 
-    text = text.replace("\\n", " ").replace("\\t", " ")
-    return " ".join(text.replace("`", "").replace("*", "").split())
+    document: Element
+
+    @classmethod
+    def read(cls, path: Path) -> Self:
+        return cls(Element.parse(path.read_text()))
+
+    @property
+    def text(self) -> str:
+        return normalize(self.document.text)
+
+    def listings(self, anchor: str) -> list[str]:
+        """The code listings in the section whose heading has the id `anchor`."""
+
+        for element in self.document.elements():
+            headings = (child for child in element.children if isinstance(child, Element))
+            if any(heading.attributes.get("id") == anchor for heading in headings):
+                return [normalize(pre.text) for pre in element.elements() if pre.tag == "pre"]
+
+        return []
+
+    def table(self, header: str) -> list[list[str]]:
+        """The rows of cell texts of the table whose first header cell reads `header`."""
+
+        for table in self.document.elements():
+            rows = [
+                [normalize(cell.text) for cell in row.elements() if cell.tag in {"th", "td"}]
+                for row in table.elements()
+                if row.tag == "tr"
+            ]
+            if table.tag == "table" and rows and rows[0][0] == header:
+                return rows
+
+        raise LookupError(f"no table headed {header!r}")
 
 
-def read_instruction_sources(bundle_path: Path) -> dict[str, tuple[tuple[str, str, str, str], str]]:
-    """Read native function and mapping sources, plus every instruction comment."""
+def normalize(text: str) -> str:
+    """`text` with its whitespace runs collapsed to single spaces."""
 
-    bundle = msgspec.json.decode(bundle_path.read_bytes(), type=SourceBundle)
-
-    def function_sources(function: Function, *, decode: bool = False) -> dict[str, str]:
-        sources: dict[str, str] = {}
-        for clause in function.function:
-            if decode:
-                body = (clause.body or "").strip()
-                constructor, separator, _arguments = body.removeprefix("Some(").partition("(")
-                mnemonic = (
-                    constructor
-                    if body.startswith("Some(") and separator and constructor in expected_mnemonics
-                    else None
-                )
-            else:
-                pattern = clause.pattern
-                value = pattern.get("id") if pattern is not None else None
-                mnemonic = value if isinstance(value, str) else None
-            if mnemonic is not None:
-                if mnemonic in sources:
-                    raise AssertionError(f"duplicate {mnemonic} source clause")
-                sources[mnemonic] = clause.source
-        return sources
-
-    expected_mnemonics = tuple(
-        constructor
-        for clause in bundle.functions.encode.function
-        if (pattern := clause.pattern) is not None
-        if isinstance((constructor := pattern.get("id")), str)
-    )
-    if len(expected_mnemonics) != len(set(expected_mnemonics)):
-        raise AssertionError("encode clauses contain duplicate instruction constructors")
-
-    encode = function_sources(bundle.functions.encode)
-    decode = function_sources(bundle.functions.decode, decode=True)
-    execute = function_sources(bundle.functions.execute)
-    assembly: dict[str, str] = {}
-    for clause in bundle.mappings.assembly.mapping:
-        value = clause.left.get("id")
-        if isinstance(value, str):
-            if value in assembly:
-                raise AssertionError(f"duplicate {value} assembly mapping")
-            assembly[value] = clause.source
-
-    comments = {
-        value: clause.comment
-        for clause in bundle.functions.execute.function
-        if clause.comment and clause.pattern is not None
-        if isinstance((value := clause.pattern.get("id")), str)
-    }
-    sources: dict[str, tuple[tuple[str, str, str, str], str]] = {}
-    for mnemonic in expected_mnemonics:
-        selected = (encode, decode, execute, assembly)
-        if any(mnemonic not in mapping for mapping in selected):
-            raise AssertionError(f"{mnemonic} is missing a native source clause")
-        comment = comments.get(mnemonic)
-        if comment is None:
-            raise AssertionError(f"{mnemonic} has no native instruction comment")
-        sources[mnemonic] = (
-            (encode[mnemonic], decode[mnemonic], execute[mnemonic], assembly[mnemonic]),
-            comment,
-        )
-
-    if set(sources) != set(expected_mnemonics):
-        raise AssertionError("instruction source sets differ")
-    return sources
+    return " ".join(text.split())

@@ -40,15 +40,11 @@ specification: bundle
 metadata: (build-dir "doc")
     sail -plugin "$TARA_DOC_PLUGIN" --doc-tables --doc-tables-decode decode --doc-tables-encode encode --doc-tables-assembly assembly -o "{{ out }}/tables.json" model/syntax.sail
 
-# Render the opcode and format summary tables from normalized metadata.
+# Generate the format and opcode tables and the instruction sections from the metadata.
 [private]
-tables: metadata
-    PYTHONPATH="{{ justfile_directory() }}/tools" "$TARA_PYTHON" -m tara.doc_tables --metadata "{{ out }}/tables.json" --out "{{ out }}"
-
-# Generate the instruction groups and listing selectors from typed Sail metadata.
-[private]
-sections: bundle metadata
-    PYTHONPATH="{{ justfile_directory() }}/tools" "$TARA_PYTHON" -m tara.doc_sections --bundle "{{ out }}/tara.json" --metadata "{{ out }}/tables.json" --out "{{ out }}/instructions.adoc"
+sections: metadata
+    PYTHONPATH="{{ justfile_directory() }}/tools" "$TARA_PYTHON" -m tara.doc \
+        "{{ out }}/tables.json" "{{ out }}"
 
 # Prepare a writable font directory for repeated documentation builds.
 [private]
@@ -62,12 +58,12 @@ fonts: font-directory
 
 # Render the single AsciiDoc source to PDF; a warning is an error.
 [default]
-build: specification tables sections fonts
+build: specification sections fonts
     asciidoctor-pdf -r asciidoctor-sail -r "{{ out }}/sections.rb" --failure-level WARN -a pdf-theme="{{ out }}/tara-theme.yml" -a pdf-fontsdir="{{ out }}/fonts" -o "{{ out }}/tara.pdf" "{{ out }}/tara.adoc"
 
 # Render the same source to HTML; a warning is an error.
 [private]
-render-html: specification tables sections fonts
+render-html: specification sections fonts
     asciidoctor -r asciidoctor-sail -r "{{ out }}/sections.rb" --failure-level WARN -a stylesheet=tara.css -o "{{ out }}/tara.html" "{{ out }}/tara.adoc"
 
 # Format the generated HTML for a stable, readable offline document.
