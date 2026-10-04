@@ -11,7 +11,7 @@ A Sail model of TARA, the 16-bit teaching CPU of IIT Madras CS2300, and the tool
 | `model/step.sail` | Drivers: `step`, `run_instruction`, `reset` |
 | `model/syntax.sail` | Assembly syntax, for disassembly |
 | `emulator/host.sail` | Host interface shared by the emulators |
-| `emulator/c/`, `emulator/ocaml/` | The C and OCaml emulators |
+| `emulator/c/`, `emulator/ocaml/` | The C and OCaml emulators: sources in `src/`, build and lint configuration beside it |
 | `rocq/` | Runs the generated Rocq model; proves `decode (encode i) = Some i` |
 | `lean/` | Lean smoke test: the hardware manual's Fibonacci program on the generated Lean model |
 | `doc/` | The specification, typeset from the model's own definitions (`just doc`: build/doc/tara.pdf) |

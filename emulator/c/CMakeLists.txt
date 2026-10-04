@@ -38,22 +38,22 @@ target_link_libraries(model PUBLIC ${GMP} ZLIB::ZLIB)
 
 add_executable(
   tara-c
-  batch.c
-  clock.c
-  disasm.c
-  display.c
-  image.c
-  input.c
-  interactive.c
-  keys.c
-  keyscript.c
-  machine.c
-  main.c
-  number.c
-  options.c
-  report.c
-  run.c
-  terminal.c)
+  src/batch.c
+  src/clock.c
+  src/disasm.c
+  src/display.c
+  src/image.c
+  src/input.c
+  src/interactive.c
+  src/keys.c
+  src/keyscript.c
+  src/machine.c
+  src/main.c
+  src/number.c
+  src/options.c
+  src/report.c
+  src/run.c
+  src/terminal.c)
 target_compile_definitions(tara-c PRIVATE _POSIX_C_SOURCE=200809L)
 target_compile_options(
   tara-c

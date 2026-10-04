@@ -19,17 +19,17 @@ run program *options: build (assemble program)
 
 # Format the C sources in place.
 format:
-    clang-format -i emulator/c/*.c emulator/c/*.h
+    clang-format -i emulator/c/src/*.c emulator/c/src/*.h
 
 # Check that the C sources are formatted.
 [private]
 format-check:
-    clang-format --dry-run --Werror emulator/c/*.c emulator/c/*.h
+    clang-format --dry-run --Werror emulator/c/src/*.c emulator/c/src/*.h
 
 # Check the C sources with clang-tidy (emulator/c/.clang-tidy), with the build's compile commands.
 [private]
 tidy: build
-    clang-tidy --quiet -p "{{ build }}/c" emulator/c/*.c
+    clang-tidy --quiet -p "{{ build }}/c" emulator/c/src/*.c
 
 # Check the formatting of the C sources, and clang-tidy's checks.
 lint: format-check tidy
