@@ -84,32 +84,33 @@ static bool read_contents(const char *path, struct contents *contents) {
   }
 
   struct contents read = {.data = NULL, .size = 0};
-  int error = 0;
-  for (size_t count = READ_CHUNK; count == READ_CHUNK && read.size <= MAX_FILE_BYTES;) {
+  for (size_t count = READ_CHUNK; count == READ_CHUNK;) {
+    if (read.size > MAX_FILE_BYTES) {
+      report_error("%s: larger than %zu bytes, too large for an image", path, MAX_FILE_BYTES);
+      goto fail;
+    }
     char *grown = realloc(read.data, read.size + READ_CHUNK);
     if (!grown) {
-      error = errno;
-      break;
+      report_system_error(errno, "%s", path);
+      goto fail;
     }
     read.data = grown;
     count = fread(read.data + read.size, 1, READ_CHUNK, file);
     read.size += count;
   }
-  if (!error && ferror(file)) {
-    error = errno;
+  if (ferror(file)) {
+    report_system_error(errno, "%s", path);
+    goto fail;
   }
-  fclose(file);
 
-  if (!error && read.size > MAX_FILE_BYTES) {
-    free(read.data);
-    return report_error("%s: larger than %zu bytes, too large for an image", path, MAX_FILE_BYTES);
-  }
-  if (error) {
-    free(read.data);
-    return report_system_error(error, "%s", path);
-  }
+  fclose(file);
   *contents = read;
   return true;
+
+fail:
+  free(read.data);
+  fclose(file);
+  return false;
 }
 
 static bool load_bin(struct loader *loader, const struct contents *contents) {
