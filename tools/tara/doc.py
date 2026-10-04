@@ -134,9 +134,10 @@ class InstructionSet(msgspec.Struct, frozen=True, kw_only=True):
         return msgspec.json.decode(path.read_bytes(), type=cls)
 
     def formats(self) -> list[Format]:
-        """The formats, named F1, F2 and so on in the order of their fields' names and widths."""
+        """The formats, named F1, F2 and so on in the order of their first opcodes. A format added
+        for an opcode above the assigned ones takes the next number, leaving the others alone."""
 
-        layouts = sorted({instruction.fields for instruction in self.instructions})
+        layouts = dict.fromkeys(instruction.fields for instruction in self.instructions)
         return [
             Format(
                 name=f"F{number}",
