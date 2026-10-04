@@ -89,7 +89,21 @@ Agent branches are local git worktrees under `.claude/worktrees/`; each agent wa
    - ban printf and friends: an `Import` module (`include Core`, shadow `printf`/`sprintf`/`eprintf`/`ksprintf`/`failwithf`/`Printf`/`Format` with `[@@deprecated]`), `open! Import` everywhere, `-alert ++deprecated` in dune; a `Hex` module for 4-digit hex;
    - move `line_of_letter`/`line_of_arrow` into `Keys.Line.of_key`/`of_arrow`; annotate record construction as `({ ... } : Module.t)`; prefer pipelines;
    - apply the same rules to `lem/smoke.ml`.
-2. **Rocq properties** (`worktree-agent-a95442f43f0e29961`), replacing the smoke tests: progress (totality and determinism of `step`), preservation of `wf s := PC < 0x800`, halting is absorbing, `decode w = None` exactly for opcodes 27–31 and the illegal step's effect, frame conditions (stretch). Keep `Codec.v`. Check `Print Assumptions`.
+2. **Rocq properties: done, not merged** (`worktree-agent-a95442f43f0e29961`, commit `27c24e5`).
+   - Proved, with no `Admitted` and no axioms (21 `Print Assumptions` all closed):
+     - `Progress.v`: `step_progress`, `step_one_outcome`, `run_instruction_progress`, `reset_progress`, `fetch_progress`;
+     - `Invariant.v`: `step_preserves_wf`, `run_instruction_preserves_wf`, `step_masks_pc`, `reset_establishes_wf`, `power_on_wf`;
+     - `Halted.v`: `halted_step`, `halted_run_instruction`;
+     - `Illegal.v`: `decode_none_iff`, `step_illegal`, `illegal_only`;
+     - `Frame.v`: `only_stores_change_memory`, `only_hlt_changes_halted`, `hlt_halts`, `non_branches_advance_pc`, `step_runs_instruction`;
+     - `Codec.v`: `instruction_roundtrip`, unchanged.
+   - `Machine.v` replaces `Run.v`, and the smoke tests (`Smoke.v`) are gone.
+   - `exec` now evaluates the register-only fragment, because `default_choice` pulled in the Stdlib reals axiom. `exec_sound` ties it to `liftState` for every choice source.
+   - `just rocq` takes 45–57 s, `Codec.v` 25–32 s of it.
+   - After merging:
+     - update the README's `rocq/` row ("Proofs about the generated Rocq model: progress, the PC invariant, halting, illegal opcodes, frame conditions and the codec round trip");
+     - optionally speed up `Codec.v` with an `op_concat` lemma, as the agent suggests;
+     - optionally add a Rocq line-width check to the root `lint`.
 3. **Lean properties: done, not merged** (`worktree-agent-a92a25b034e0f16f9`, commit `01c261e`).
    - Proved, with no `sorry`; a build-time `#standard_axioms` check rejects one:
      - progress: `step_progress`;
