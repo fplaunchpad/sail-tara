@@ -5,19 +5,20 @@
  */
 $include "tara.sail"
 
-function reg_name(r : regidx) -> string = concat_str("R", dec_str(unsigned(r)))
+overload operator ^ = {concat_str}
 
-function operands1(mnemonic : string, a : string) -> string =
-  concat_str(mnemonic, concat_str(" ", a))
+function reg(r : regidx) -> string = "R" ^ dec_str(unsigned(r))
 
-function operands2(mnemonic : string, a : string, b : string) -> string =
-  operands1(mnemonic, concat_str(a, concat_str(", ", b)))
+function mem(off : bits(5), base : regidx) -> string =
+  dec_str(signed(off)) ^ "(" ^ reg(base) ^ ")"
 
-function operands3(mnemonic : string, a : string, b : string, c : string) -> string =
-  operands2(mnemonic, a, concat_str(b, concat_str(", ", c)))
+function op1(mnemonic : string, a : string) -> string = mnemonic ^ " " ^ a
 
-function memory_operand(off : bits(5), base : regidx) -> string =
-  concat_str(dec_str(signed(off)), concat_str("(", concat_str(reg_name(base), ")")))
+function op2(mnemonic : string, a : string, b : string) -> string =
+  op1(mnemonic, a ^ ", " ^ b)
+
+function op3(mnemonic : string, a : string, b : string, c : string) -> string =
+  op2(mnemonic, a, b ^ ", " ^ c)
 
 val assembly : instruction -> string
 
@@ -25,28 +26,28 @@ function assembly(insn) = match insn {
   NOP() => "NOP",
   HLT() => "HLT",
   RET() => "RET",
-  MOV(rd, rs) => operands2("MOV", reg_name(rd), reg_name(rs)),
-  NOT(rd, rs) => operands2("NOT", reg_name(rd), reg_name(rs)),
-  LIL(rd, imm) => operands2("LIL", reg_name(rd), dec_str(unsigned(imm))),
-  LIH(rd, imm) => operands2("LIH", reg_name(rd), dec_str(unsigned(imm))),
-  ADDI(rd, imm) => operands2("ADDI", reg_name(rd), dec_str(signed(imm))),
-  SHL(rd, shamt) => operands2("SHL", reg_name(rd), dec_str(unsigned(shamt))),
-  SHR(rd, shamt) => operands2("SHR", reg_name(rd), dec_str(unsigned(shamt))),
-  LDW(rd, base, off) => operands2("LDW", reg_name(rd), memory_operand(off, base)),
-  STW(rs, base, off) => operands2("STW", reg_name(rs), memory_operand(off, base)),
-  LDB(rd, base, off) => operands2("LDB", reg_name(rd), memory_operand(off, base)),
-  STB(rs, base, off) => operands2("STB", reg_name(rs), memory_operand(off, base)),
-  ADD(rd, rs1, rs2) => operands3("ADD", reg_name(rd), reg_name(rs1), reg_name(rs2)),
-  SUB(rd, rs1, rs2) => operands3("SUB", reg_name(rd), reg_name(rs1), reg_name(rs2)),
-  MUL(rd, rs1, rs2) => operands3("MUL", reg_name(rd), reg_name(rs1), reg_name(rs2)),
-  AND(rd, rs1, rs2) => operands3("AND", reg_name(rd), reg_name(rs1), reg_name(rs2)),
-  OR(rd, rs1, rs2) => operands3("OR", reg_name(rd), reg_name(rs1), reg_name(rs2)),
-  XOR(rd, rs1, rs2) => operands3("XOR", reg_name(rd), reg_name(rs1), reg_name(rs2)),
-  SLT(rd, rs1, rs2) => operands3("SLT", reg_name(rd), reg_name(rs1), reg_name(rs2)),
-  BZ(rs, off) => operands2("BZ", reg_name(rs), dec_str(signed(off))),
-  BN(rs, off) => operands2("BN", reg_name(rs), dec_str(signed(off))),
-  JMP(off) => operands1("JMP", dec_str(signed(off))),
-  CALL(off) => operands1("CALL", dec_str(signed(off))),
-  PUSH(rs) => operands1("PUSH", reg_name(rs)),
-  POP(rd) => operands1("POP", reg_name(rd))
+  MOV(rd, rs) => op2("MOV", reg(rd), reg(rs)),
+  NOT(rd, rs) => op2("NOT", reg(rd), reg(rs)),
+  LIL(rd, imm) => op2("LIL", reg(rd), dec_str(unsigned(imm))),
+  LIH(rd, imm) => op2("LIH", reg(rd), dec_str(unsigned(imm))),
+  ADDI(rd, imm) => op2("ADDI", reg(rd), dec_str(signed(imm))),
+  SHL(rd, shamt) => op2("SHL", reg(rd), dec_str(unsigned(shamt))),
+  SHR(rd, shamt) => op2("SHR", reg(rd), dec_str(unsigned(shamt))),
+  LDW(rd, base, off) => op2("LDW", reg(rd), mem(off, base)),
+  STW(rs, base, off) => op2("STW", reg(rs), mem(off, base)),
+  LDB(rd, base, off) => op2("LDB", reg(rd), mem(off, base)),
+  STB(rs, base, off) => op2("STB", reg(rs), mem(off, base)),
+  ADD(rd, rs1, rs2) => op3("ADD", reg(rd), reg(rs1), reg(rs2)),
+  SUB(rd, rs1, rs2) => op3("SUB", reg(rd), reg(rs1), reg(rs2)),
+  MUL(rd, rs1, rs2) => op3("MUL", reg(rd), reg(rs1), reg(rs2)),
+  AND(rd, rs1, rs2) => op3("AND", reg(rd), reg(rs1), reg(rs2)),
+  OR(rd, rs1, rs2) => op3("OR", reg(rd), reg(rs1), reg(rs2)),
+  XOR(rd, rs1, rs2) => op3("XOR", reg(rd), reg(rs1), reg(rs2)),
+  SLT(rd, rs1, rs2) => op3("SLT", reg(rd), reg(rs1), reg(rs2)),
+  BZ(rs, off) => op2("BZ", reg(rs), dec_str(signed(off))),
+  BN(rs, off) => op2("BN", reg(rs), dec_str(signed(off))),
+  JMP(off) => op1("JMP", dec_str(signed(off))),
+  CALL(off) => op1("CALL", dec_str(signed(off))),
+  PUSH(rs) => op1("PUSH", reg(rs)),
+  POP(rd) => op1("POP", reg(rd))
 }

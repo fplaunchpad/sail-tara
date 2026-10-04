@@ -38,7 +38,7 @@ overload X = {rX, wX}
 let lr : regidx = 0b110
 let sp : regidx = 0b111
 
-/* "PC 16-bit · +2 per fetch · masked to 0x7FF": every PC write keeps 11 bits. */
+/* "PC 16-bit, +2 per fetch, masked to 0x7FF": every PC write keeps 11 bits. */
 function pc_mask(value : word) -> word = 0b00000 @ value[10..0]
 
 /* Byte bus: the low 11 address bits select a byte of the 2 KB memory.
@@ -55,7 +55,7 @@ function write_byte(addr : word, value : byte) -> unit = {
   MEM[unsigned(addr[10..0])] = value
 }
 
-/* Word bus: "word index = addr » 1 · lane = addr[0]", big-endian bytes.
+/* Word bus: "word index = addr >> 1, lane = addr[0]", big-endian bytes.
  * A word access ignores address bit 0, and is two byte accesses in effect. */
 function read_word(addr : word) -> word =
   read_byte(addr[15..1] @ 0b0) @ read_byte(addr[15..1] @ 0b1)
@@ -66,7 +66,7 @@ function write_word(addr : word, value : word) -> unit = {
 }
 
 /* The 64x64 framebuffer at 0x600-0x7FF, one bit per pixel, row 0 at the
- * bottom: "Pixel (x, y): byte = 0x0600 + y×8 + x÷8, bit = 7 − (x mod 8)". */
+ * bottom: "Pixel (x, y): byte = 0x0600 + y*8 + x/8, bit = 7 - (x mod 8)". */
 val pixel : (range(0, 63), range(0, 63)) -> bool
 
 function pixel(x, y) = {

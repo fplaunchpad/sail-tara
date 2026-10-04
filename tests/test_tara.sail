@@ -135,7 +135,7 @@ function test_wrapping() = {
   assert(alias.mem[2] == 0xAB, "address bits above bit 10 are ignored")
 }
 
-/* "PC 16-bit · +2 per fetch · masked to 0x7FF"; CALL links that masked PC. */
+/* "PC 16-bit, +2 per fetch, masked to 0x7FF"; CALL links that masked PC. */
 val test_pc_rules : unit -> unit
 function test_pc_rules() = {
   let s = zero_state();
