@@ -15,7 +15,8 @@ and the [hardware manual](https://www.cse.iitm.ac.in/~ayon/courses/CS2300/tarama
 | `model/syntax.sail` | Assembly syntax, for disassembly |
 | `emulator/host.sail` | Host interface shared by the emulators |
 | `emulator/c/`, `emulator/ocaml/` | The C and OCaml emulators |
-| `rocq/`, `lean/`, `doc/` | Rocq smoke test, Lean project file, LaTeX document |
+| `rocq/` | Runs the generated Rocq model; proves `decode (encode i) = Some i` |
+| `lean/`, `doc/` | Lean project file, LaTeX document |
 | `tests/` | pytest suite: the emulators against the reference model |
 | `tests/programs/` | Test programs, in assembly |
 | `tools/tara/` | `tara-asm`, and the reference model: TARA Studio's CPU with the RTL corrections below |

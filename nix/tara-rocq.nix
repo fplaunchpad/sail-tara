@@ -1,4 +1,4 @@
-# The model's Rocq definitions, compiled with the smoke test.
+# The model's Rocq definitions, compiled with the smoke test and the codec proof.
 {
   justDerivation,
   sail,
@@ -20,6 +20,6 @@ justDerivation {
   recipes = [ "rocq::build" ];
   installPhase = ''
     mkdir -p "$out/share/tara/rocq"
-    cp build/rocq/*.v build/rocq/*.vo "$out/share/tara/rocq/"
+    cp build/rocq/*.v build/rocq/*.vo rocq/*.v "$out/share/tara/rocq/"
   '';
 }

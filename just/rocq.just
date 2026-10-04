@@ -1,4 +1,4 @@
-# Rocq definitions generated from the model's core (no strings).
+# Rocq definitions generated from the model's core (no strings), with a smoke test and a proof.
 import "settings.just"
 
 set working-directory := ".."
@@ -18,7 +18,17 @@ types: generate
 definitions: types
     rocq compile -R "{{ build }}/rocq" Tara "{{ build }}/rocq/Tara.v"
 
-# Compile the smoke test against the generated definitions.
+# Compile rocq/NAME.v against the generated definitions and the other sources, as Tara.NAME.
+[private]
+compile name: definitions
+    rocq compile -R "{{ build }}/rocq" Tara -R rocq Tara -o "{{ build }}/rocq/$1.vo" "rocq/$1.v"
+
+# Run the generated model on the hardware manual's Fibonacci program and a few instructions.
+smoke: (compile "Run") (compile "Smoke")
+
+# Prove that decoding an encoded instruction gives the instruction back.
+codec: (compile "Codec")
+
+# Compile the generated definitions, then the smoke test and the codec proof.
 [default]
-build: definitions
-    rocq compile -R "{{ build }}/rocq" Tara -o "{{ build }}/rocq/Smoke.vo" rocq/Smoke.v
+build: smoke codec
