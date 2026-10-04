@@ -32,8 +32,7 @@ let status t : Status.t option =
 ;;
 
 let step t ~keys =
-  let keys = Keys.to_int keys in
-  let step = Machine.step ~keys in
+  let step = Machine.step ~keys:(Keys.to_int keys) in
   match step with
   | Retired -> { t with retired = t.retired + 1; last = Some step }
   | Stopped | Illegal -> { t with last = Some step }

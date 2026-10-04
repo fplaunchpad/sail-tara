@@ -10,13 +10,14 @@ type t =
   ; pixels : Machine.Pixel.t array array (* By row (y) and column (x). *)
   }
 
-let read_bytes ~y =
-  Array.init bytes_per_row ~f:(fun byte ->
-    Machine.peek ~address:(base + (y * bytes_per_row) + byte))
+let read_bytes () =
+  Array.init size ~f:(fun y ->
+    Array.init bytes_per_row ~f:(fun byte ->
+      Machine.peek ~address:(base + (y * bytes_per_row) + byte)))
 ;;
 
 let read () =
-  let bytes = Array.init size ~f:(fun y -> read_bytes ~y) in
+  let bytes = read_bytes () in
   let pixels = Array.init size ~f:(fun y -> Array.init size ~f:(fun x -> Machine.pixel ~x ~y)) in
   ({ bytes; pixels } : t)
 ;;
@@ -33,7 +34,7 @@ let refresh_row (before : t) ~y ~bytes =
 ;;
 
 let refresh before =
-  let bytes = Array.init size ~f:(fun y -> read_bytes ~y) in
+  let bytes = read_bytes () in
   let pixels = Array.init size ~f:(fun y -> refresh_row before ~y ~bytes:bytes.(y)) in
   ({ bytes; pixels } : t)
 ;;

@@ -118,7 +118,10 @@ let draw t ~status ~(rewrite : Status_rewrite.t) =
    | Some _ -> ());
   let pen =
     Array.foldi cells ~init:Pen.blank ~f:(fun row pen cells_in_row ->
-      let shown = Option.map t.shown ~f:(fun (shown : Shown.t) -> shown.cells.(row)) in
+      let shown =
+        let%map.Option ({ cells; _ } : Shown.t) = t.shown in
+        cells.(row)
+      in
       paint_row out ~row pen ~shown cells_in_row)
   in
   (match pen.colours with

@@ -8,13 +8,11 @@ module Line = struct
       | Left
       | Right
       | Quit
-    [@@deriving enumerate, compare, sexp_of, string ~capitalize:"snake_case"]
+    [@@deriving enumerate, compare, sexp_of, string ~capitalize:"snake_case", variants]
   end
 
   include T
   include Comparable.Make_plain (T)
-
-  let index line = List.findi_exn all ~f:(fun _ other -> equal line other) |> fst
 
   let letter line =
     let name = to_string line in
@@ -48,15 +46,15 @@ end
 type t = int [@@deriving equal]
 
 let none = 0
-let bit line = 1 lsl Line.index line
+let bit line = 1 lsl Line.Variants.to_rank line
 let of_lines lines = List.fold lines ~init:none ~f:(fun keys line -> keys lor bit line)
 let state keys line = if keys land bit line <> 0 then State.Held else Released
 let to_int keys = keys
-let all = of_lines Line.all
+let every_line = of_lines Line.all
 
 let of_string text =
   let%bind.Or_error keys = Number.decimal_or_hex text in
-  if keys <= all
+  if keys <= every_line
   then Ok keys
-  else Or_error.error_s [%message [%string "expected input lines 0 to %{all#Int}"] text]
+  else Or_error.error_s [%message [%string "expected input lines 0 to %{every_line#Int}"] text]
 ;;

@@ -94,9 +94,7 @@ let draw t ~keys ~executed =
     | Some _ -> When_changed
   in
   let changes, display = Display.draw display ~status ~rewrite in
-  (match changes with
-   | "" -> ()
-   | changes -> Terminal.write changes);
+  Terminal.write changes;
   let finish = Clock.now () in
   { t with display; draw_time = Time_ns.diff finish start }
 ;;

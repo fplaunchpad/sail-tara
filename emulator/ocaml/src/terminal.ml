@@ -103,13 +103,10 @@ let raw (settings : Terminal_io.t) =
 (* Undo what [with_screen] did. Each step is tried, whatever the ones before it did: the
    terminal may be gone. *)
 let restore settings =
-  let steps =
-    [ (fun () ->
-        write [%string "%{Ansi.reset_colours}%{Ansi.show_cursor}%{Ansi.leave_alternate_screen}"])
-    ; (fun () -> Terminal_io.tcsetattr settings Core_unix.stdin ~mode:TCSAFLUSH)
-    ]
-  in
-  List.iter steps ~f:(fun step -> Or_error.try_with step |> (ignore : unit Or_error.t -> unit))
+  let attempt step = Or_error.try_with step |> (ignore : unit Or_error.t -> unit) in
+  attempt (fun () ->
+    write [%string "%{Ansi.reset_colours}%{Ansi.show_cursor}%{Ansi.leave_alternate_screen}"]);
+  attempt (fun () -> Terminal_io.tcsetattr settings Core_unix.stdin ~mode:TCSAFLUSH)
 ;;
 
 let run_on_screen settings f =
