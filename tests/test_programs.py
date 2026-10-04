@@ -1,5 +1,5 @@
-"""Every program runs on the emulators exactly as on the reference model: the test programs,
-TARA Studio's examples, and random programs that always halt."""
+"""Every program runs on the emulators exactly as on the reference model: the test programs, the
+examples, TARA Studio's examples, and random programs that always halt."""
 
 from collections.abc import Callable
 from pathlib import Path
@@ -7,18 +7,26 @@ from pathlib import Path
 import pytest
 from hypothesis import given
 
-from helpers.programs import KEY_PERIOD, PROGRAMS, STEP_LIMIT, STUDIO_EXAMPLES, program_id
+from helpers.programs import (
+    EXAMPLES,
+    EXAMPLES_DIRECTORY,
+    KEY_PERIOD,
+    PROGRAMS,
+    STEP_LIMIT,
+    STUDIO_EXAMPLES,
+    program_id,
+)
 from tara.asm import assemble_file
 from tara.assembly import Program
 from tara.emulator import Emulator, RunOptions
 from tara.image import Image
-from tara.keys import KeySchedule
+from tara.keys import Keys, KeySchedule
 from tara.reference import Reference
 from tara.strategies import programs
 from tara.transcript import Status
 
 
-@pytest.mark.parametrize("source", [*PROGRAMS, *STUDIO_EXAMPLES], ids=program_id)
+@pytest.mark.parametrize("source", [*PROGRAMS, *EXAMPLES, *STUDIO_EXAMPLES], ids=program_id)
 def test_runs_like_the_reference(
     emulator: Emulator,
     disassembly: tuple[str, ...],
@@ -46,3 +54,14 @@ def test_random_program_runs_like_the_reference(
     expected = Reference(image.read()).run(options, disassembly=disassembly)
     assert expected.status is Status.HALTED, "random programs always halt"
     assert emulator.run(image.path, options).transcript == expected
+
+
+def test_snake_runs_into_the_wall(emulator: Emulator, assemble: Callable[[Path], Path]) -> None:
+    """Holding RIGHT starts the game and steers the snake, grown to 4, into the wall at x = 63."""
+
+    options = RunOptions(keys=KeySchedule(initial=Keys.RIGHT), framebuffer=True)
+
+    transcript = emulator.run(assemble(EXAMPLES_DIRECTORY / "snake.tara"), options).transcript
+
+    assert transcript.status is Status.HALTED
+    assert {(x, 32) for x in range(60, 64)} <= transcript.pixels

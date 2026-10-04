@@ -17,6 +17,7 @@ A Sail model of TARA, the 16-bit teaching CPU of IIT Madras CS2300, and the tool
 | `doc/` | The specification's chapter layout and styles; its prose, listings and tables come from the model |
 | `tests/` | pytest suite: the emulators against the reference model |
 | `tests/programs/` | Test programs, in assembly |
+| `examples/` | Programs to play: `snake.tara` |
 | `tools/tara/` | `tara-asm` and the reference model with the RTL corrections below |
 | `tools/sail-doc/` | Sail plugin deriving opcode fields and assembly templates for the documentation tables |
 | `nix/`, `just/` | Flake packages and just recipes |
@@ -26,15 +27,16 @@ A Sail model of TARA, the 16-bit teaching CPU of IIT Madras CS2300, and the tool
 Run everything inside `nix develop` (or direnv). `just` lists the modules and recipes, `just --list MODULE` the recipes of one module. Outputs go to `build/`.
 
 ```sh
-just test                  # test both emulators; pytest options pass through, e.g. -k tara-c
-just c                     # build build/c/tara-c; likewise ocaml, rocq, lean and doc
-just doc                   # the specification, build/doc/tara.pdf; just doc html for tara.html
-just c run prog.tara -t    # assemble a program and run it; likewise ocaml
-just c play prog.tara      # assemble a program and play it in the terminal
-tara-asm prog.tara         # assemble to prog.bin; -o prog.hex for hex words
-just format                # format every language
-just lint                  # check the formatting, Python lint and types
-just ci                    # nix flake check, preserving the lock file
+just test                        # test both emulators; pytest options pass through, e.g. -k tara-c
+just c                           # build build/c/tara-c; likewise ocaml, rocq, lean and doc
+just doc                         # the specification, build/doc/tara.pdf; just doc html for tara.html
+just c run prog.tara -t          # assemble a program and run it; likewise ocaml
+just c play prog.tara            # assemble a program and play it in the terminal
+just c play examples/snake.tara  # snake: arrow keys or WASD to steer, Q to stop
+tara-asm prog.tara               # assemble to prog.bin; -o prog.hex for hex words
+just format                      # format every language
+just lint                        # check the formatting, Python lint and types
+just ci                          # nix flake check, preserving the lock file
 ```
 
 ### The emulators

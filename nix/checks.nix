@@ -33,6 +33,7 @@ let
       ../tools
       ../typings
       ../tests
+      ../examples
       ../model
       ../doc
       ../justfile

@@ -1,0 +1,332 @@
+; Snake. Steer with the arrow keys or WASD; Q ends the game, as does running into a wall or into
+; the snake. Press a key to start: the time you take seeds the food's placement.
+;
+; The screen is the playing field, with a wall round its edge. A lit pixel is a wall, the snake or
+; the food, so the framebuffer is also the collision map. Row 0 is the bottom of the screen, so UP
+; adds 1 to y.
+;
+; Memory:
+;   0x400-0x41F  variables, addressed from R5 = 0x410
+;   0x420-0x427  pixel masks: 0x80 >> (x & 7)
+;   0x480-0x57F  the snake, a ring of 128 (x, y) byte pairs from the tail to the head
+;   0x5F0        top of the stack
+;
+; Variables, as offsets from R5:
+;   -16 head      offset of the head in the ring      -14 tail     offset of the tail
+;   -12 dx        direction to move next               -10 dy
+;    -8 moved dx  direction of the last move            -6 moved dy
+;    -4 food x                                          -2 food y
+;     0 random    xorshift state                         2 grow     moves left to grow
+;     4 eating    whether this move eats the food
+;
+; Registers: R0 and R1 hold a position (x, y); pixel_address keeps them and gives the pixel's
+; byte address in R2 and its mask in R3, using R4. R5 points at the variables, R6 is the link
+; register and R7 the stack pointer.
+
+    LIL  R5, 0x10
+    LIH  R5, 0x04           ; R5 = 0x410
+    LIL  R7, 0xF0
+    LIH  R7, 0x05           ; R7 = 0x5F0
+
+; The pixel masks.
+    LIL  R0, 0x80
+    LIL  R1, 0x20
+    LIH  R1, 0x04           ; R1 = 0x420
+    LIL  R2, 8
+masks:
+    STB  R0, 0(R1)
+    SHR  R0, 1
+    ADDI R1, 1
+    ADDI R2, -1
+    BZ   R2, masks_done
+    JMP  masks
+masks_done:
+
+; The wall: rows 0 and 63, then the first and last pixel of the rows between.
+    LIL  R0, 0xFF
+    LIL  R1, 0x00
+    LIH  R1, 0x06           ; R1 = 0x600, row 0
+    LIL  R3, 0xF8
+    LIH  R3, 0x07           ; R3 = 0x7F8, row 63
+    LIL  R2, 8
+wall_rows:
+    STB  R0, 0(R1)
+    STB  R0, 0(R3)
+    ADDI R1, 1
+    ADDI R3, 1
+    ADDI R2, -1
+    BZ   R2, wall_sides
+    JMP  wall_rows
+wall_sides:
+    LIL  R0, 0x80
+    LIL  R3, 0x01
+    LIL  R1, 0x08
+    LIH  R1, 0x06           ; R1 = 0x608, row 1
+    LIL  R2, 62
+wall_side:
+    STB  R0, 0(R1)
+    STB  R3, 7(R1)
+    ADDI R1, 8
+    ADDI R2, -1
+    BZ   R2, snake
+    JMP  wall_side
+
+; The snake starts as its head at (10, 32), moving right, and grows by 3 as it moves.
+snake:
+    LIL  R2, 0x80
+    LIH  R2, 0x04           ; R2 = 0x480, the ring
+    LIL  R0, 10
+    LIL  R1, 32
+    STB  R0, 0(R2)
+    STB  R1, 1(R2)
+    LIL  R2, 1
+    STW  R2, -12(R5)        ; dx = 1
+    STW  R2, -8(R5)         ; moved dx = 1
+    LIL  R2, 3
+    STW  R2, 2(R5)          ; grow = 3
+    CALL pixel_address
+    LDB  R4, 0(R2)
+    OR   R4, R4, R3
+    STB  R4, 0(R2)
+
+; Wait for a key, counting: the count seeds the random numbers.
+    LIL  R0, 0xE1
+    LIH  R0, 0xAC
+    LIL  R1, 0xFF
+    LIH  R1, 0x05           ; R1 = 0x5FF, the input port
+wait:
+    ADDI R0, 1
+    LDB  R2, 0(R1)
+    BZ   R2, wait
+    BZ   R0, wait           ; xorshift needs a state other than 0
+    STW  R0, 0(R5)
+    CALL place_food
+
+; A move per pass.
+move:
+    LIL  R0, 60
+delay:
+    ADDI R0, -1
+    BZ   R0, steer
+    JMP  delay
+
+; Steer, ignoring a key that would reverse the last move.
+steer:
+    CALL random             ; stirred every move, so the food depends on the player's timing
+    LIL  R1, 0xFF
+    LIH  R1, 0x05
+    LDB  R0, 0(R1)          ; the input lines
+    LIL  R1, 16
+    AND  R1, R0, R1
+    BZ   R1, up
+    JMP  game_over          ; QUIT
+up:
+    LIL  R1, 1
+    AND  R1, R0, R1
+    BZ   R1, down
+    LDW  R2, -6(R5)
+    ADDI R2, 1
+    BZ   R2, down           ; moving down
+    LIL  R2, 0
+    STW  R2, -12(R5)
+    LIL  R2, 1
+    STW  R2, -10(R5)        ; (0, 1)
+down:
+    LIL  R1, 2
+    AND  R1, R0, R1
+    BZ   R1, left
+    LDW  R2, -6(R5)
+    ADDI R2, -1
+    BZ   R2, left           ; moving up
+    LIL  R2, 0
+    STW  R2, -12(R5)
+    LIL  R2, 0xFF
+    LIH  R2, 0xFF
+    STW  R2, -10(R5)        ; (0, -1)
+left:
+    LIL  R1, 4
+    AND  R1, R0, R1
+    BZ   R1, right
+    LDW  R2, -8(R5)
+    ADDI R2, -1
+    BZ   R2, right          ; moving right
+    LIL  R2, 0xFF
+    LIH  R2, 0xFF
+    STW  R2, -12(R5)
+    LIL  R2, 0
+    STW  R2, -10(R5)        ; (-1, 0)
+right:
+    LIL  R1, 8
+    AND  R1, R0, R1
+    BZ   R1, step
+    LDW  R2, -8(R5)
+    ADDI R2, 1
+    BZ   R2, step           ; moving left
+    LIL  R2, 1
+    STW  R2, -12(R5)
+    LIL  R2, 0
+    STW  R2, -10(R5)        ; (1, 0)
+
+; The new head: the head plus the direction, which becomes the last move.
+step:
+    LDW  R2, -16(R5)
+    LIL  R3, 0x80
+    LIH  R3, 0x04
+    ADD  R3, R3, R2
+    LDB  R0, 0(R3)
+    LDB  R1, 1(R3)
+    LDW  R2, -12(R5)
+    STW  R2, -8(R5)
+    ADD  R0, R0, R2
+    LDW  R2, -10(R5)
+    STW  R2, -6(R5)
+    ADD  R1, R1, R2
+
+; Eating the food makes the snake grow by 3.
+    LIL  R4, 0
+    LDW  R2, -4(R5)
+    SUB  R2, R0, R2
+    BZ   R2, food_column
+    JMP  ate
+food_column:
+    LDW  R2, -2(R5)
+    SUB  R2, R1, R2
+    BZ   R2, eat
+    JMP  ate
+eat:
+    LDW  R2, 2(R5)
+    ADDI R2, 3
+    STW  R2, 2(R5)
+    LIL  R4, 1
+ate:
+    STW  R4, 4(R5)
+
+; The tail moves on unless the snake is growing and the ring has room.
+    LDW  R2, -16(R5)
+    ADDI R2, 2
+    LIL  R3, 0xFF
+    AND  R2, R2, R3         ; the next head offset
+    LDW  R3, -14(R5)
+    SUB  R3, R2, R3
+    BZ   R3, shrink         ; the ring is full
+    LDW  R2, 2(R5)
+    BZ   R2, shrink
+    ADDI R2, -1
+    STW  R2, 2(R5)
+    JMP  collide
+shrink:
+    PUSH R0
+    PUSH R1
+    LDW  R2, -14(R5)
+    LIL  R3, 0x80
+    LIH  R3, 0x04
+    ADD  R3, R3, R2
+    LDB  R0, 0(R3)
+    LDB  R1, 1(R3)
+    CALL pixel_address
+    LDB  R4, 0(R2)
+    NOT  R3, R3
+    AND  R4, R4, R3
+    STB  R4, 0(R2)          ; erase the tail
+    POP  R1
+    POP  R0
+    LDW  R2, -14(R5)
+    ADDI R2, 2
+    LIL  R3, 0xFF
+    AND  R2, R2, R3
+    STW  R2, -14(R5)
+
+; Anything lit in the way but the food ends the game. The tail has already moved, so the head
+; may follow it.
+collide:
+    LDW  R4, 4(R5)
+    BZ   R4, obstacle
+    JMP  advance
+obstacle:
+    CALL pixel_address
+    LDB  R4, 0(R2)
+    AND  R4, R4, R3
+    BZ   R4, advance
+    JMP  game_over
+
+; The head moves on.
+advance:
+    LDW  R2, -16(R5)
+    ADDI R2, 2
+    LIL  R3, 0xFF
+    AND  R2, R2, R3
+    STW  R2, -16(R5)
+    LIL  R3, 0x80
+    LIH  R3, 0x04
+    ADD  R3, R3, R2
+    STB  R0, 0(R3)
+    STB  R1, 1(R3)
+    CALL pixel_address
+    LDB  R4, 0(R2)
+    OR   R4, R4, R3
+    STB  R4, 0(R2)
+    LDW  R4, 4(R5)
+    BZ   R4, next
+    CALL place_food
+next:
+    JMP  move
+
+game_over:
+    HLT
+
+; Places the food at a random unlit pixel, which keeps it off the wall and the snake.
+place_food:
+    PUSH R6
+place:
+    CALL random
+    MOV  R1, R0
+    SHR  R1, 6
+    LIL  R2, 63
+    AND  R0, R0, R2
+    AND  R1, R1, R2
+    CALL pixel_address
+    LDB  R4, 0(R2)
+    AND  R4, R4, R3
+    BZ   R4, placed
+    JMP  place
+placed:
+    LDB  R4, 0(R2)
+    OR   R4, R4, R3
+    STB  R4, 0(R2)
+    STW  R0, -4(R5)
+    STW  R1, -2(R5)
+    POP  R6
+    RET
+
+; The next random number, in R0, from a 16-bit xorshift (7, 9, 8); uses R1.
+random:
+    LDW  R0, 0(R5)
+    MOV  R1, R0
+    SHL  R1, 7
+    XOR  R0, R0, R1
+    MOV  R1, R0
+    SHR  R1, 9
+    XOR  R0, R0, R1
+    MOV  R1, R0
+    SHL  R1, 8
+    XOR  R0, R0, R1
+    STW  R0, 0(R5)
+    RET
+
+; The byte address of pixel (R0, R1) in R2 and its mask in R3; uses R4.
+pixel_address:
+    MOV  R2, R1
+    SHL  R2, 3
+    MOV  R3, R0
+    SHR  R3, 3
+    ADD  R2, R2, R3
+    LIL  R3, 0x00
+    LIH  R3, 0x06
+    ADD  R2, R2, R3
+    LIL  R4, 7
+    AND  R4, R0, R4
+    LIL  R3, 0x20
+    LIH  R3, 0x04
+    ADD  R4, R4, R3
+    LDB  R3, 0(R4)
+    RET
