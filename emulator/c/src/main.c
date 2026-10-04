@@ -35,8 +35,8 @@ static int run_subcommand(const struct command *command) {
 }
 
 int main(int argc, char *argv[]) {
-  struct command command;
-  switch (parse_command_line(argc, argv, &command)) {
+  struct parse_result parsed = parse_command_line(argc, argv);
+  switch (parsed.status) {
   case PARSE_OK:
     break;
   case PARSE_HELP:
@@ -46,7 +46,7 @@ int main(int argc, char *argv[]) {
   }
 
   start_machine();
-  int status = run_subcommand(&command);
+  int status = run_subcommand(&parsed.command);
   stop_machine();
   return status;
 }

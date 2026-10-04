@@ -4,13 +4,19 @@ import bisect
 import itertools
 from collections.abc import Sequence
 from dataclasses import dataclass
-from enum import IntFlag
+from enum import IntFlag, auto
 
 type KeyChange = tuple[int, int]
 
 
-# The input lines that a byte read of the input port returns, bits 0 to 4 in this order.
-Keys = IntFlag("Keys", "UP DOWN LEFT RIGHT QUIT")
+class Keys(IntFlag):
+    """The input lines that a byte read of the input port returns, bits 0 to 4 in this order."""
+
+    UP = auto()
+    DOWN = auto()
+    LEFT = auto()
+    RIGHT = auto()
+    QUIT = auto()
 
 
 ALL_KEYS = int(Keys.UP | Keys.DOWN | Keys.LEFT | Keys.RIGHT | Keys.QUIT)

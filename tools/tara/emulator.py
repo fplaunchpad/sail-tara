@@ -3,7 +3,7 @@
 
 import subprocess
 from dataclasses import dataclass
-from enum import StrEnum
+from enum import StrEnum, auto
 from pathlib import Path
 
 from tara.isa import WORDS
@@ -11,8 +11,13 @@ from tara.transcript import Transcript, TranscriptError
 
 TIMEOUT_SECONDS = 300
 
-# The emulators' subcommands.
-Subcommand = StrEnum("Subcommand", "RUN PLAY DISASM")
+
+class Subcommand(StrEnum):
+    """The emulators' subcommands."""
+
+    RUN = auto()
+    PLAY = auto()
+    DISASM = auto()
 
 
 @dataclass(frozen=True, kw_only=True)

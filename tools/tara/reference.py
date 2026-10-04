@@ -7,7 +7,7 @@ of the discrepancies the README lists. The emulators must print exactly what `ru
 
 from collections.abc import Sequence
 from dataclasses import dataclass
-from enum import Enum
+from enum import Enum, auto
 from typing import override
 
 from src.simulation.cpu import TaraCPU
@@ -31,8 +31,11 @@ PIXELS_PER_BYTE = 8
 CLEAR_PIXEL = "."
 
 
-# The result of one step.
-Step = Enum("Step", "RETIRED ILLEGAL")
+class Step(Enum):
+    """The result of one step."""
+
+    RETIRED = auto()
+    ILLEGAL = auto()
 
 
 @dataclass(eq=False)

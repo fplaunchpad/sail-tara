@@ -30,11 +30,11 @@ rules from that skill do not apply here.
   distinguish integers from booleans and validate finite numeric values
   directly. Use fixed tuple annotations for known record shapes and
   `Meta(min_length=1)` for decoded nonempty collections.
-- Spell enum members once, with the functional form:
-  `State = StrEnum("State", "RUNNING HALTED")` (values are the lowercase names),
-  `Named("Mnemonic", "NOP HLT")` (values are the names; `tara.assembly.Named`
-  overrides `_generate_next_value_`), `IntFlag("Keys", "UP DOWN")` (1, 2, ...).
-  Pyright types each member; keep per-member data in a table beside the enum.
+- Declare enums as classes and spell each member once, with `auto()`: a
+  `StrEnum`'s values are then its lowercase names and an `IntFlag`'s 1, 2, 4, ...;
+  for values that are the names themselves, derive from `tara.assembly.Named`,
+  which overrides `_generate_next_value_`. Keep per-member data in a table
+  beside the enum.
 - Make invalid combinations unrepresentable with types instead of checking them at
   run time: each instruction format of `tara.assembly` has its own `Mnemonic`.
 - Pass arguments by keyword when a call takes several, and declare records with

@@ -3,19 +3,28 @@ mnemonics, and `str()` of a program is its source, which TARA Studio's assembler
 Programs have no labels: branch and jump offsets count instructions from the next one."""
 
 from dataclasses import dataclass
-from enum import StrEnum
+from enum import StrEnum, auto
 
 
 class Named(StrEnum):
-    """A StrEnum whose members are spelled as their names, as in Named("Register", "R0 R1")."""
+    """A StrEnum whose members are spelled as their names (StrEnum's own auto lowercases them)."""
 
     @staticmethod
     def _generate_next_value_(name: str, start: int, count: int, last_values: list[str]) -> str:
         return name
 
 
-# A general-purpose register.
-Register = Named("Register", "R0 R1 R2 R3 R4 R5 R6 R7")
+class Register(Named):
+    """A general-purpose register."""
+
+    R0 = auto()
+    R1 = auto()
+    R2 = auto()
+    R3 = auto()
+    R4 = auto()
+    R5 = auto()
+    R6 = auto()
+    R7 = auto()
 
 
 def check_range(value: int, *, low: int, high: int) -> None:
@@ -29,7 +38,10 @@ def check_range(value: int, *, low: int, high: int) -> None:
 class Bare:
     """An instruction without operands."""
 
-    Mnemonic = Named("Mnemonic", "NOP HLT RET")
+    class Mnemonic(Named):
+        NOP = auto()
+        HLT = auto()
+        RET = auto()
 
     mnemonic: Mnemonic
 
@@ -41,7 +53,14 @@ class Bare:
 class ThreeRegisters:
     """rd = rs1 op rs2."""
 
-    Mnemonic = Named("Mnemonic", "ADD SUB MUL AND OR XOR SLT")
+    class Mnemonic(Named):
+        ADD = auto()
+        SUB = auto()
+        MUL = auto()
+        AND = auto()
+        OR = auto()
+        XOR = auto()
+        SLT = auto()
 
     mnemonic: Mnemonic
     rd: Register
@@ -56,7 +75,9 @@ class ThreeRegisters:
 class TwoRegisters:
     """rd = op rs."""
 
-    Mnemonic = Named("Mnemonic", "MOV NOT")
+    class Mnemonic(Named):
+        MOV = auto()
+        NOT = auto()
 
     mnemonic: Mnemonic
     rd: Register
@@ -70,7 +91,11 @@ class TwoRegisters:
 class Immediate:
     """A register and an unsigned 8-bit immediate."""
 
-    Mnemonic = Named("Mnemonic", "LIL LIH SHL SHR")
+    class Mnemonic(Named):
+        LIL = auto()
+        LIH = auto()
+        SHL = auto()
+        SHR = auto()
 
     mnemonic: Mnemonic
     rd: Register
@@ -87,7 +112,8 @@ class Immediate:
 class AddImmediate:
     """rd += a signed 8-bit immediate."""
 
-    Mnemonic = Named("Mnemonic", "ADDI")
+    class Mnemonic(Named):
+        ADDI = auto()
 
     mnemonic: Mnemonic = Mnemonic.ADDI
     rd: Register
@@ -104,7 +130,11 @@ class AddImmediate:
 class Memory:
     """A load into or a store from `register`, at a signed 5-bit offset from `base`."""
 
-    Mnemonic = Named("Mnemonic", "LDW STW LDB STB")
+    class Mnemonic(Named):
+        LDW = auto()
+        STW = auto()
+        LDB = auto()
+        STB = auto()
 
     mnemonic: Mnemonic
     register: Register
@@ -122,7 +152,9 @@ class Memory:
 class Branch:
     """A branch on `register`, `offset` instructions on from the next one."""
 
-    Mnemonic = Named("Mnemonic", "BZ BN")
+    class Mnemonic(Named):
+        BZ = auto()
+        BN = auto()
 
     mnemonic: Mnemonic
     register: Register
@@ -139,7 +171,9 @@ class Branch:
 class Jump:
     """A jump or a call, `offset` instructions on from the next one."""
 
-    Mnemonic = Named("Mnemonic", "JMP CALL")
+    class Mnemonic(Named):
+        JMP = auto()
+        CALL = auto()
 
     mnemonic: Mnemonic
     offset: int
@@ -155,7 +189,9 @@ class Jump:
 class Stack:
     """A push or a pop of `register`."""
 
-    Mnemonic = Named("Mnemonic", "PUSH POP")
+    class Mnemonic(Named):
+        PUSH = auto()
+        POP = auto()
 
     mnemonic: Mnemonic
     register: Register

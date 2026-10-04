@@ -163,31 +163,44 @@ static bool take_operands(struct command *command, const struct syntax *syntax, 
   return true;
 }
 
-static enum parse_result fail(const char *help) {
-  fprintf(stderr, "Try '%s --help' for more information.\n", help);
-  return PARSE_ERROR;
+static const struct parse_result HELP = {.status = PARSE_HELP};
+static const struct parse_result ERROR = {.status = PARSE_ERROR};
+
+static struct parse_result fail(void) {
+  fputs("Try '" PROGRAM_NAME " --help' for more information.\n", stderr);
+  return ERROR;
 }
 
-enum parse_result parse_command_line(int argc, char *argv[], struct command *command) {
-  *command = (struct command){
-      .run = {.max_steps = DEFAULT_MAX_STEPS},
-      .play = {.max_steps = 0, .hz = DEFAULT_HZ},
-  };
+/* A command for the subcommand, with its options at their defaults. */
+static struct command default_command(enum subcommand subcommand) {
+  switch (subcommand) {
+  case SUBCOMMAND_RUN:
+    return (struct command){.subcommand = subcommand, .run = {.max_steps = DEFAULT_MAX_STEPS}};
+  case SUBCOMMAND_PLAY:
+    return (struct command){.subcommand = subcommand, .play = {.max_steps = 0, .hz = DEFAULT_HZ}};
+  case SUBCOMMAND_DISASM:
+    break;
+  }
+  return (struct command){.subcommand = subcommand};
+}
+
+struct parse_result parse_command_line(int argc, char *argv[]) {
   if (argc < 2) {
     report_error("missing subcommand: run, play or disasm");
-    return fail(PROGRAM_NAME);
+    return fail();
   }
   if (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-h") == 0) {
     fputs(USAGE, stdout);
-    return PARSE_HELP;
+    return HELP;
   }
 
   const struct syntax *syntax = find_subcommand(argv[1]);
   if (!syntax) {
     report_error("'%s' is not a subcommand: run, play or disasm", argv[1]);
-    return fail(PROGRAM_NAME);
+    return fail();
   }
-  command->subcommand = syntax->subcommand;
+  struct parse_result result = {.status = PARSE_OK, .command = default_command(syntax->subcommand)};
+  struct command *command = &result.command;
 
   /* The subcommand's arguments follow its name, which getopt_long takes for the program's name
    * in its own messages. */
@@ -201,14 +214,14 @@ enum parse_result parse_command_line(int argc, char *argv[], struct command *com
                                          syntax->long_options, NULL)) != -1;) {
     if (option == 'h') {
       fputs(syntax->usage, stdout);
-      return PARSE_HELP;
+      return HELP;
     }
     if (option == '?' || !apply(command, option, optarg)) {
-      return fail(PROGRAM_NAME);
+      return fail();
     }
   }
   if (!take_operands(command, syntax, count - optind, arguments + optind)) {
-    return fail(PROGRAM_NAME);
+    return fail();
   }
-  return PARSE_OK;
+  return result;
 }

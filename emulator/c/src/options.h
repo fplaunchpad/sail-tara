@@ -30,16 +30,25 @@ struct play_options {
   const char *image;
 };
 
+/* A subcommand and its options; disasm has none. */
 struct command {
   enum subcommand subcommand;
-  struct run_options run;   /* for SUBCOMMAND_RUN */
-  struct play_options play; /* for SUBCOMMAND_PLAY */
+  union {
+    struct run_options run;   /* SUBCOMMAND_RUN */
+    struct play_options play; /* SUBCOMMAND_PLAY */
+  };
 };
 
-enum parse_result { PARSE_OK, PARSE_HELP, PARSE_ERROR };
+/* PARSE_HELP: the help that was asked for has been printed on standard output. PARSE_ERROR: why
+ * the command line is wrong has been printed on standard error. */
+enum parse_status { PARSE_OK, PARSE_HELP, PARSE_ERROR };
 
-/* Parse the command line. PARSE_HELP: the help that was asked for has been printed on standard
- * output. PARSE_ERROR: why has been printed on standard error. */
-enum parse_result parse_command_line(int argc, char *argv[], struct command *command);
+/* The command line parsed: the command, if the status is PARSE_OK. */
+struct parse_result {
+  enum parse_status status;
+  struct command command;
+};
+
+struct parse_result parse_command_line(int argc, char *argv[]);
 
 #endif

@@ -3,7 +3,7 @@
 import re
 from collections.abc import Iterator
 from dataclasses import dataclass
-from enum import StrEnum
+from enum import StrEnum, auto
 from typing import Self
 
 from tara.isa import MEMORY_BYTES, REGISTERS, SCREEN_SIZE
@@ -20,8 +20,15 @@ SET_PIXEL = "#"
 MEMORY_ROW_BYTES = 16
 
 
-# Why a run ended, as the status line spells it, and the emulators' exit status for it.
-Status = StrEnum("Status", "HALTED LIMIT ILLEGAL")
+class Status(StrEnum):
+    """Why a run ended, as the status line spells it."""
+
+    HALTED = auto()
+    LIMIT = auto()
+    ILLEGAL = auto()
+
+
+# The emulators' exit status for each way a run ends.
 EXIT_STATUSES = {Status.HALTED: 0, Status.LIMIT: 3, Status.ILLEGAL: 4}
 
 
