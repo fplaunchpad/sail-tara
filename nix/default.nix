@@ -3,14 +3,14 @@
 
 let
   inherit (pkgs) lib;
-  # pyproject.toml pins the Python runtime dependencies to the releases nixpkgs
-  # provides, so uv type-checks against the code that runs.
+  # pyproject.toml pins the Python dependencies (runtime and development) to the
+  # releases nixpkgs provides, so uv and the Nix checks run the same code.
   pyproject = lib.importTOML ../pyproject.toml;
-  runtimePackage =
-    ps: requirement:
+  pinnedPackage =
+    packages: requirement:
     let
       pin = builtins.match "([A-Za-z0-9_.-]+)==(.+)" requirement;
-      package = ps.${lib.elemAt pin 0};
+      package = packages.${lib.elemAt pin 0};
       version = lib.elemAt pin 1;
     in
     if pin == null then
@@ -24,14 +24,29 @@ let
     rocqPackages = pkgs.rocqPackages_9_3;
     python = pkgs.python315;
     pythonRuntime = self.python.withPackages (
-      ps: map (runtimePackage ps) pyproject.project.dependencies
+      ps: map (pinnedPackage ps) pyproject.project.dependencies
     );
+    pythonDevTools = map (pinnedPackage pkgs) pyproject.dependency-groups.dev;
 
     sail = self.callPackage ./sail.nix { };
     rocq-sail-stdpp = self.rocqPackages.callPackage ./rocq-sail-stdpp.nix { };
     taracpu = self.callPackage ./taracpu.nix { };
+    lean-sail = self.callPackage ./lean-sail.nix { };
+    texlive = self.callPackage ./texlive.nix { };
+    justDerivation = self.callPackage ./just-derivation.nix { };
+
     tara-tools = self.callPackage ./tara-tools.nix { };
+    tara-c = self.callPackage ./tara-c.nix { };
+    tara-ocaml = self.callPackage ./tara-ocaml.nix { };
+    tara-rocq = self.callPackage ./tara-rocq.nix { };
+    tara-lean = self.callPackage ./tara-lean.nix { };
+    tara-doc = self.callPackage ./tara-doc.nix { };
   });
+  app = package: name: {
+    type = "app";
+    program = "${package}/bin/${name}";
+    meta.description = package.meta.description;
+  };
 in
 {
   packages = {
@@ -40,14 +55,29 @@ in
       rocq-sail-stdpp
       taracpu
       tara-tools
+      tara-c
+      tara-ocaml
+      tara-rocq
+      tara-lean
+      tara-doc
       ;
+    default = scope.tara-c;
   };
-  checks = { };
+  checks = {
+    inherit (scope)
+      tara-c
+      tara-ocaml
+      tara-rocq
+      tara-lean
+      tara-doc
+      ;
+  }
+  # callPackage adds override functions to the attribute set; keep the checks.
+  // lib.filterAttrs (_: lib.isDerivation) (scope.callPackage ./checks.nix { });
   apps = {
-    tara-asm = {
-      type = "app";
-      program = "${scope.tara-tools}/bin/tara-asm";
-    };
+    tara-asm = app scope.tara-tools "tara-asm";
+    tara-c = app scope.tara-c "tara-c";
+    tara-ocaml = app scope.tara-ocaml "tara-ocaml";
   };
   devShell = scope.callPackage ./shell.nix { };
 }

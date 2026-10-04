@@ -6,10 +6,11 @@ requires-python = ">=3.15.0rc2"
 dependencies = ["click==8.3.3"]
 
 [dependency-groups]
+# Pinned, like the runtime dependencies, to the nixpkgs releases the Nix checks run.
 dev = [
-    "black>=26.5",
-    "pyright>=1.1.414",
-    "ruff>=0.16",
+    "black==26.5.1",
+    "pyright==1.1.414",
+    "ruff==0.16.8",
 ]
 
 [tool.uv]

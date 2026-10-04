@@ -7,11 +7,14 @@
   just,
   jq,
   gmp,
+  clang-tools,
   zlib,
   ocamlPackages,
   rocqPackages,
   rocq-sail-stdpp,
   lean,
+  lean-sail,
+  texlive,
   python,
   uv,
   nodejs,
@@ -30,13 +33,16 @@ mkShell {
     # C emulator and the Sail test suite.
     gmp
     zlib
+    clang-tools
     # OCaml emulator (libsail is part of the sail package).
     ocamlPackages.ocaml
     ocamlPackages.dune_3
     ocamlPackages.findlib
-    # Rocq and Lean extraction.
+    ocamlPackages.ocamlformat
+    # Rocq and Lean extraction, and the typeset specification.
     rocqPackages.rocq-core
     lean
+    texlive
     # Python tooling: locked dev tools via uv; Pyright needs Node.
     python
     uv
@@ -44,13 +50,18 @@ mkShell {
     tara-tools
   ];
 
+  # Libraries found through setup hooks (OCAMLPATH, ROCQPATH).
   buildInputs = [
     sail
     rocq-sail-stdpp
+    ocamlPackages.core
+    ocamlPackages.core_unix
+    ocamlPackages.ppx_jane
   ];
 
   env = {
     TARACPU = "${taracpu}/share/taracpu";
+    LEAN_SAIL = "${lean-sail}";
     UV_PYTHON_DOWNLOADS = "never";
     UV_PYTHON = lib.getExe python;
     UV_PROJECT_ENVIRONMENT = ".venv";

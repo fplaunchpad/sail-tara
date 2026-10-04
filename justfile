@@ -3,6 +3,12 @@
 
 import "just/settings.just"
 import "just/sail.just"
+import "just/c.just"
+import "just/ocaml.just"
+import "just/rocq.just"
+import "just/lean.just"
+import "just/doc.just"
+import "just/golden.just"
 
 # Python development tools: lint, format, typecheck.
 [group('maintenance')]
@@ -18,6 +24,14 @@ build-dir dir:
 
 default:
     @just --list
+
+# Format the Sail, C and OCaml sources (Python: just python format).
+[group('maintenance')]
+format: sail-format c-format ocaml-format
+
+# Check the formatting of the Sail, C and OCaml sources (Python: just python lint).
+[group('maintenance')]
+lint: sail-lint c-format-check ocaml-format-check
 
 # Remove build outputs.
 [group('maintenance')]

@@ -13,22 +13,35 @@ and the [hardware manual](https://www.cse.iitm.ac.in/~ayon/courses/CS2300/tarama
 | `model/tara.sail` | Each instruction's operands, encoding and semantics |
 | `model/step.sail` | Drivers: `step`, `run_instruction`, `reset` |
 | `model/syntax.sail` | Assembly syntax, for disassembly |
-| `tests/` | Sail test suite |
+| `emulator/host.sail` | Host interface shared by the emulators |
+| `emulator/c/`, `emulator/ocaml/` | The C and OCaml emulators |
+| `rocq/`, `lean/`, `doc/` | Rocq smoke test, Lean project file, LaTeX document |
+| `tests/` | Sail test suite, sample program, golden outputs |
 | `tools/tara/` | Python tools built on TARA Studio's assembler |
 | `nix/`, `just/` | Flake packages and just recipes |
 
 ## Usage
 
-Run inside `nix develop` (or direnv); `just` lists every recipe.
+Run inside `nix develop` (or direnv); `just` lists every recipe. Outputs go to
+`build/`.
 
 ```sh
-just check            # typecheck the model and tests
-just test             # run the Sail test suite through the C backend
-just format           # format the Sail sources (sail --fmt, 100 columns)
-just lint             # check Sail formatting and line width
-tara-asm prog.tara    # assemble to prog.bin (-o prog.hex for text)
-just python lint      # also: format, typecheck
+just test                 # Sail test suite (C backend)
+just c                    # build/c/tara-c
+just ocaml                # build/ocaml/tara-ocaml
+just rocq                 # Rocq definitions and smoke test
+just lean                 # Lean definitions
+just doc                  # build/doc/tara.pdf
+tara-asm prog.tara        # assemble to prog.bin (-o prog.hex for text)
+build/c/tara-c [-t] [-n MAX_STEPS] prog.bin
+just format; just lint    # Sail, C, OCaml (Python: just python format/lint/typecheck)
+just ci                   # nix flake check
 ```
+
+The emulators print the final state (`status`, `steps`, `pc`, `r0`–`r7`,
+`mem`) and exit with 0 (halted), 1 (error), 3 (step limit) or 4 (illegal
+opcode). `-t` adds a line per step: PC, instruction word, registers after it,
+and its disassembly.
 
 ## Website vs. TARA Studio
 

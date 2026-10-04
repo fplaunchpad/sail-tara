@@ -1,0 +1,14 @@
+# Replaces the lakefile Sail generates, to build against the lean-sail
+# checkout next to the project instead of fetching it.
+name = "Tara"
+defaultTargets = ["Tara"]
+moreLeanArgs = ["--tstack=400000"]
+
+[[lean_lib]]
+name = "Tara"
+leanOptions.weak.linter.style.nameCheck = false
+moreLeancArgs = ["-fbracket-depth=500"]
+
+[[require]]
+name = "Sail"
+path = "../lean-sail"
