@@ -1,0 +1,7 @@
+; Reads the input port into R1, R3 and R4, then halts.
+1aff ; LIL R2, 255
+2205 ; LIH R2, 5
+3940 ; LDB R1, 0(R2)
+3b40 ; LDB R3, 0(R2)
+3c40 ; LDB R4, 0(R2)
+0800 ; HLT

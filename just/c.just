@@ -21,6 +21,10 @@ c: c-build
 [group('c')]
 golden-c: c (golden build / "c" / "tara-c")
 
+# Check the C emulator against the shared command-line contract.
+[group('c')]
+cli-c: c (cli build / "c" / "tara-c")
+
 # Format the C emulator's sources in place.
 [group('c')]
 c-format:

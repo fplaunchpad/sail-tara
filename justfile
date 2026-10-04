@@ -9,6 +9,7 @@ import "just/rocq.just"
 import "just/lean.just"
 import "just/doc.just"
 import "just/golden.just"
+import "just/cli.just"
 
 # Python development tools: lint, format, typecheck.
 [group('maintenance')]

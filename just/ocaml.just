@@ -31,6 +31,10 @@ ocaml: ocaml-link
 [group('ocaml')]
 golden-ocaml: ocaml (golden build / "ocaml" / "tara-ocaml")
 
+# Check the OCaml emulator against the shared command-line contract.
+[group('ocaml')]
+cli-ocaml: ocaml (cli build / "ocaml" / "tara-ocaml")
+
 # Format the OCaml emulator's sources in place.
 [group('ocaml')]
 ocaml-format:

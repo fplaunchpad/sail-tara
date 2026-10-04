@@ -1,0 +1,101 @@
+0000 NOP
+0782 NOP
+07ff NOP
+0800 HLT
+0ee2 HLT
+0fff HLT
+1000 MOV R0, R0
+14d1 MOV R4, R6
+17ff MOV R7, R7
+1800 LIL R0, 0
+1aff LIL R2, 255
+1d04 LIL R5, 4
+1fff LIL R7, 255
+2000 LIH R0, 0
+213f LIH R1, 63
+27ff LIH R7, 255
+2800 LDW R0, 0(R0)
+2b0f LDW R3, 15(R0)
+2fff LDW R7, -1(R7)
+3000 STW R0, 0(R0)
+325d STW R2, -3(R2)
+37ff STW R7, -1(R7)
+3800 LDB R0, 0(R0)
+39b0 LDB R1, -16(R5)
+3d5d LDB R5, -3(R2)
+3fff LDB R7, -1(R7)
+4000 STB R0, 0(R0)
+4314 STB R3, -12(R0)
+47ff STB R7, -1(R7)
+4800 ADD R0, R0, R0
+4a86 ADD R2, R4, R1
+4c4c ADD R4, R2, R3
+4fff ADD R7, R7, R7
+5000 SUB R0, R0, R0
+54b4 SUB R4, R5, R5
+57ff SUB R7, R7, R7
+5800 ADDI R0, 0
+5bc8 ADDI R3, -56
+5dff ADDI R5, -1
+5fff ADDI R7, -1
+6000 MUL R0, R0, R0
+6493 MUL R4, R4, R4
+67ff MUL R7, R7, R7
+6800 AND R0, R0, R0
+6e13 AND R6, R0, R4
+6fff AND R7, R7, R7
+7000 OR R0, R0, R0
+750b OR R5, R0, R2
+77ff OR R7, R7, R7
+7800 XOR R0, R0, R0
+7f01 XOR R7, R0, R0
+7fff XOR R7, R7, R7
+8000 NOT R0, R0
+817d NOT R1, R3
+87ff NOT R7, R7
+8800 SHL R0, 0
+8fba SHL R7, 186
+8fff SHL R7, 255
+9000 SHR R0, 0
+93ed SHR R3, 237
+97ff SHR R7, 255
+9800 SLT R0, R0, R0
+9ca0 SLT R4, R5, R0
+9fff SLT R7, R7, R7
+a000 BZ R0, 0
+a24d BZ R2, 77
+a7ff BZ R7, -1
+a800 BN R0, 0
+aff4 BN R7, -12
+afff BN R7, -1
+b000 JMP 0
+b676 JMP -394
+b7fa JMP -6
+b7ff JMP -1
+b800 CALL 0
+b803 CALL 3
+bfff CALL -1
+c000 RET
+c220 RET
+c7ff RET
+c800 PUSH R0
+cce1 PUSH R4
+cfff PUSH R7
+d000 POP R0
+d7de POP R7
+d7ff POP R7
+d800 illegal
+ddb4 illegal
+dfff illegal
+e000 illegal
+e7b2 illegal
+e7ff illegal
+e800 illegal
+eb6d illegal
+efff illegal
+f000 illegal
+f27c illegal
+f7ff illegal
+f800 illegal
+fd84 illegal
+ffff illegal

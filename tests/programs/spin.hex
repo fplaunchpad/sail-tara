@@ -1,0 +1,2 @@
+; Jumps to itself forever.
+b7ff ; JMP -1

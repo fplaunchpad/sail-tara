@@ -1,0 +1,4 @@
+; STEP KEYS: the input lines from STEP retirements on (--keys before the first).
+3 2 ; LDB R3
+
+4 0x4 ; LDB R4

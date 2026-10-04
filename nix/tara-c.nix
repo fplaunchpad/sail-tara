@@ -1,4 +1,4 @@
-# The C emulator, checked against the golden Fibonacci run.
+# The C emulator, checked against the golden runs and the shared command-line contract.
 {
   justDerivation,
   sail,
@@ -21,7 +21,10 @@ justDerivation {
     zlib
   ];
   recipes = [ "c" ];
-  checkRecipes = [ "golden-c" ];
+  checkRecipes = [
+    "golden-c"
+    "cli-c"
+  ];
   installPhase = ''
     install -Dm755 build/c/tara-c "$out/bin/tara-c"
   '';

@@ -1,4 +1,4 @@
-# The OCaml emulator, checked against the golden Fibonacci run.
+# The OCaml emulator, checked against the golden runs and the shared command-line contract.
 {
   justDerivation,
   sail,
@@ -27,7 +27,10 @@ justDerivation {
     ocamlPackages.ppx_jane
   ];
   recipes = [ "ocaml" ];
-  checkRecipes = [ "golden-ocaml" ];
+  checkRecipes = [
+    "golden-ocaml"
+    "cli-ocaml"
+  ];
   installPhase = ''
     install -Dm755 build/ocaml/_build/default/src/main.exe "$out/bin/tara-ocaml"
   '';
