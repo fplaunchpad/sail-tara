@@ -41,6 +41,7 @@ let
     rocq-sail-stdpp = self.rocqPackages.callPackage ./rocq-sail-stdpp.nix { };
     taracpu = self.callPackage ./taracpu.nix { };
     lean-sail = self.callPackage ./lean-sail.nix { };
+    asciidoctorSail = self.callPackage ./asciidoctor-sail.nix { };
     texlive = self.callPackage ./texlive.nix { };
     justDerivation = self.callPackage ./just-derivation.nix { };
 
@@ -59,6 +60,7 @@ let
 in
 {
   packages = {
+    asciidoctor-sail = scope.asciidoctorSail;
     inherit (scope)
       sail
       rocq-sail-stdpp
