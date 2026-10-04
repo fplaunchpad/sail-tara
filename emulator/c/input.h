@@ -31,7 +31,7 @@ struct input {
 void input_init(struct input *input);
 
 /* Take in bytes read at time `now`. Returns true if the player asked to quit. */
-bool input_feed(struct input *input, const uint8_t *bytes, size_t length, int64_t now);
+bool input_feed(struct input *input, int64_t now, const uint8_t *bytes, size_t length);
 
 /* An ESC, or the start of a sequence, that nothing follows within a few milliseconds is a key of
  * its own: ESC quits. When there is nothing unfinished, input_deadline is INT64_MAX. Otherwise it

@@ -1,0 +1,32 @@
+# clang-tidy for the C emulator: the best-practice check families, every finding an error.
+# Disabled, with reasons:
+# - clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling flags every memcpy,
+#   memset, fprintf and snprintf, asking for the C11 Annex K functions (memcpy_s, ...), which
+#   glibc does not provide. The rest of security.insecureAPI (gets, strcpy, rand, ...) is on.
+# - cert-err33-c wants every ignored return value cast to (void). Writes to standard output are
+#   checked once, at exit (report_flush), and the casts would only add noise.
+Checks: >-
+  -*,
+  bugprone-*,
+  cert-*,
+  clang-analyzer-*,
+  concurrency-*,
+  misc-*,
+  performance-*,
+  portability-*,
+  readability-*,
+  -clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling,
+  -cert-err33-c
+WarningsAsErrors: "*"
+# The compile commands come from GCC, whose warning flags clang does not all know.
+ExtraArgs: ["-Wno-unknown-warning-option"]
+HeaderFilterRegex: ".*/emulator/c/.*"
+CheckOptions:
+  # Pixel coordinates are x and y; loop counters i, x and y.
+  readability-identifier-length.IgnoredVariableNames: "^[xy]$"
+  readability-identifier-length.IgnoredParameterNames: "^[xy]$"
+  readability-identifier-length.IgnoredLoopCounterNames: "^[ixy]$"
+  # Flag adjacent parameters of the same type, not of every pair of integer types.
+  bugprone-easily-swappable-parameters.ModelImplicitConversions: false
+  # TARA Studio's headers, glibc's private headers: include the public header instead.
+  misc-include-cleaner.IgnoreHeaders: "bits/.*;asm-generic/.*;asm/.*;sys/poll\\.h"

@@ -1,14 +1,16 @@
 #include "keys.h"
 
 #include "number.h"
+#include <stdint.h>
 
 /* The letter that spells each line, in the order of enum key_line. */
 #define KEY_LETTERS "UDLRQ"
 
 bool keys_parse(const char *text, uint8_t *keys) {
   uint64_t value;
-  if (!parse_decimal_or_hex(text, KEYS_MAX, &value))
+  if (!parse_decimal_or_hex(text, KEYS_MAX, &value)) {
     return false;
+  }
   *keys = (uint8_t)value;
   return true;
 }

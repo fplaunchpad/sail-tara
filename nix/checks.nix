@@ -6,6 +6,10 @@
   sail,
   jq,
   clang-tools,
+  cmake,
+  ninja,
+  gmp,
+  zlib,
   ocamlPackages,
   taracpu,
   tara-c,
@@ -56,8 +60,19 @@ in
       sail
       jq
       clang-tools
+      cmake
+      ninja
       ocamlPackages.ocamlformat
     ];
+    # c::lint builds the emulator for clang-tidy's compile commands.
+    buildInputs = [
+      gmp
+      zlib
+    ];
+    dontUseCmakeConfigure = true;
+    dontUseNinjaBuild = true;
+    dontUseNinjaInstall = true;
+    dontUseNinjaCheck = true;
     recipes = [
       "model::lint"
       "c::lint"

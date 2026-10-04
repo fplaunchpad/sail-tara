@@ -1,7 +1,9 @@
-# The C emulator, built from the model's C output.
+# The C emulator, built with CMake from the model's C output.
 {
   justDerivation,
   sail,
+  cmake,
+  ninja,
   gmp,
   zlib,
 }:
@@ -13,7 +15,16 @@ justDerivation {
     ../emulator/host.sail
     ../emulator/c
   ];
-  nativeBuildInputs = [ sail ];
+  nativeBuildInputs = [
+    sail
+    cmake
+    ninja
+  ];
+  # just runs CMake itself (just c build), in build/c.
+  dontUseCmakeConfigure = true;
+  dontUseNinjaBuild = true;
+  dontUseNinjaInstall = true;
+  dontUseNinjaCheck = true;
   buildInputs = [
     gmp
     zlib

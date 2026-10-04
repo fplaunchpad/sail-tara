@@ -1,6 +1,7 @@
 #include "disasm.h"
 
 #include <inttypes.h>
+#include <stdint.h>
 #include <stdio.h>
 
 #include "machine.h"

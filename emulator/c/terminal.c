@@ -1,10 +1,13 @@
 #include "terminal.h"
 
 #include <errno.h>
-#include <poll.h>
+#include <poll.h> // IWYU pragma: keep (poll is declared in sys/poll.h)
 #include <signal.h>
+#include <stdbool.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/types.h>
 #include <termios.h>
 #include <unistd.h>
 
@@ -17,6 +20,15 @@
 
 /* The signals that end the process by default: those a terminal session can end in, and those of
  * a crash, which must not leave the terminal raw either. */
+/* Whether a failed write would have blocked; POSIX allows EWOULDBLOCK to equal EAGAIN. */
+static bool would_block(int error) {
+  return error == EAGAIN
+#if EWOULDBLOCK != EAGAIN
+         || error == EWOULDBLOCK
+#endif
+      ;
+}
+
 static const int FATAL_SIGNALS[] = {SIGHUP,  SIGINT, SIGQUIT, SIGTERM, SIGABRT,
                                     SIGSEGV, SIGBUS, SIGFPE,  SIGILL};
 
@@ -32,7 +44,7 @@ bool terminal_write(const char *data, size_t length) {
       length -= (size_t)written;
     } else if (written < 0 && errno == EINTR) {
       continue;
-    } else if (written < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+    } else if (written < 0 && would_block(errno)) {
       struct pollfd output = {.fd = STDOUT_FILENO, .events = POLLOUT};
       poll(&output, 1, -1);
     } else {
@@ -45,8 +57,9 @@ bool terminal_write(const char *data, size_t length) {
 /* Safe in a signal handler. A signal that comes in the middle of the restoring restores it all
  * over again before it ends the process, which does no harm. */
 void terminal_close(void) {
-  if (!is_open)
+  if (!is_open) {
     return;
+  }
 
   int saved_errno = errno;
   terminal_write(LEAVE_SCREEN, sizeof LEAVE_SCREEN - 1);
@@ -68,13 +81,15 @@ static void on_resize(int signal_number) {
 }
 
 static void install_handlers(void) {
-  struct sigaction fatal = {.sa_handler = on_fatal_signal, .sa_flags = SA_RESETHAND};
+  /* glibc's SA_RESETHAND is 0x80000000, beyond int: the conversion is the documented use. */
+  struct sigaction fatal = {.sa_handler = on_fatal_signal, .sa_flags = (int)SA_RESETHAND};
   sigfillset(&fatal.sa_mask);
   for (size_t i = 0; i < sizeof FATAL_SIGNALS / sizeof *FATAL_SIGNALS; ++i) {
     /* A signal that was ignored at the start (nohup, a background job) stays ignored. */
     struct sigaction current;
-    if (sigaction(FATAL_SIGNALS[i], NULL, &current) == 0 && current.sa_handler != SIG_IGN)
+    if (sigaction(FATAL_SIGNALS[i], NULL, &current) == 0 && current.sa_handler != SIG_IGN) {
       sigaction(FATAL_SIGNALS[i], &fatal, NULL);
+    }
   }
 
   struct sigaction resize = {.sa_handler = on_resize, .sa_flags = SA_RESTART};
@@ -98,20 +113,23 @@ static void make_raw(struct termios *settings) {
 bool terminal_attached(void) { return isatty(STDIN_FILENO) && isatty(STDOUT_FILENO); }
 
 bool terminal_open(void) {
-  if (tcgetattr(STDIN_FILENO, &original) != 0)
-    return report_error("cannot read the terminal settings: %s", strerror(errno));
+  if (tcgetattr(STDIN_FILENO, &original) != 0) {
+    return report_system_error(errno, "cannot read the terminal settings");
+  }
 
   struct termios raw = original;
   make_raw(&raw);
   install_handlers();
-  atexit(terminal_close);
+  if (atexit(terminal_close) != 0) {
+    return report_error("cannot arrange for the terminal to be restored at exit");
+  }
 
   is_open = 1;
   if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw) != 0 ||
       !terminal_write(ENTER_SCREEN, sizeof ENTER_SCREEN - 1)) {
     int error = errno;
     terminal_close();
-    return report_error("cannot set up the terminal: %s", strerror(error));
+    return report_system_error(error, "cannot set up the terminal");
   }
   return true;
 }
@@ -125,13 +143,16 @@ bool terminal_resized(void) {
 ssize_t terminal_read(uint8_t *buffer, size_t size, int timeout_ms) {
   struct pollfd input = {.fd = STDIN_FILENO, .events = POLLIN};
   int ready = poll(&input, 1, timeout_ms);
-  if (ready < 0)
+  if (ready < 0) {
     return errno == EINTR ? 0 : -1;
-  if (ready == 0)
+  }
+  if (ready == 0) {
     return 0;
+  }
 
   ssize_t count = read(STDIN_FILENO, buffer, size);
-  if (count > 0)
+  if (count > 0) {
     return count;
+  }
   return count < 0 && (errno == EINTR || errno == EAGAIN) ? 0 : -1;
 }

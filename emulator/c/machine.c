@@ -2,6 +2,8 @@
 
 #include "sail.h"
 #include "tara.h"
+#include <stdint.h>
+#include <stdio.h>
 
 /* Defined by the generated model, but not declared in tara.h. */
 void model_init(void);
@@ -26,11 +28,11 @@ enum step_result machine_step(uint8_t keys) { return (enum step_result)zhost_ste
 
 /* Print a string made by the host interface, then free it. */
 static void print_text(FILE *out, void (*text)(sail_string *, unit)) {
-  sail_string s;
-  CREATE(sail_string)(&s);
-  text(&s, UNIT);
-  fputs(s, out);
-  KILL(sail_string)(&s);
+  sail_string string;
+  CREATE(sail_string)(&string);
+  text(&string, UNIT);
+  fputs(string, out);
+  KILL(sail_string)(&string);
 }
 
 void machine_print_trace(FILE *out) {
@@ -41,9 +43,9 @@ void machine_print_trace(FILE *out) {
 void machine_print_dump(FILE *out) { print_text(out, zhost_dump); }
 
 void machine_print_disasm(FILE *out, uint16_t word) {
-  sail_string s;
-  CREATE(sail_string)(&s);
-  zhost_disasm(&s, word);
-  fputs(s, out);
-  KILL(sail_string)(&s);
+  sail_string string;
+  CREATE(sail_string)(&string);
+  zhost_disasm(&string, word);
+  fputs(string, out);
+  KILL(sail_string)(&string);
 }

@@ -1,11 +1,13 @@
 #include "batch.h"
 
 #include <inttypes.h>
+#include <stdint.h>
 #include <stdio.h>
 
 #include "image.h"
 #include "keyscript.h"
 #include "machine.h"
+#include "options.h"
 #include "report.h"
 #include "run.h"
 
@@ -17,8 +19,9 @@ static void run_to_end(struct run *run, struct key_script *script, bool trace) {
   while (run->state == RUN_RUNNING) {
     uint8_t keys = key_script_keys(script, run->retired);
     enum step_result result = run_step(run, keys);
-    if (trace && result != STEP_STOPPED)
+    if (trace && result != STEP_STOPPED) {
       machine_print_trace(stdout);
+    }
   }
 }
 
@@ -26,8 +29,9 @@ static void run_to_end(struct run *run, struct key_script *script, bool trace) {
 static void print_framebuffer(FILE *out) {
   for (unsigned y = SCREEN_SIZE; y-- > 0;) {
     fputs("fb ", out);
-    for (unsigned x = 0; x < SCREEN_SIZE; ++x)
+    for (unsigned x = 0; x < SCREEN_SIZE; ++x) {
       fputc(machine_pixel(x, y) ? SET_PIXEL : CLEAR_PIXEL, out);
+    }
     fputc('\n', out);
   }
 }
@@ -35,8 +39,9 @@ static void print_framebuffer(FILE *out) {
 static void print_result(const struct run *run, bool framebuffer) {
   printf("status %s\nsteps %" PRIu64 "\n", run_state_name(run->state), run->retired);
   machine_print_dump(stdout);
-  if (framebuffer)
+  if (framebuffer) {
     print_framebuffer(stdout);
+  }
 }
 
 /* Load the key script, if any, and the image: everything that can fail before the run. */

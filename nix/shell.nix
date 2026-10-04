@@ -8,6 +8,8 @@
   jq,
   gmp,
   clang-tools,
+  cmake,
+  ninja,
   zlib,
   ocamlPackages,
   rocqPackages,
@@ -35,6 +37,8 @@ mkShell {
     gmp
     zlib
     clang-tools
+    cmake
+    ninja
     # OCaml emulator (libsail is part of the sail package).
     ocamlPackages.ocaml
     ocamlPackages.dune_3

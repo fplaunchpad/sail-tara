@@ -1,9 +1,11 @@
 #include "image.h"
 
-#include <ctype.h>
 #include <errno.h>
+#include <limits.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "machine.h"
@@ -12,15 +14,32 @@
 
 #define MEMORY_BYTES 2048
 #define WORD_DIGITS 4
+#define HEX_DIGIT_BITS 4
+/* Files are read whole, in chunks of this many bytes, up to the largest a hex image can sensibly
+ * be (2048 bytes of words, with room for comments). */
+#define READ_CHUNK 4096
+#define MAX_FILE_BYTES ((size_t)1024 * 1024)
 
 enum format { FORMAT_BIN, FORMAT_HEX };
 
-/* An image being read into memory. */
+/* A file's contents, read whole. */
+struct contents {
+  char *data;
+  size_t size;
+};
+
+/* An image being placed into memory. */
 struct loader {
-  FILE *file;
   const char *path;
   unsigned address; /* where the next byte goes */
-  unsigned line;    /* the line being read, from 1 */
+};
+
+/* A hex image being parsed: its text, how far it has been read, and the line there, from 1. */
+struct cursor {
+  const char *text;
+  size_t size;
+  size_t position;
+  unsigned line;
 };
 
 /* The suffix of the file name, such as ".bin", or NULL if it has none. Like Python's
@@ -35,111 +54,150 @@ static const char *suffix(const char *path) {
 
 static bool format_of(const char *path, enum format *format) {
   const char *dot = suffix(path);
-  if (dot && strcmp(dot, ".bin") == 0)
+  if (dot && strcmp(dot, ".bin") == 0) {
     *format = FORMAT_BIN;
-  else if (dot && strcmp(dot, ".hex") == 0)
+  } else if (dot && strcmp(dot, ".hex") == 0) {
     *format = FORMAT_HEX;
-  else
+  } else {
     return false;
+  }
   return true;
 }
 
 static bool place_byte(struct loader *loader, uint8_t value) {
-  if (loader->address == MEMORY_BYTES)
+  if (loader->address == MEMORY_BYTES) {
     return report_error("%s: larger than the %d-byte memory", loader->path, MEMORY_BYTES);
+  }
   machine_poke((uint16_t)loader->address++, value);
   return true;
 }
 
 static bool place_word(struct loader *loader, uint16_t word) {
-  return place_byte(loader, (uint8_t)(word >> 8)) && place_byte(loader, (uint8_t)(word & 0xFF));
+  return place_byte(loader, (uint8_t)(word >> CHAR_BIT)) && place_byte(loader, (uint8_t)word);
 }
 
-static bool load_bin(struct loader *loader) {
-  for (int c; (c = fgetc(loader->file)) != EOF;) {
-    if (!place_byte(loader, (uint8_t)c))
+/* Read the whole file at path into memory; on failure, report it. */
+static bool read_contents(const char *path, struct contents *contents) {
+  FILE *file = fopen(path, "rb");
+  if (!file) {
+    return report_system_error(errno, "%s", path);
+  }
+
+  struct contents read = {.data = NULL, .size = 0};
+  int error = 0;
+  for (size_t count = READ_CHUNK; count == READ_CHUNK && read.size <= MAX_FILE_BYTES;) {
+    char *grown = realloc(read.data, read.size + READ_CHUNK);
+    if (!grown) {
+      error = errno;
+      break;
+    }
+    read.data = grown;
+    count = fread(read.data + read.size, 1, READ_CHUNK, file);
+    read.size += count;
+  }
+  if (!error && ferror(file)) {
+    error = errno;
+  }
+  fclose(file);
+
+  if (!error && read.size > MAX_FILE_BYTES) {
+    free(read.data);
+    return report_error("%s: larger than %zu bytes, too large for an image", path, MAX_FILE_BYTES);
+  }
+  if (error) {
+    free(read.data);
+    return report_system_error(error, "%s", path);
+  }
+  *contents = read;
+  return true;
+}
+
+static bool load_bin(struct loader *loader, const struct contents *contents) {
+  for (size_t index = 0; index < contents->size; ++index) {
+    if (!place_byte(loader, (uint8_t)contents->data[index])) {
       return false;
+    }
   }
   return true;
 }
 
-/* The first character of the next word of a hex image, or EOF. Skips whitespace and comments,
- * counting the lines it passes. */
-static int skip_blanks(struct loader *loader) {
-  int c = fgetc(loader->file);
-  while (c != EOF) {
-    if (c == ';') {
-      do
-        c = fgetc(loader->file);
-      while (c != EOF && c != '\n');
-      continue;
+/* Whitespace between the words of a hex image, whatever the locale. */
+static bool is_blank(char character) {
+  return character == ' ' || character == '\t' || character == '\n' || character == '\r' ||
+         character == '\v' || character == '\f';
+}
+
+/* Skip whitespace and comments, counting the lines passed. */
+static void skip_blanks(struct cursor *cursor) {
+  while (cursor->position < cursor->size) {
+    char character = cursor->text[cursor->position];
+    if (character == ';') {
+      while (cursor->position < cursor->size && cursor->text[cursor->position] != '\n') {
+        ++cursor->position;
+      }
+    } else if (is_blank(character)) {
+      cursor->line += character == '\n';
+      ++cursor->position;
+    } else {
+      return;
     }
-    if (c == '\n')
-      ++loader->line;
-    else if (!isspace(c))
+  }
+}
+
+static bool report_bad_digit(const char *path, unsigned line, unsigned char character) {
+  if (character >= ' ' && character <= '~') {
+    return report_error("%s:%u: '%c' is not a hex digit", path, line, character);
+  }
+  return report_error("%s:%u: byte 0x%02x is not a hex digit", path, line, character);
+}
+
+/* Read a word of 1 to 4 hex digits, ended by whitespace, a comment or the end of the text. */
+static bool read_word(struct cursor *cursor, const char *path, uint16_t *word) {
+  unsigned value = 0;
+  unsigned digits = 0;
+  for (; cursor->position < cursor->size; ++cursor->position) {
+    char character = cursor->text[cursor->position];
+    int digit = hex_digit_value((unsigned char)character);
+    if (digit < 0) {
+      if (character != ';' && !is_blank(character)) {
+        return report_bad_digit(path, cursor->line, (unsigned char)character);
+      }
       break;
-    c = fgetc(loader->file);
-  }
-  return c;
-}
-
-static bool report_bad_digit(const struct loader *loader, int c) {
-  if (isprint(c))
-    return report_error("%s:%u: '%c' is not a hex digit", loader->path, loader->line, c);
-  return report_error("%s:%u: byte 0x%02x is not a hex digit", loader->path, loader->line, c);
-}
-
-enum token { TOKEN_WORD, TOKEN_END, TOKEN_BAD };
-
-/* Read the next word of a hex image: 1 to 4 hex digits ended by whitespace, a comment or the end
- * of the file. Reports a malformed word. */
-static enum token next_word(struct loader *loader, uint16_t *word) {
-  int c = skip_blanks(loader);
-  if (c == EOF)
-    return TOKEN_END;
-
-  unsigned value = 0, digits = 0;
-  for (; hex_digit_value(c) >= 0; c = fgetc(loader->file)) {
-    if (++digits > WORD_DIGITS) {
-      report_error("%s:%u: a word has at most %d hex digits", loader->path, loader->line,
-                   WORD_DIGITS);
-      return TOKEN_BAD;
     }
-    value = (value << 4) | (unsigned)hex_digit_value(c);
+    if (++digits > WORD_DIGITS) {
+      return report_error("%s:%u: a word has at most %d hex digits", path, cursor->line,
+                          WORD_DIGITS);
+    }
+    value = (value << HEX_DIGIT_BITS) | (unsigned)digit;
   }
-  if (c != EOF && c != ';' && !isspace(c)) {
-    report_bad_digit(loader, c);
-    return TOKEN_BAD;
-  }
-
-  ungetc(c, loader->file); /* the delimiter is for skip_blanks; EOF is not pushed back */
   *word = (uint16_t)value;
-  return TOKEN_WORD;
+  return true;
 }
 
-static bool load_hex(struct loader *loader) {
-  uint16_t word;
-  enum token token;
-  while ((token = next_word(loader, &word)) == TOKEN_WORD) {
-    if (!place_word(loader, word))
+static bool load_hex(struct loader *loader, const struct contents *contents) {
+  struct cursor cursor = {.text = contents->data, .size = contents->size, .position = 0, .line = 1};
+  for (skip_blanks(&cursor); cursor.position < cursor.size; skip_blanks(&cursor)) {
+    uint16_t word = 0;
+    if (!read_word(&cursor, loader->path, &word) || !place_word(loader, word)) {
       return false;
+    }
   }
-  return token == TOKEN_END;
+  return true;
 }
 
 bool image_load(const char *path) {
   enum format format;
-  if (!format_of(path, &format))
+  if (!format_of(path, &format)) {
     return report_error("%s: expected a .bin or .hex image", path);
+  }
 
-  FILE *file = fopen(path, "rb");
-  if (!file)
-    return report_error("%s: %s", path, strerror(errno));
+  struct contents contents = {.data = NULL, .size = 0};
+  if (!read_contents(path, &contents)) {
+    return false;
+  }
 
-  struct loader loader = {.file = file, .path = path, .line = 1};
-  bool loaded = format == FORMAT_HEX ? load_hex(&loader) : load_bin(&loader);
-  if (loaded && ferror(file))
-    loaded = report_error("%s: %s", path, strerror(errno));
-  fclose(file);
+  struct loader loader = {.path = path, .address = 0};
+  bool loaded = format == FORMAT_HEX ? load_hex(&loader, &contents) : load_bin(&loader, &contents);
+  free(contents.data);
   return loaded;
 }

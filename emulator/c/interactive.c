@@ -3,6 +3,7 @@
 #include <errno.h>
 #include <inttypes.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -13,6 +14,7 @@
 #include "input.h"
 #include "keys.h"
 #include "machine.h"
+#include "options.h"
 #include "report.h"
 #include "run.h"
 #include "terminal.h"
@@ -22,6 +24,8 @@
 /* Instructions between two looks at the clock. */
 #define CHUNK 256
 #define STATUS_MAX 128
+/* The most bytes of input taken from the terminal at once. */
+#define READ_SIZE 1024
 
 struct player {
   struct run run;
@@ -48,8 +52,9 @@ static void player_init(struct player *player, const struct options *options) {
 /* The number of instructions for the next frame: hz / FRAME_RATE, with the remainder carried
  * from frame to frame so that the rate comes out at hz. */
 static uint64_t frame_budget(struct player *player) {
-  if (player->hz == 0)
+  if (player->hz == 0) {
     return UINT64_MAX;
+  }
 
   player->owed += player->hz % FRAME_RATE;
   uint64_t budget = (player->hz / FRAME_RATE) + (player->owed / FRAME_RATE);
@@ -65,12 +70,14 @@ static bool run_frame(struct player *player, uint8_t keys, int64_t deadline) {
   uint64_t budget = frame_budget(player);
   while (player->run.state == RUN_RUNNING && budget > 0) {
     uint64_t chunk = budget < CHUNK ? budget : CHUNK;
-    for (uint64_t i = 0; i < chunk && player->run.state == RUN_RUNNING; ++i)
+    for (uint64_t i = 0; i < chunk && player->run.state == RUN_RUNNING; ++i) {
       run_step(&player->run, keys);
+    }
 
     budget -= chunk;
-    if (clock_ns() >= deadline)
+    if (clock_ns() >= deadline) {
       break;
+    }
   }
   return player->run.retired != retired;
 }
@@ -90,8 +97,9 @@ static bool draw(struct player *player, uint8_t keys, bool changed) {
   char *frame = NULL;
   size_t size = 0;
   FILE *out = open_memstream(&frame, &size);
-  if (!out)
+  if (!out) {
     return false;
+  }
 
   display_draw(&player->display, out, status, changed);
   bool drawn = fclose(out) == 0 && terminal_write(frame, size);
@@ -112,17 +120,21 @@ static enum wait_result wait_for_input(struct input *input, int64_t deadline) {
     int64_t escape = input_deadline(input);
     int64_t wake = escape < deadline ? escape : deadline;
 
-    uint8_t bytes[1024];
+    uint8_t bytes[READ_SIZE];
     ssize_t count = terminal_read(bytes, sizeof bytes, timeout_ms(clock_ns(), wake));
     int64_t now = clock_ns();
-    if (count < 0)
+    if (count < 0) {
       return WAIT_LOST;
-    if (count > 0 && input_feed(input, bytes, (size_t)count, now))
+    }
+    if (count > 0 && input_feed(input, now, bytes, (size_t)count)) {
       return WAIT_QUIT;
-    if (input_expire(input, now))
+    }
+    if (input_expire(input, now)) {
       return WAIT_QUIT;
-    if (now >= deadline && (size_t)count < sizeof bytes)
+    }
+    if (now >= deadline && (size_t)count < sizeof bytes) {
       return WAIT_ELAPSED;
+    }
   }
 }
 
@@ -139,12 +151,14 @@ static enum play_end play(struct player *player) {
   for (;;) {
     int64_t end = start + FRAME_NS;
     uint8_t keys = input_held(&player->input, clock_ns());
-    if (terminal_resized())
+    if (terminal_resized()) {
       display_reset(&player->display);
+    }
 
     bool retired = run_frame(player, keys, end);
-    if (!draw(player, keys, retired))
+    if (!draw(player, keys, retired)) {
       return PLAY_WRITE_FAILED;
+    }
 
     switch (wait_for_input(&player->input, end)) {
     case WAIT_ELAPSED:
@@ -163,8 +177,9 @@ int interactive_run(const struct options *options) {
     report_error("--interactive needs a terminal on standard input and output");
     return EXIT_ERROR;
   }
-  if (!image_load(options->image) || !terminal_open())
+  if (!image_load(options->image) || !terminal_open()) {
     return EXIT_ERROR;
+  }
 
   struct player player;
   player_init(&player, options);
@@ -176,7 +191,7 @@ int interactive_run(const struct options *options) {
   case PLAY_QUIT:
     return run_exit_status(player.run.state);
   case PLAY_WRITE_FAILED:
-    report_error("cannot draw on the terminal: %s", strerror(error));
+    report_system_error(error, "cannot draw on the terminal");
     break;
   case PLAY_TERMINAL_LOST:
     report_error("the terminal is gone");

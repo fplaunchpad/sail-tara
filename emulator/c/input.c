@@ -1,8 +1,11 @@
 #include "input.h"
 
 #include <ctype.h>
+#include <stddef.h>
+#include <stdint.h>
 
 #include "clock.h"
+#include "keys.h"
 
 /* A line stays held this long after its key was last pressed; a key held down repeats faster. */
 #define HOLD_NS (150 * NS_PER_MS)
@@ -13,10 +16,18 @@
 #define CTRL_C 0x03
 #define NO_LINE (-1)
 
+/* The bytes of a control sequence (ECMA-48): parameter and intermediate bytes go on, a final
+ * byte ends it. */
+#define PARAMETER_FIRST 0x20
+#define PARAMETER_LAST 0x3F
+#define FINAL_FIRST 0x40
+#define FINAL_LAST 0x7E
+
 void input_init(struct input *input) {
   *input = (struct input){.state = INPUT_GROUND};
-  for (int line = 0; line < KEY_LINES; ++line)
+  for (int line = 0; line < KEY_LINES; ++line) {
     input->held_until[line] = INT64_MIN;
+  }
 }
 
 /* The line a letter key drives, or NO_LINE. */
@@ -54,17 +65,20 @@ static int arrow_line(uint8_t final) {
 }
 
 static void press(struct input *input, int line, int64_t now) {
-  if (line != NO_LINE)
+  if (line != NO_LINE) {
     input->held_until[line] = now + HOLD_NS;
+  }
 }
 
 /* Inside ESC [ or ESC O, parameter and intermediate bytes go on and a final byte ends the
  * sequence. Returns true if the byte belongs to the sequence. */
 static bool feed_sequence_byte(struct input *input, uint8_t byte, int64_t now) {
-  if (byte >= 0x20 && byte <= 0x3F)
+  if (byte >= PARAMETER_FIRST && byte <= PARAMETER_LAST) {
     return true;
-  if (byte < 0x40 || byte > 0x7E)
+  }
+  if (byte < FINAL_FIRST || byte > FINAL_LAST) {
     return false;
+  }
 
   press(input, arrow_line(byte), now);
   input->state = INPUT_GROUND;
@@ -74,23 +88,26 @@ static bool feed_sequence_byte(struct input *input, uint8_t byte, int64_t now) {
 /* Returns true if the byte is Ctrl-C, or an ESC that begins no sequence. */
 static bool feed_byte(struct input *input, uint8_t byte, int64_t now) {
   if (input->state == INPUT_SEQUENCE) {
-    if (feed_sequence_byte(input, byte, now))
+    if (feed_sequence_byte(input, byte, now)) {
       return false;
+    }
     input->state = INPUT_GROUND; /* not part of the sequence: a key of its own */
   }
 
   switch (input->state) {
   case INPUT_GROUND:
-    if (byte == ESC)
+    if (byte == ESC) {
       input->state = INPUT_ESCAPE;
-    else if (byte == CTRL_C)
+    } else if (byte == CTRL_C) {
       return true;
-    else
+    } else {
       press(input, letter_line(byte), now);
+    }
     return false;
   case INPUT_ESCAPE:
-    if (byte != '[' && byte != 'O')
+    if (byte != '[' && byte != 'O') {
       return true;
+    }
     input->state = INPUT_SEQUENCE;
     return false;
   case INPUT_SEQUENCE:
@@ -99,13 +116,15 @@ static bool feed_byte(struct input *input, uint8_t byte, int64_t now) {
   return false;
 }
 
-bool input_feed(struct input *input, const uint8_t *bytes, size_t length, int64_t now) {
+bool input_feed(struct input *input, int64_t now, const uint8_t *bytes, size_t length) {
   for (size_t i = 0; i < length; ++i) {
-    if (feed_byte(input, bytes[i], now))
+    if (feed_byte(input, bytes[i], now)) {
       return true;
+    }
   }
-  if (input->state != INPUT_GROUND)
+  if (input->state != INPUT_GROUND) {
     input->pending_since = now;
+  }
   return false;
 }
 
@@ -114,8 +133,9 @@ int64_t input_deadline(const struct input *input) {
 }
 
 bool input_expire(struct input *input, int64_t now) {
-  if (now < input_deadline(input))
+  if (now < input_deadline(input)) {
     return false;
+  }
   input->state = INPUT_GROUND;
   return true;
 }
@@ -123,8 +143,9 @@ bool input_expire(struct input *input, int64_t now) {
 uint8_t input_held(const struct input *input, int64_t now) {
   uint8_t keys = 0;
   for (int line = 0; line < KEY_LINES; ++line) {
-    if (now < input->held_until[line])
-      keys |= (uint8_t)(1u << line);
+    if (now < input->held_until[line]) {
+      keys |= (uint8_t)(1U << line);
+    }
   }
   return keys;
 }

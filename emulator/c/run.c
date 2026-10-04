@@ -1,13 +1,16 @@
 #include "run.h"
+#include "machine.h"
 
 #include <assert.h>
+#include <stdint.h>
 
 /* The checks made before each step. */
 static void settle(struct run *run) {
-  if (machine_halted())
+  if (machine_halted()) {
     run->state = RUN_HALTED;
-  else if (run->limit && run->retired == run->limit)
+  } else if (run->limit && run->retired == run->limit) {
     run->state = RUN_LIMIT;
+  }
 }
 
 void run_start(struct run *run, uint64_t limit) {
@@ -19,12 +22,14 @@ enum step_result run_step(struct run *run, uint8_t keys) {
   assert(run->state == RUN_RUNNING);
 
   enum step_result result = machine_step(keys);
-  if (result == STEP_RETIRED)
+  if (result == STEP_RETIRED) {
     ++run->retired;
-  if (result == STEP_ILLEGAL)
+  }
+  if (result == STEP_ILLEGAL) {
     run->state = RUN_ILLEGAL;
-  else
+  } else {
     settle(run);
+  }
   return result;
 }
 

@@ -1,5 +1,8 @@
 #include "display.h"
+#include "machine.h"
 
+#include <stdint.h>
+#include <stdio.h>
 #include <string.h>
 
 #define STATUS_ROW (DISPLAY_ROWS + 1)
@@ -47,14 +50,17 @@ static void read_row(unsigned row, uint8_t cells[DISPLAY_COLUMNS]) {
 static bool changed_columns(const uint8_t *shown, const uint8_t *cells, unsigned *first,
                             unsigned *last) {
   unsigned begin = 0;
-  while (begin < DISPLAY_COLUMNS && shown[begin] == cells[begin])
+  while (begin < DISPLAY_COLUMNS && shown[begin] == cells[begin]) {
     ++begin;
-  if (begin == DISPLAY_COLUMNS)
+  }
+  if (begin == DISPLAY_COLUMNS) {
     return false;
+  }
 
   unsigned end = DISPLAY_COLUMNS - 1;
-  while (shown[end] == cells[end])
+  while (shown[end] == cells[end]) {
     --end;
+  }
   *first = begin;
   *last = end;
   return true;
@@ -81,14 +87,16 @@ static void paint_changes(struct display *display, FILE *out) {
     uint8_t cells[DISPLAY_COLUMNS];
     read_row(row, cells);
 
-    unsigned first, last;
+    unsigned first;
+    unsigned last;
     if (changed_columns(display->cells[row], cells, &first, &last)) {
       paint(out, row, cells, first, last, &color);
       memcpy(display->cells[row], cells, sizeof cells);
     }
   }
-  if (color != CELL_UNKNOWN)
+  if (color != CELL_UNKNOWN) {
     fputs(RESET_ATTRIBUTES, out);
+  }
 }
 
 void display_draw(struct display *display, FILE *out, const char *status, bool changed) {
@@ -97,8 +105,9 @@ void display_draw(struct display *display, FILE *out, const char *status, bool c
     display->clear = false;
     changed = true;
   }
-  if (changed)
+  if (changed) {
     paint_changes(display, out);
+  }
 
   fprintf(out, "\x1b[%u;1H%s\x1b[K", STATUS_ROW, status);
 }

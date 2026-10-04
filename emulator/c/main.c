@@ -12,7 +12,6 @@
  * input and display (playing in the terminal); machine (the Sail model); report, number, keys and
  * clock (small helpers).
  */
-#include <stdio.h>
 #include <stdlib.h>
 
 #include "batch.h"

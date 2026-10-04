@@ -1,5 +1,6 @@
 #include "clock.h"
 
+#include <stdint.h>
 #include <time.h>
 
 int64_t clock_ns(void) {

@@ -1,7 +1,9 @@
 #include "options.h"
 
-#include <getopt.h>
+#include <getopt.h> // IWYU pragma: keep (getopt_long is declared in a private glibc header)
 #include <stddef.h>
+#include <stdint.h>
+#include <stdio.h>
 
 #include "keys.h"
 #include "number.h"
@@ -63,14 +65,16 @@ static bool apply(struct options *options, struct given *given, int option, cons
     return true;
   case 'n':
     given->max_steps = true;
-    if (!parse_decimal(argument, UINT64_MAX, &options->max_steps))
+    if (!parse_decimal(argument, UINT64_MAX, &options->max_steps)) {
       return report_error("--max-steps: '%s' is not a count (decimal digits)", argument);
+    }
     return true;
   case OPT_KEYS:
     given->keys = true;
-    if (!keys_parse(argument, &options->keys))
+    if (!keys_parse(argument, &options->keys)) {
       return report_error("--keys: '%s' is not input lines (0-%u, decimal or 0x hex)", argument,
                           KEYS_MAX);
+    }
     return true;
   case OPT_KEY_SCRIPT:
     options->key_script = argument;
@@ -85,8 +89,9 @@ static bool apply(struct options *options, struct given *given, int option, cons
     given->interactive = true;
     return true;
   case OPT_HZ:
-    if (!parse_decimal(argument, UINT64_MAX, &options->hz))
+    if (!parse_decimal(argument, UINT64_MAX, &options->hz)) {
       return report_error("--hz: '%s' is not a rate (decimal digits)", argument);
+    }
     return true;
   default:
     return report_error("option %d is not handled", option);
@@ -106,12 +111,14 @@ static bool check_interactive(struct options *options, const struct given *given
       {"--key-script", options->key_script != NULL},
   };
   for (size_t i = 0; i < sizeof batch_only / sizeof *batch_only; ++i) {
-    if (batch_only[i].given)
+    if (batch_only[i].given) {
       return report_error("%s cannot be used with --interactive", batch_only[i].name);
+    }
   }
 
-  if (!given->max_steps)
+  if (!given->max_steps) {
     options->max_steps = 0;
+  }
   return true;
 }
 
@@ -119,21 +126,26 @@ static bool check_interactive(struct options *options, const struct given *given
 static bool check(struct options *options, const struct given *given, int operands,
                   char *const operand[]) {
   if (given->disasm_all) {
-    if (given->others)
+    if (given->others) {
       return report_error("--disasm-all cannot be combined with other options");
-    if (operands > 0)
+    }
+    if (operands > 0) {
       return report_error("--disasm-all takes no IMAGE");
+    }
     options->mode = MODE_DISASM;
     return true;
   }
 
-  if (operands == 0)
+  if (operands == 0) {
     return report_error("missing IMAGE");
-  if (operands > 1)
+  }
+  if (operands > 1) {
     return report_error("unexpected argument '%s'", operand[1]);
+  }
   options->image = operand[0];
-  if (!given->interactive)
+  if (!given->interactive) {
     return true;
+  }
   options->mode = MODE_INTERACTIVE;
   return check_interactive(options, given);
 }
@@ -147,14 +159,20 @@ enum options_result options_parse(int argc, char *argv[], struct options *option
   *options = (struct options){.mode = MODE_BATCH, .max_steps = DEFAULT_MAX_STEPS, .hz = DEFAULT_HZ};
   struct given given = {0};
 
-  argv[0] = PROGRAM_NAME; /* getopt_long names the program in its own messages */
+  static char program_name[] = PROGRAM_NAME;
+  argv[0] = program_name; /* getopt_long names the program in its own messages */
+  /* getopt_long keeps global state, so it is not thread safe; options are parsed once, first. */
+  // NOLINTNEXTLINE(concurrency-mt-unsafe)
   for (int option; (option = getopt_long(argc, argv, SHORT_OPTIONS, LONG_OPTIONS, NULL)) != -1;) {
-    if (option == 'h')
+    if (option == 'h') {
       return OPTIONS_HELP;
-    if (option == '?' || !apply(options, &given, option, optarg))
+    }
+    if (option == '?' || !apply(options, &given, option, optarg)) {
       return fail();
-    if (option != OPT_DISASM_ALL)
+    }
+    if (option != OPT_DISASM_ALL) {
       given.others = true;
+    }
   }
   return check(options, &given, argc - optind, argv + optind) ? OPTIONS_OK : fail();
 }
