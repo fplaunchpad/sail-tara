@@ -33,11 +33,17 @@ function clause decode(0b111111 @ _ : bits(26)) = Some(HALT())
 function clause decode(_) = None()
 end decode
 
-mapping reg_name : regidx <-> string = { forwards value => "r" ^ dec_bits_5(value), backwards _ if false => 0b00000 }
+mapping reg_name : regidx <-> string = {
+  forwards value => "r" ^ dec_bits_5(value),
+  backwards _ if false => 0b00000
+}
 
 val assembly : instruction <-> string
 scattered mapping assembly
-mapping clause assembly = ADD(rd, rs, rt) <-> "add " ^ reg_name(rd) ^ ", " ^ reg_name(rs) ^ ", " ^ reg_name(rt)
-mapping clause assembly = LOAD(rd, base, offset) <-> "load " ^ reg_name(rd) ^ ", " ^ hex_bits_16(offset) ^ "(" ^ reg_name(base) ^ ")"
+mapping clause assembly =
+  ADD(rd, rs, rt) <-> "add " ^ reg_name(rd) ^ ", " ^ reg_name(rs) ^ ", " ^ reg_name(rt)
+mapping clause assembly =
+  LOAD(rd, base, offset) <->
+    "load " ^ reg_name(rd) ^ ", " ^ hex_bits_16(offset) ^ "(" ^ reg_name(base) ^ ")"
 mapping clause assembly = HALT() <-> "halt"
 end assembly

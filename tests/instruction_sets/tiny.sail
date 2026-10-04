@@ -36,5 +36,6 @@ mapping repeat_operand : bits(3) <-> string = {
 val assembly : instruction <-> string
 scattered mapping assembly
 mapping clause assembly = Stop() <-> "STOP"
-mapping clause assembly = Tiny(second, first) <-> "TINY" ^ separator() ^ repeat_operand(first) ^ "/" ^ dec_bits_2(second)
+mapping clause assembly =
+  Tiny(second, first) <-> "TINY" ^ separator() ^ repeat_operand(first) ^ "/" ^ dec_bits_2(second)
 end assembly

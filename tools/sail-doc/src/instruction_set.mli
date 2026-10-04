@@ -1,23 +1,32 @@
 open Libsail
 
 module Instruction : sig
-  (** [operand_count] is the number of the constructor's arguments, and [fields] lay out its word
-      from the most significant bit. *)
+  (** An instruction, in the order of the union's constructors: its syntax, the fields of its word
+      from the most significant bit, and the clauses that handle it, in source order. *)
   type t =
     { constructor : string
-    ; source_file : string
     ; operand_count : int
-    ; opcode_bits : string
     ; syntax : string
     ; fields : Word_field.t list
+    ; clauses : Clause.t list
     }
   [@@deriving yojson_of]
 end
 
-(** The instructions of a model, by opcode, and the width of their words. *)
+(** The decode clause that rejects the words of no instruction. In JSON, [name] is [function]. *)
+module Fallback : sig
+  type t =
+    { name : string
+    ; documented : bool
+    }
+  [@@deriving yojson_of]
+end
+
 type t =
   { word_width : int
   ; instructions : Instruction.t list
+  ; outline : Outline.t
+  ; fallback : Fallback.t
   }
 [@@deriving yojson_of]
 

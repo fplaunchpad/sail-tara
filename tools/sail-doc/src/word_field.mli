@@ -1,10 +1,29 @@
-(** A field of an instruction word: an operand's name, [opcode], or [padding] for bits that decoding
-    ignores. *)
+(** A field of an instruction word: bits a decode clause fixes (named if the pattern names them with
+    [as]), an operand it binds, or bits it ignores. In JSON, an object whose [kind] is [fixed],
+    [operand] or [ignored]. *)
+
+module Fixed : sig
+  type t =
+    { name : string option
+    ; bits : string
+    }
+end
+
+module Operand : sig
+  type t =
+    { name : string
+    ; width : int
+    }
+end
+
+module Ignored : sig
+  type t = { width : int }
+end
+
 type t =
-  { name : string
-  ; width : int
-  }
+  | Fixed of Fixed.t
+  | Operand of Operand.t
+  | Ignored of Ignored.t
 [@@deriving yojson_of]
 
-val opcode : string
-val padding : string
+val width : t -> int

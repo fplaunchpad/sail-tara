@@ -2,13 +2,13 @@ open Core
 open Libsail
 open Extraction.Ast
 
-let rec template ~ast ~operand pattern =
+let rec template ~mappings ~operand pattern =
   match Sail_ast.unwrap_mpat pattern with
   | MP_aux (MP_lit (L_aux (L_string text, _)), _) -> text
   | MP_aux (MP_string_append parts, _) ->
-    List.map parts ~f:(template ~ast ~operand) |> String.concat
+    List.map parts ~f:(template ~mappings ~operand) |> String.concat
   | MP_aux (MP_app (mapping, [ argument ]), _) when Sail_ast.is_unit_mpat argument ->
-    constant ~ast (Sail_ast.id_string mapping) (Sail_ast.mpat_location pattern)
+    constant ~mappings (Sail_ast.id_string mapping) (Sail_ast.mpat_location pattern)
   | MP_aux (MP_app (_, [ MP_aux (MP_id binder, _) ]), _) -> operand (Sail_ast.id_string binder)
   | piece ->
     Sail_ast.fail_at
@@ -16,20 +16,23 @@ let rec template ~ast ~operand pattern =
       "assembly syntax must concatenate strings, operands and mappings from unit"
 
 (* The text of a mapping from unit, such as a separator. *)
-and constant ~ast name location =
+and constant ~mappings name location =
   match
-    List.find (Sail_ast.mapping_clauses ast name) ~f:(fun { left; _ } -> Sail_ast.is_unit_mpat left)
+    List.find mappings ~f:(fun ({ name = mapping; left; _ } : Sail_ast.Mapping_clause.t) ->
+      String.equal mapping name && Sail_ast.is_unit_mpat left)
   with
   | Some { right; _ } ->
     let operand binder =
       Sail_ast.fail_at location [%string "%{name} prints %{binder}, which is not an operand"]
     in
-    template ~ast ~operand right
+    template ~mappings ~operand right
   | None -> Sail_ast.fail_at location [%string "%{name} does not map unit to text"]
 ;;
 
-let read ~ast (instructions : Decode.t list) (clauses : Sail_ast.Mapping_clause.t list) =
-  List.map clauses ~f:(fun { left; right; location } ->
+let read ~mappings ~assembly (instructions : Decode.t list) =
+  List.filter mappings ~f:(fun ({ name; _ } : Sail_ast.Mapping_clause.t) ->
+    String.equal name assembly)
+  |> List.map ~f:(fun { left; right; location; _ } ->
     let constructor, arguments =
       match Sail_ast.constructor_mpat left with
       | Some application -> application
@@ -58,10 +61,10 @@ let read ~ast (instructions : Decode.t list) (clauses : Sail_ast.Mapping_clause.
     in
     let operand binder =
       match List.Assoc.find names binder ~equal:String.equal with
-      | Some name -> name
+      | Some name -> Option.value name ~default:binder
       | None -> Sail_ast.fail_at location [%string "%{binder} is not an operand of %{constructor}"]
     in
-    match template ~ast ~operand right with
+    match template ~mappings ~operand right with
     | "" -> Sail_ast.fail_at location [%string "%{constructor} has no assembly syntax"]
     | text -> constructor, text)
 ;;

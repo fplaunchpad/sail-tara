@@ -11,7 +11,19 @@ from src.simulation.cpu import OP_NAME
 
 from helpers.doc import INSTRUCTION_SETS, Bundle, Specification, Workspace
 from tara.asciidoc import Text
-from tara.doc import OPCODES, Field, Instruction, InstructionSet
+from tara.doc import (
+    OPCODES,
+    AnchorEntry,
+    Fallback,
+    Field,
+    Fixed,
+    Ignored,
+    Instruction,
+    InstructionEntry,
+    InstructionSet,
+    Operand,
+    Selector,
+)
 
 needs_plugin = pytest.mark.skipif(
     "TARA_DOC_PLUGIN" not in os.environ, reason="needs the Sail plugin in tools/sail-doc"
@@ -104,10 +116,6 @@ def test_follows_changes_to_the_model(tmp_path: Path) -> None:
     "edits",
     [
         pytest.param(
-            [(DATA_MOVEMENT, "decode(0b00000 @ _ : bits(11))", "decode(0b0000 @ _ : bits(12))")],
-            id="opcode-width-differs",
-        ),
-        pytest.param(
             [(SYNTAX, '<-> "NOP"', '<-> "NOP" ^ dec_bits_8(0x00)')],
             id="assembly-prints-a-constant",
         ),
@@ -150,80 +158,148 @@ def test_rejects_a_model_it_cannot_tabulate(
     assert not (workspace.output / METADATA).exists()
 
 
+def described(field: Field) -> str:
+    """A field as `name=bits` if it is fixed, `name:width` if an operand, and `_:width` if
+    ignored."""
+
+    match field:
+        case Fixed(name=name, bits=bits):
+            return f"{name or ''}={bits}"
+        case Operand(name=name, width=width):
+            return f"{name}:{width}"
+        case Ignored(width=width):
+            return f"_:{width}"
+
+
+# Each test instruction set's word width, opcode width (None: no single leading opcode) and
+# instructions, with their syntax and fields.
+INSTRUCTION_SET_CASES = [
+    pytest.param(
+        "tiny",
+        12,
+        4,
+        [
+            ("Tiny", "TINY:second/first", ["=0010", "first:2", "second:3", "_:3"]),
+            ("Stop", "STOP", ["=0001", "_:8"]),
+        ],
+        id="12-bit",
+    ),
+    pytest.param(
+        "wide",
+        32,
+        6,
+        [
+            ("ADD", "add rd, rs, rt", ["=000001", "rd:5", "rs:5", "rt:5", "_:11"]),
+            ("LOAD", "load rd, offset(base)", ["=000010", "rd:5", "base:5", "offset:16"]),
+            ("HALT", "halt", ["=111111", "_:26"]),
+        ],
+        id="32-bit",
+    ),
+    pytest.param(
+        "full",
+        4,
+        1,
+        [("ZERO", "zero", ["=0", "_:3"]), ("ONE", "one value", ["=1", "value:3"])],
+        id="every-opcode-assigned",
+    ),
+    pytest.param(
+        "riscish",
+        32,
+        None,
+        [
+            (
+                "ADD",
+                "add rd, rs1, rs2",
+                ["funct7=0000000", "rs2:5", "rs1:5", "funct3=000", "rd:5", "=0110011"],
+            ),
+            (
+                "SUB",
+                "sub rd, rs1, rs2",
+                ["funct7=0100000", "rs2:5", "rs1:5", "funct3=000", "rd:5", "=0110011"],
+            ),
+            ("LW", "lw rd, imm(rs1)", ["imm:12", "rs1:5", "funct3=010", "rd:5", "=0000011"]),
+        ],
+        id="opcode-in-the-low-bits",
+    ),
+]
+
+# A document for the generated parts alone, with the sections that instructions.adoc nests in.
+DOCUMENT = """\
+= Instruction set
+:sail-doc: {docdir}/tara.json
+
+== Encodings
+
+include::formats.adoc[]
+
+include::opcodes.adoc[]
+
+== Instructions
+
+=== All
+
+include::instructions.adoc[]
+"""
+
+
 @needs_plugin
 @pytest.mark.parametrize(
-    ("name", "word_width", "instructions"),
-    [
-        pytest.param(
-            "tiny",
-            12,
-            [
-                ("Stop", "0001", "STOP", [("opcode", 4), ("padding", 8)]),
-                (
-                    "Tiny",
-                    "0010",
-                    "TINY:second/first",
-                    [("opcode", 4), ("first", 2), ("second", 3), ("padding", 3)],
-                ),
-            ],
-            id="12-bit",
-        ),
-        pytest.param(
-            "wide",
-            32,
-            [
-                (
-                    "ADD",
-                    "000001",
-                    "add rd, rs, rt",
-                    [("opcode", 6), ("rd", 5), ("rs", 5), ("rt", 5), ("padding", 11)],
-                ),
-                (
-                    "LOAD",
-                    "000010",
-                    "load rd, offset(base)",
-                    [("opcode", 6), ("rd", 5), ("base", 5), ("offset", 16)],
-                ),
-                ("HALT", "111111", "halt", [("opcode", 6), ("padding", 26)]),
-            ],
-            id="32-bit",
-        ),
-        pytest.param(
-            "full",
-            4,
-            [
-                ("ZERO", "0", "zero", [("opcode", 1), ("padding", 3)]),
-                ("ONE", "1", "one value", [("opcode", 1), ("value", 3)]),
-            ],
-            id="every-opcode-assigned",
-        ),
-    ],
+    ("name", "word_width", "opcode_width", "instructions"), INSTRUCTION_SET_CASES
 )
-def test_tabulates_other_instruction_sets(
+def test_documents_other_instruction_sets(
     tmp_path: Path,
     name: str,
     word_width: int,
-    instructions: list[tuple[str, str, str, list[tuple[str, int]]]],
+    opcode_width: int | None,
+    instructions: list[tuple[str, str, list[str]]],
 ) -> None:
     workspace = Workspace.copy(tmp_path)
     workspace.install(INSTRUCTION_SETS / f"{name}.sail")
+    workspace.build("doc", "bundle")
     workspace.build("doc", "sections")
     instruction_set = InstructionSet.read(workspace.output / METADATA)
-    tables = workspace.output / "tables.adoc"
-    tables.write_text(f"{instruction_set.format_table()}\n{instruction_set.opcode_table()}")
+    document = workspace.output / "document.adoc"
+    document.write_text(DOCUMENT)
 
-    assert instruction_set.word_width == word_width
+    assert (instruction_set.word_width, instruction_set.opcode_width) == (word_width, opcode_width)
     assert [
-        (i.constructor, i.opcode_bits, i.syntax, [(f.name, f.width) for f in i.fields])
+        (i.constructor, i.syntax, list(map(described, i.fields)))
         for i in instruction_set.instructions
     ] == instructions
     rendered = subprocess.run(
-        ["asciidoctor", "--failure-level", "WARN", "-o", os.devnull, tables],
+        ["asciidoctor", "-r", "asciidoctor-sail", "--failure-level", "WARN", document],
+        cwd=workspace.output,
         capture_output=True,
         text=True,
         check=False,
     )
     assert rendered.returncode == 0, rendered.stderr
+    specification = Specification.read(workspace.output / "document.html")
+    for instruction in instruction_set.instructions:
+        assert len(specification.listings(instruction.anchor)) == len(instruction.clauses)
+
+
+@needs_plugin
+def test_follows_the_source_order_of_anchors_and_instructions(tmp_path: Path) -> None:
+    workspace = Workspace.copy(tmp_path)
+    workspace.install(INSTRUCTION_SETS / "riscish.sail")
+    workspace.build("doc", "sections")
+
+    instruction_set = InstructionSet.read(workspace.output / METADATA)
+    add = next(i for i in instruction_set.instructions if i.constructor == "ADD")
+
+    assert instruction_set.outline == (
+        AnchorEntry(name="register_arithmetic"),
+        InstructionEntry(name="ADD"),
+        InstructionEntry(name="SUB"),
+        AnchorEntry(name="loads"),
+        InstructionEntry(name="LW"),
+    )
+    assert [(c.function, c.selector, c.documented) for c in add.clauses] == [
+        ("decode", Selector.BODY, False),
+        ("semantics", Selector.PATTERN, True),
+        ("assembly", Selector.LEFT, False),
+    ]
 
 
 @needs_plugin
@@ -238,36 +314,32 @@ def test_leaves_out_the_fallback_when_every_opcode_is_assigned(tmp_path: Path) -
     assert "None" not in opcodes
 
 
-@needs_plugin
-def test_rejects_a_field_named_padding(tmp_path: Path) -> None:
-    workspace = Workspace.copy(tmp_path)
-    workspace.install(INSTRUCTION_SETS / "tiny.sail")
-    workspace.edit(SYNTAX, "second : bits(3)", "padding : bits(3)")
-    workspace.edit(SYNTAX, "Some(Tiny(first, second))", "Some(Tiny(first, padding))")
-
-    assert workspace.just("doc", "metadata").returncode != 0
-
-
 def instruction(opcode: int, *, field: str) -> Instruction:
     """An instruction of an 8-bit instruction set with a 4-bit opcode and one 4-bit field."""
 
     return Instruction(
         constructor=f"I{opcode}",
-        source_file="isa.sail",
         operand_count=1,
-        opcode_bits=f"{opcode:04b}",
         syntax=f"I{opcode} {field}",
-        fields=(Field(name="opcode", width=4), Field(name=field, width=4)),
+        fields=(Fixed(name=None, bits=f"{opcode:04b}"), Operand(name=field, width=4)),
+        clauses=(),
+    )
+
+
+def instruction_set(instructions: tuple[Instruction, ...]) -> InstructionSet:
+    return InstructionSet(
+        word_width=8,
+        instructions=instructions,
+        outline=(),
+        fallback=Fallback(function="decode", documented=False),
     )
 
 
 def test_opcode_table_runs_unassigned_opcodes_together() -> None:
     opcodes = (0, 1, 3, 4, 5, 6, 7, 8, 9, 10)
-    instruction_set = InstructionSet(
-        word_width=8, instructions=tuple(instruction(opcode, field="x") for opcode in opcodes)
-    )
+    table = instruction_set(tuple(instruction(opcode, field="x") for opcode in opcodes))
 
-    first_cells = [row.cells[0].content for row in instruction_set.opcode_table().rows]
+    first_cells = [row.cells[0].content for row in table.opcode_table(4).rows]
 
     assert first_cells == [
         (Text(label),) for label in ["0", "1", "2", *map(str, opcodes[2:]), "11-15"]
@@ -275,12 +347,9 @@ def test_opcode_table_runs_unassigned_opcodes_together() -> None:
 
 
 def test_format_table_merges_a_field_across_formats() -> None:
-    instruction_set = InstructionSet(
-        word_width=8,
-        instructions=tuple(instruction(opcode, field=f"f{opcode}") for opcode in range(10)),
-    )
+    table = instruction_set(tuple(instruction(opcode, field=f"f{opcode}") for opcode in range(10)))
 
-    rows = instruction_set.format_table().rows
+    rows = table.format_table().rows
     opcode_cells = [cell for row in rows for cell in row.cells if str(cell).endswith("`+opcode+`")]
 
     assert [row.cells[0].content[-1] for row in rows] == [
