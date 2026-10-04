@@ -1,0 +1,9 @@
+(library
+ (name tara_doc_tables)
+ (modules sail_ast instruction metadata decode encode constant assembly layout main)
+ (libraries core libsail yojson ppx_yojson_conv_lib ppx_string.runtime)
+ (preprocess (pps ppx_jane ppx_yojson_conv))
+ ; Warning 4 comes from deliberately fail-closed matches on Sail's extensible AST.
+ ; Warnings 40 and 42 are emitted for Core record fields selected by type.
+ ; Warning 44 is emitted by Core's intentional operator opens.
+ (flags (:standard -w +a-4-40-42-44 -warn-error +a -alert ++deprecated)))
