@@ -3,7 +3,7 @@
 
 import "just/settings.just"
 
-# The Sail model: typecheck, unit tests, formatting.
+# The Sail model: typecheck and formatting.
 mod model "just/model.just"
 
 # The C emulator.
@@ -12,10 +12,10 @@ mod c "just/c.just"
 # The OCaml emulator.
 mod ocaml "just/ocaml.just"
 
-# Rocq definitions generated from the model.
+# Rocq definitions generated from the model, with proofs of their properties.
 mod rocq "just/rocq.just"
 
-# Lean definitions generated from the model.
+# Lean definitions generated from the model, with proofs of their properties.
 mod lean "just/lean.just"
 
 # The specification typeset from the model.
@@ -40,7 +40,7 @@ test *args: c::build ocaml::build
 format: model::format c::format ocaml::format python::format
 
 # Check the formatting of every source, Python lint and types.
-lint: model::lint c::lint ocaml::lint python::lint (python::format "--check") python::typecheck
+lint: model::lint c::lint ocaml::lint rocq::lint lean::lint python::lint (python::format "--check") python::typecheck
 
 # Remove build outputs.
 clean:

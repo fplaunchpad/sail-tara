@@ -1,6 +1,7 @@
-# The model's Rocq definitions, compiled with the smoke test and the codec proof.
+# The model's Rocq definitions, compiled with the proofs of their properties.
 {
   justDerivation,
+  bash,
   sail,
   rocqPackages,
   rocq-sail-stdpp,
@@ -13,6 +14,7 @@ justDerivation {
     ../rocq
   ];
   nativeBuildInputs = [
+    bash
     sail
     rocqPackages.rocq-core
   ];

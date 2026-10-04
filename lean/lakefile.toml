@@ -1,0 +1,16 @@
+# Replaces the lakefile Sail generates. It builds against the lean-sail checkout next to the
+# project instead of fetching it, and the library covers every module under Tara/: the generated
+# definitions and the proofs about them, so that building the library checks the proofs.
+name = "Tara"
+defaultTargets = ["Tara"]
+moreLeanArgs = ["--tstack=400000"]
+
+[[lean_lib]]
+name = "Tara"
+globs = ["Tara", "Tara.+"]
+leanOptions.weak.linter.style.nameCheck = false
+moreLeancArgs = ["-fbracket-depth=500"]
+
+[[require]]
+name = "Sail"
+path = "../lean-sail"

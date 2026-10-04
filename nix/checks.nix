@@ -53,13 +53,14 @@ in
         touch "$out"
       '';
 
-  # Formatting and line width of the Sail, C and OCaml sources.
+  # Formatting and line width of the Sail, C, OCaml, Rocq and Lean sources.
   lint = justDerivation {
     pname = "lint";
     fileset = [
       ../model
       ../emulator
       ../lean
+      ../rocq
     ];
     nativeBuildInputs = [
       sail
@@ -82,6 +83,8 @@ in
       "model::lint"
       "c::lint"
       "ocaml::lint"
+      "rocq::lint"
+      "lean::lint"
     ];
     installPhase = "touch $out";
   };
