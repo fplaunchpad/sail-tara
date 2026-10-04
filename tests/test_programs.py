@@ -15,6 +15,7 @@ from tara.asm import assemble_file
 from tara.emulator import Emulator
 from tara.image import Image
 from tara.keys import ALL_KEYS, KeySchedule
+from tara.transcript import Status
 
 PROGRAMS = sorted((Path(__file__).parent / "programs").glob("*.tara"))
 EXAMPLES = sorted(Path(PROGS_DIR).rglob("*.tara"))
@@ -69,9 +70,10 @@ def test_random_program_runs_like_the_reference(
     image = Image(tmp_path / f"random-{seed}.bin")
     image.write(assemble_file(source))
 
-    run = emulator.run("-t", image.path)
-
     expected = reference.run(image.read(), disassembly=disassembly)
+    assert expected.status is Status.HALTED, "random programs must halt"
+
+    run = emulator.run("-t", image.path)
 
     assert run.transcript == expected, source.read_text()
 
