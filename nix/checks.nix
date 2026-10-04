@@ -49,6 +49,7 @@ in
     fileset = [
       ../model
       ../emulator
+      ../lean
     ];
     nativeBuildInputs = [
       sail

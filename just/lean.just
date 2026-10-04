@@ -1,29 +1,29 @@
-# Lean definitions generated from the model's core (no strings).
+# Lean definitions generated from the model's core (no strings), and an executable smoke test.
 import "settings.just"
 
 set working-directory := ".."
 
-# Generate the Lean project.
+# Generate the Lean project NAME from a Sail program: an executable if it defines main.
 [private]
-generate: (build-dir "lean")
-    sail --lean --lean-single-file --lean-force-output --lean-output-dir "{{ build }}/lean" -o Tara model/tara.sail
+generate name source: (build-dir "lean")
+    sail --lean --lean-single-file --lean-force-output --lean-executable \
+        --lean-lib-path ../lean-sail --lean-output-dir "{{ build }}/lean" -o "$1" "$2"
 
-# Copy the pinned lean-sail library ($LEAN_SAIL) where the project expects it.
+# Copy the pinned lean-sail library ($LEAN_SAIL) where the projects' lakefiles expect it.
 [private]
 library: (build-dir "lean")
     cp -rT --no-preserve=mode "$LEAN_SAIL" "{{ build }}/lean/lean-sail"
 
-# Use the lakefile that builds against the local lean-sail.
+# Resolve the local lean-sail dependency of the project NAME (no network).
 [private]
-project: generate library
-    cp lean/lakefile.toml "{{ build }}/lean/Tara/lakefile.toml"
-
-# Resolve the local lean-sail dependency (no network).
-[private]
-update: project
-    cd "{{ build }}/lean/Tara" && lake update
+update name source: (generate name source) library
+    cd "{{ build }}/lean/$1" && lake update
 
 # Build the generated Lean model.
 [default]
-build: update
+build: (update "Tara" "model/tara.sail")
     cd "{{ build }}/lean/Tara" && lake build
+
+# Build and run the smoke test: the manual's Fibonacci program on the generated Lean model.
+smoke: (update "Smoke" "lean/smoke.sail")
+    cd "{{ build }}/lean/Smoke" && lake exe run
