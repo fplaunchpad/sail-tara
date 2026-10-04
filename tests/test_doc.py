@@ -10,7 +10,7 @@ import pytest
 from src.simulation.cpu import OP_NAME
 
 from helpers.doc import INSTRUCTION_SETS, Bundle, Specification, Workspace
-from tara.asciidoc import Text
+from tara.asciidoc import Cell, Code, Column, LineBreak, Row, Table, Text
 from tara.doc import (
     OPCODES,
     AnchorEntry,
@@ -397,3 +397,24 @@ def test_format_table_merges_a_field_across_formats() -> None:
         Text(f"F{number}") for number in range(1, 11)
     ]
     assert [(cell.columns, cell.rows) for cell in opcode_cells] == [(1, 10)]
+
+
+def test_fits_a_table_to_its_longest_lines() -> None:
+    table = Table(
+        columns=(Column(), Column()),
+        header=("A", "B"),
+        rows=(
+            Row(cells=(Cell(content=(Code("x" * 10),)), Cell(content=(Code("y" * 20),)))),
+            Row(
+                cells=(
+                    Cell(content=(Code("x" * 5), LineBreak(), Code("x" * 30))),
+                    Cell(content=(Code("y" * 2),)),
+                )
+            ),
+            Row(cells=(Cell(content=(Code("z" * 200),), columns=2),)),
+        ),
+    ).fitted()
+
+    first, second = (column.width or 0 for column in table.columns)
+    assert first > second
+    assert table.width is not None and table.width < 100
