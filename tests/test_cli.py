@@ -101,6 +101,40 @@ def test_run_rejects_bad_options(
 
 
 @pytest.mark.parametrize(
+    "options",
+    [
+        pytest.param(["-t", "--trace"], id="trace-aliases"),
+        pytest.param(["--trace", "-t"], id="trace-reversed"),
+        pytest.param(["-t", "-t"], id="trace-same-alias"),
+        pytest.param(["-n", "10", "--max-steps", "20"], id="step-limit-aliases"),
+        pytest.param(["--max-steps", "10", "-n", "20"], id="step-limit-reversed"),
+        pytest.param(["-n", "10", "--max-steps", "10"], id="step-limit-same-value"),
+        pytest.param(["--keys", "1", "--keys", "2"], id="keys"),
+        pytest.param(["--key-script", "first", "--key-script", "second"], id="key-script"),
+        pytest.param(["--framebuffer", "--framebuffer"], id="framebuffer"),
+    ],
+)
+def test_run_rejects_repeated_options(
+    emulator: Emulator, program: ProgramImage, options: list[str]
+) -> None:
+    assert_rejected(emulator.run(*options, program("keys")))
+
+
+@pytest.mark.parametrize(
+    "options",
+    [
+        pytest.param(["-n", "10", "--max-steps", "20"], id="step-limit-aliases"),
+        pytest.param(["--max-steps", "10", "-n", "20"], id="step-limit-reversed"),
+        pytest.param(["--hz", "100", "--hz", "200"], id="rate"),
+    ],
+)
+def test_play_rejects_repeated_options(
+    emulator: Emulator, program: ProgramImage, options: list[str]
+) -> None:
+    assert_rejected(emulator.invoke(Subcommand.PLAY, *options, program("spin")))
+
+
+@pytest.mark.parametrize(
     "arguments",
     [
         pytest.param([], id="no-subcommand"),
@@ -110,6 +144,24 @@ def test_run_rejects_bad_options(
 )
 def test_rejects_bad_subcommands(emulator: Emulator, arguments: list[str]) -> None:
     assert_rejected(emulator.invoke(*arguments))
+
+
+@pytest.mark.parametrize("name", ["r", "ru", "p", "pl", "d", "di", "dis", "disa"])
+def test_rejects_abbreviated_subcommands(emulator: Emulator, name: str) -> None:
+    assert_rejected(emulator.invoke(name))
+
+
+@pytest.mark.parametrize("arguments", [["--help", "r"], ["--help", "pl"], ["--help", "dis"]])
+def test_rejects_abbreviated_help_subcommands(emulator: Emulator, arguments: list[str]) -> None:
+    assert_rejected(emulator.invoke(*arguments))
+
+
+@pytest.mark.parametrize("name", ["run", "play", "disasm"])
+def test_help_accepts_exact_subcommand_names(emulator: Emulator, name: str) -> None:
+    result = emulator.invoke("--help", name)
+
+    assert (result.status, result.stderr) == (0, "")
+    assert f"{emulator.name} {name}" in result.stdout
 
 
 @pytest.mark.parametrize(

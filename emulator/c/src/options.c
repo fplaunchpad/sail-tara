@@ -60,6 +60,17 @@ static const char DISASM_USAGE[] =
 /* The options that have no short form. */
 enum { OPT_KEYS = 256, OPT_KEY_SCRIPT, OPT_FRAMEBUFFER, OPT_HZ };
 
+/* Long and short spellings of one flag share an identity. */
+enum option_identity {
+  OPTION_TRACE,
+  OPTION_MAX_STEPS,
+  OPTION_KEYS_ID,
+  OPTION_KEY_SCRIPT_ID,
+  OPTION_FRAMEBUFFER_ID,
+  OPTION_HZ_ID,
+  OPTION_ID_COUNT,
+};
+
 static const struct option RUN_OPTIONS[] = {
     {"trace", no_argument, NULL, 't'},
     {"max-steps", required_argument, NULL, 'n'},
@@ -107,6 +118,19 @@ static const struct syntax *find_subcommand(const char *name) {
   return NULL;
 }
 
+static bool is_subcommand_prefix(const char *name) {
+  size_t length = strlen(name);
+  if (length == 0) {
+    return false;
+  }
+  for (size_t i = 0; i < sizeof SUBCOMMANDS / sizeof *SUBCOMMANDS; ++i) {
+    if (strncmp(SUBCOMMANDS[i].name, name, length) == 0) {
+      return true;
+    }
+  }
+  return false;
+}
+
 static bool parse_count(const char *option, const char *argument, uint64_t *count) {
   if (!parse_decimal(argument, UINT64_MAX, count)) {
     return report_error("%s: '%s' is not a count (decimal digits)", option, argument);
@@ -145,6 +169,46 @@ static bool apply(struct command *command, int option, const char *argument) {
   }
 }
 
+/* Map getopt's option code to the flag identity used to reject repetitions. */
+static enum option_identity identity(int option) {
+  switch (option) {
+  case 't':
+    return OPTION_TRACE;
+  case 'n':
+    return OPTION_MAX_STEPS;
+  case OPT_KEYS:
+    return OPTION_KEYS_ID;
+  case OPT_KEY_SCRIPT:
+    return OPTION_KEY_SCRIPT_ID;
+  case OPT_FRAMEBUFFER:
+    return OPTION_FRAMEBUFFER_ID;
+  case OPT_HZ:
+    return OPTION_HZ_ID;
+  default:
+    return OPTION_ID_COUNT;
+  }
+}
+
+static const char *option_name(enum option_identity option) {
+  switch (option) {
+  case OPTION_TRACE:
+    return "--trace";
+  case OPTION_MAX_STEPS:
+    return "--max-steps";
+  case OPTION_KEYS_ID:
+    return "--keys";
+  case OPTION_KEY_SCRIPT_ID:
+    return "--key-script";
+  case OPTION_FRAMEBUFFER_ID:
+    return "--framebuffer";
+  case OPTION_HZ_ID:
+    return "--hz";
+  case OPTION_ID_COUNT:
+    break;
+  }
+  return "option";
+}
+
 /* The operands after the options: IMAGE, or none. */
 static bool take_operands(struct command *command, const struct syntax *syntax, int count,
                           char *const operand[]) {
@@ -171,6 +235,26 @@ static struct parse_result fail(void) {
   return ERROR;
 }
 
+static struct parse_result parse_help(int argc, char *argv[]) {
+  if (argc == 2) {
+    fputs(USAGE, stdout);
+    return HELP;
+  }
+  if (argc == 3) {
+    const struct syntax *syntax = find_subcommand(argv[2]);
+    if (syntax != NULL) {
+      fputs(syntax->usage, stdout);
+      return HELP;
+    }
+    if (is_subcommand_prefix(argv[2])) {
+      report_error("'%s' is not a subcommand: run, play or disasm", argv[2]);
+      return fail();
+    }
+  }
+  report_error("unexpected argument after --help");
+  return fail();
+}
+
 /* A command for the subcommand, with its options at their defaults. */
 static struct command default_command(enum subcommand subcommand) {
   switch (subcommand) {
@@ -190,8 +274,7 @@ struct parse_result parse_command_line(int argc, char *argv[]) {
     return fail();
   }
   if (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-h") == 0) {
-    fputs(USAGE, stdout);
-    return HELP;
+    return parse_help(argc, argv);
   }
 
   const struct syntax *syntax = find_subcommand(argv[1]);
@@ -201,6 +284,7 @@ struct parse_result parse_command_line(int argc, char *argv[]) {
   }
   struct parse_result result = {.status = PARSE_OK, .command = default_command(syntax->subcommand)};
   struct command *command = &result.command;
+  bool seen[OPTION_ID_COUNT] = {false};
 
   /* The subcommand's arguments follow its name, which getopt_long takes for the program's name
    * in its own messages. */
@@ -215,6 +299,14 @@ struct parse_result parse_command_line(int argc, char *argv[]) {
     if (option == 'h') {
       fputs(syntax->usage, stdout);
       return HELP;
+    }
+    enum option_identity flag = identity(option);
+    if (flag != OPTION_ID_COUNT && seen[flag]) {
+      report_error("%s may only be specified once", option_name(flag));
+      return fail();
+    }
+    if (flag != OPTION_ID_COUNT) {
+      seen[flag] = true;
     }
     if (option == '?' || !apply(command, option, optarg)) {
       return fail();

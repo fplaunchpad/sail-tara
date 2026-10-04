@@ -40,7 +40,7 @@ just ci                    # nix flake check
 
 ### The emulators
 
-`tara-c` and `tara-ocaml` have the same three subcommands. Each takes a program image: `.bin` bytes, or `.hex` words.
+`tara-c` and `tara-ocaml` have the same three subcommands. Spell subcommand names in full and specify each execution option at most once; short and long aliases count as the same option. Each takes a program image: `.bin` bytes, or `.hex` words.
 
 - `run [OPTION...] IMAGE` runs a program to its end and prints its final state (`status`, `steps`, `pc`, `r0` to `r7`, `mem`). Its options:
   - `-t`, `--trace`: print a line per step first: its PC, its instruction word, the registers after it and its disassembly.
