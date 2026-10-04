@@ -6,18 +6,19 @@
 From Stdlib Require Import ZArith.
 From stdpp Require Import base finite bitvector.definitions.
 Require Import SailStdpp.Base SailStdpp.State_monad SailStdpp.State_lifting.
-From Tara Require Import Tara_types Tara Machine Logic PcMask Progress Step Halted.
+From Tara Require Import Tara_types Tara Machine Logic PcMask Progress Decode Step Halted.
 Open Scope Z_scope.
 
 Definition opcode (w : mword 16) : Z := uint (subrange_vec_dec w 15 11).
 
 (** * Decoding *)
 
-(** [decode] only looks at the opcode to tell whether the word is an instruction, so the proof
+(** [encdec] only looks at the opcode to tell whether the word is an instruction, so the proof
     abstracts the opcode and checks its 32 values. *)
 Lemma decode_is_none w : is_none (decode w) = Z.leb 27 (opcode w).
 Proof.
-  unfold decode, opcode. generalize (subrange_vec_dec w 15 11) as op.
+  unfold decode, opcode, encdec_backwards_matches, encdec_backwards. cbv beta zeta.
+  generalize (subrange_vec_dec w 15 11) as op.
   refine (fun op : mword 5 => _). revert op.
   refine (bool_decide_unpack _ _); vm_compute; reflexivity.
 Qed.

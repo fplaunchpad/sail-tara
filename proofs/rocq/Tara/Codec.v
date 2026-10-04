@@ -1,12 +1,12 @@
 (** The instruction codec round-trips: decoding an encoded instruction gives the instruction back.
 
-    [encode] only documents the encodings and no model function calls it, so this theorem is its
-    test. The proof is by exhaustion: operands are at most 11 bits wide, so each constructor has
-    at most 2048 values, and [vm_compute] decides all of the 30355 instructions. *)
+    No model function encodes, so this theorem is the test of [encdec]'s forwards direction. The
+    proof is by exhaustion: operands are at most 11 bits wide, so each constructor has at most 2048
+    values, and [vm_compute] decides all of the 30355 instructions. *)
 From Stdlib Require Import ZArith.
 From stdpp Require Import base finite bitvector.definitions.
 Require Import SailStdpp.Base.
-From Tara Require Import Tara_types Tara.
+From Tara Require Import Tara_types Tara Decode.
 
 (** Operands are 3 (register), 5, 8 or 11 bits wide; [bv_finite] lists all their values. *)
 #[local] Instance Finite_mword3 : Finite (mword 3) := bv_finite 3.
@@ -17,10 +17,10 @@ From Tara Require Import Tara_types Tara.
 (** Let instance search see through the model's aliases, as in [regidx * bits 8]. *)
 #[local] Typeclasses Transparent regidx bits.
 
-(** [Tara.encode] and [Tara.decode] are the generated functions; stdpp's [Countable] class has
-    methods of the same names. Each case reverts the constructor's operands and checks every
-    value of them. *)
-Theorem instruction_roundtrip : forall i : instruction, Tara.decode (Tara.encode i) = Some i.
+(** [Tara.Decode.decode] reads [encdec] backwards; stdpp's [Countable] class has a method of the
+    same name. Each case reverts the constructor's operands and checks every value of them. *)
+Theorem instruction_roundtrip :
+  forall i : instruction, Tara.Decode.decode (encdec_forwards i) = Some i.
 Proof.
   intros i; destruct i;
     match goal with x : _ |- _ => revert x end;

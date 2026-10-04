@@ -13,7 +13,8 @@ The default build compiles the generated types and definitions, then the proofs,
 
 The results cover:
 
-- `Codec.v`: `instruction_roundtrip`, that decoding any generated `encode` result returns the original instruction. The proof checks all 30,355 constructor/operand combinations.
+- `Decode.v`: `decode`, what `encdec_backwards_matches` and `encdec_backwards` return as one option, which the theorems about `step` use.
+- `Codec.v`: `instruction_roundtrip`, that decoding the word `encdec` encodes an instruction as returns the instruction. The proof checks all 30,355 constructor/operand combinations.
 - `Progress.v`: `step`, `run_instruction`, and `reset` complete; `step_one_outcome` establishes a single Sail state-lifting outcome for every choice source.
 - `Invariant.v`: the PC bound `PC < 0x800` is preserved by steps from well-formed states; a running step masks PC even from an otherwise ill-formed state. Reset establishes the bound.
 - `Illegal.v`: exactly opcodes 27–31 fail to decode; an illegal step advances the masked PC and preserves registers other than KEYS and PC.

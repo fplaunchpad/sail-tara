@@ -7,7 +7,7 @@
 From Stdlib Require Import List ZArith.
 From stdpp Require Import base.
 Require Import SailStdpp.Base SailStdpp.State_monad SailStdpp.State_lifting.
-From Tara Require Import Tara_types Tara Machine.
+From Tara Require Import Tara_types Tara Machine Decode.
 Import ListNotations.
 Open Scope Z_scope.
 
@@ -85,6 +85,16 @@ Lemma Safe_option {A B} I (o : option B) (f : B -> M A) (n : M A) :
   (forall x, Safe I (f x)) -> Safe I n -> Safe I (match o with Some x => f x | None => n end).
 Proof. destruct o; auto. Qed.
 
+(** [step]'s decoding: a word that decodes runs [f] on its instruction, and any other runs [n]. *)
+Lemma Safe_decode {A} I w (f : instruction -> M A) (n : M A) :
+  (forall i, Safe I (f i)) -> Safe I n ->
+  Safe I (encdec_backwards_matches w >>= fun b => if b then encdec_backwards w >>= f else n).
+Proof.
+  intros Hf Hn rs H. rewrite eval_bind, encdec_backwards_matches_decode.
+  destruct (decode w) as [i|] eqn:Hd; cbn [eval returnM returnm]; [|apply Hn, H].
+  rewrite eval_bind, (encdec_backwards_decode w i Hd). apply Hf, H.
+Qed.
+
 (** Lemmas about whole actions, which [safe] uses instead of opening them up. *)
 Create HintDb safe_actions.
 
@@ -109,7 +119,7 @@ Ltac safe :=
   repeat first
     [ progress cbv beta zeta
     | lazymatch goal with |- forall _, _ => intro end
-    | apply Safe_bind0 | apply Safe_bind | apply Safe_if | apply Safe_option
+    | apply Safe_bind0 | apply Safe_decode | apply Safe_bind | apply Safe_if | apply Safe_option
     | apply Safe_return
     | lazymatch goal with |- Safe _ (read_reg ?r) => exact (Safe_read _ r) end
     | lazymatch goal with

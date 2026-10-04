@@ -24,9 +24,9 @@ compile name: definitions
     rocq compile -R "{{ build }}/rocq" Tara -R proofs/rocq/Tara Tara \
         -o "{{ build }}/rocq/$1.vo" "proofs/rocq/Tara/$1.v"
 
-# Compile what the proofs share: machines, the program logic and the PC mask.
+# Compile what the proofs share: machines, decoding, the program logic and the PC mask.
 [private]
-foundations: (compile "Machine") (compile "Logic") (compile "PcMask")
+foundations: (compile "Machine") (compile "Decode") (compile "Logic") (compile "PcMask")
 
 # Prove that step, run_instruction and reset always complete, with exactly one outcome.
 progress: foundations (compile "Progress")
@@ -48,7 +48,7 @@ illegal: cases halted (compile "Illegal")
 frame: cases halted (compile "Frame")
 
 # Prove that decoding an encoded instruction gives the instruction back.
-codec: (compile "Codec")
+codec: definitions (compile "Decode") (compile "Codec")
 
 # Compile the generated definitions, then check every proof.
 [default]

@@ -1,12 +1,12 @@
 (** The cases of [step], in register terms.
 
     [step] reads HALTED: a halted CPU stops and does nothing else. Otherwise it writes KEYS, fetches
-    the word at PC and decodes it. A word that decodes is an instruction, which is retired like one
-    run by [run_instruction]; any other word is illegal, and only PC moves on. These equations are
-    what the theorems about [step] are built from. *)
+    the word at PC and decodes it with [encdec]. A word that decodes is an instruction, which is
+    retired like one run by [run_instruction]; any other word is illegal, and only PC moves on.
+    These equations are what the theorems about [step] are built from. *)
 From stdpp Require Import base.
 Require Import SailStdpp.Base SailStdpp.State_monad SailStdpp.State_lifting.
-From Tara Require Import Tara_types Tara Machine Logic PcMask Progress.
+From Tara Require Import Tara_types Tara Machine Logic PcMask Progress Decode.
 
 (** A halted CPU stops, unchanged. *)
 Lemma step_halted_eval keys rs :
@@ -34,7 +34,8 @@ Lemma step_retire_eval keys rs raw i :
   eval (step keys) rs = eval (retire i) (register_set KEYS keys rs).
 Proof.
   intros Hh Hr Hd. unfold step. eval_simp. rewrite Hh. cbn iota. eval_simp.
-  rewrite Hr, Hd. cbn iota. reflexivity.
+  rewrite Hr, (encdec_backwards_matches_decode raw), Hd. eval_simp.
+  rewrite (encdec_backwards_decode raw i Hd). eval_simp. reflexivity.
 Qed.
 
 (** Retiring always completes with [Retired]. *)
@@ -56,5 +57,5 @@ Lemma step_illegal_eval keys rs raw :
       (register_set KEYS keys rs)).
 Proof.
   intros Hh Hr Hd. unfold step. eval_simp. rewrite Hh. cbn iota. eval_simp.
-  rewrite Hr, Hd. eval_simp. reflexivity.
+  rewrite Hr, (encdec_backwards_matches_decode raw), Hd. eval_simp. reflexivity.
 Qed.

@@ -8,7 +8,7 @@
 From Stdlib Require Import ZArith.
 From stdpp Require Import base.
 Require Import SailStdpp.Base SailStdpp.State_monad SailStdpp.State_lifting.
-From Tara Require Import Tara_types Tara Machine Logic PcMask Progress Step.
+From Tara Require Import Tara_types Tara Machine Logic PcMask Progress Decode Step.
 Open Scope Z_scope.
 
 (** A machine is well formed when PC is below 0x800. *)
