@@ -385,14 +385,13 @@ class InstructionSet(msgspec.Struct, frozen=True, kw_only=True):
 
         return Table(
             columns=(
-                Column(width=2, alignment=Alignment.CENTER),
-                Column(width=4),
-                Column(width=9),
-                Column(width=2, alignment=Alignment.CENTER),
+                Column(alignment=Alignment.CENTER),
+                Column(),
+                Column(),
+                Column(alignment=Alignment.CENTER),
             ),
             header=("Opcode", "Syntax", "Execution", "Format"),
             rows=tuple(rows),
-            width=90,
         )
 
     def encoding_table(self) -> Table:
@@ -413,11 +412,11 @@ class InstructionSet(msgspec.Struct, frozen=True, kw_only=True):
         )
         return Table(
             columns=(
-                Column(width=6, alignment=Alignment.CENTER),
-                *([Column(width=3)] if guarded else []),
-                Column(width=5),
-                Column(width=8),
-                Column(width=2, alignment=Alignment.CENTER),
+                Column(alignment=Alignment.CENTER),
+                *([Column()] if guarded else []),
+                Column(),
+                Column(),
+                Column(alignment=Alignment.CENTER),
             ),
             header=(
                 "Encoding",
@@ -427,7 +426,6 @@ class InstructionSet(msgspec.Struct, frozen=True, kw_only=True):
                 "Format",
             ),
             rows=rows,
-            width=100,
         )
 
     def sections(self, *, level: int) -> str:

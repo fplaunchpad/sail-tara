@@ -115,25 +115,33 @@ class Row:
 
 @dataclass(frozen=True, kw_only=True)
 class Column:
-    """`repeat` columns of relative width `width`."""
+    """`repeat` columns of relative width `width`, or as wide as their contents with no width."""
 
-    width: int
+    width: int | None = None
     alignment: Alignment | None = None
     repeat: int = 1
 
     def __str__(self) -> str:
-        specifier = f"{self.alignment or ''}{self.width}"
+        specifier = f"{self.alignment or ''}{self.width or '~'}"
         return f"{self.repeat}*{specifier}" if self.repeat > 1 else specifier
 
 
 @dataclass(frozen=True, kw_only=True)
 class Table:
-    """A centred table under a row of `header` labels, `width` percent of the page wide."""
+    """A centred table under a row of `header` labels, `width` percent of the page wide, or as wide
+    as its contents with no width."""
 
     columns: tuple[Column, ...]
     header: tuple[str, ...]
     rows: tuple[Row, ...]
-    width: int
+    width: int | None = None
+
+    @property
+    def options(self) -> str:
+        if self.width is None:
+            return 'options="header,autowidth"'
+
+        return f'options="header",width="{self.width}%"'
 
     def __str__(self) -> str:
         columns = ",".join(map(str, self.columns))
@@ -144,7 +152,7 @@ class Table:
             )
         )
         lines = [
-            f'[cols="{columns}", options="header",width="{self.width}%",role="center"]',
+            f'[cols="{columns}", {self.options},role="center"]',
             "|===",
         ]
         background = None
