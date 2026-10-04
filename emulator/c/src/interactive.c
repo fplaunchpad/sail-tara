@@ -41,7 +41,7 @@ enum wait_result { WAIT_ELAPSED, WAIT_QUIT, WAIT_LOST };
 /* Why the play ended: the player quit, or the terminal failed. */
 enum play_end { PLAY_QUIT, PLAY_WRITE_FAILED, PLAY_TERMINAL_LOST };
 
-static void player_init(struct player *player, const struct options *options) {
+static void init_player(struct player *player, const struct options *options) {
   start_run(&player->run, options->max_steps);
   init_input(&player->input);
   reset_display(&player->display);
@@ -182,7 +182,7 @@ int run_interactive(const struct options *options) {
   }
 
   struct player player;
-  player_init(&player, options);
+  init_player(&player, options);
   enum play_end end = play(&player);
   int error = errno;
   close_terminal();
