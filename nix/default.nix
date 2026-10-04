@@ -49,7 +49,6 @@ let
     tara-ocaml = self.callPackage ./tara-ocaml.nix { };
     tara-rocq = self.callPackage ./tara-rocq.nix { };
     tara-lean = self.callPackage ./tara-lean.nix { };
-    tara-lem = self.callPackage ./tara-lem.nix { };
     tara-doc = self.callPackage ./tara-doc.nix { };
   });
   app = package: name: {
@@ -69,7 +68,6 @@ in
       tara-ocaml
       tara-rocq
       tara-lean
-      tara-lem
       tara-doc
       ;
     default = scope.tara-c;
@@ -80,7 +78,6 @@ in
       tara-ocaml
       tara-rocq
       tara-lean
-      tara-lem
       tara-doc
       ;
   }

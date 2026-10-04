@@ -15,7 +15,6 @@ A Sail model of TARA, the 16-bit teaching CPU of IIT Madras CS2300, and the tool
 | `emulator/c/`, `emulator/ocaml/` | The C and OCaml emulators: sources in `src/`, build and lint configuration beside it |
 | `rocq/` | Runs the generated Rocq model; proves `decode (encode i) = Some i` |
 | `lean/` | Lean smoke test: the hardware manual's Fibonacci program on the generated Lean model |
-| `lem/` | Lem: the generated Lem is typechecked, and its OCaml extraction runs the Fibonacci program |
 | `doc/` | The specification's LaTeX frame; its content is written from the model by `tools/tara/specification.py` |
 | `tests/` | pytest suite: the emulators against the reference model |
 | `tests/programs/` | Test programs, in assembly |
@@ -28,10 +27,9 @@ Run everything inside `nix develop` (or direnv). `just` lists the modules and re
 
 ```sh
 just test                  # test both emulators; pytest options pass through, e.g. -k tara-c
-just c                     # build build/c/tara-c; likewise ocaml, rocq, lean, lem and doc
+just c                     # build build/c/tara-c; likewise ocaml, rocq, lean and doc
 just lean smoke            # run the Fibonacci program on the generated Lean model
 just doc                   # the specification, build/doc/tara.pdf; just doc html for tara.html
-just lem smoke             # the same on the OCaml extraction of the generated Lem
 just c run prog.tara -t    # assemble a program and run it; likewise ocaml
 just c play prog.tara      # assemble a program and play it in the terminal
 tara-asm prog.tara         # assemble to prog.bin; -o prog.hex for hex words
