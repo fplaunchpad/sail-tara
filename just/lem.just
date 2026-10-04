@@ -6,25 +6,21 @@ set working-directory := ".."
 # Sail's Lem library, which the generated Lem imports.
 library := sail_dir / "src/gen_lib"
 
-# The model's register MEM is a reserved word in Lem. Sail renames the field of the generated
-# register state to MEM' but still reads and writes it as MEM, a syntax error. Grouping the
-# registers by type keeps their names out of the record. Sail also writes an Isabelle theory of
-# lemmas, into the working directory unless told otherwise.
+# Sail also writes an Isabelle theory of lemmas, into the working directory unless told otherwise.
 
-# Generate the Lem definitions, with the registers grouped by type.
+# Generate the Lem definitions.
 [private]
 generate: (build-dir "lem")
-    sail --grouped-regstate --lem --lem-output-dir "{{ build }}/lem" \
-        --isa-output-dir "{{ build }}/lem" -o tara model/tara.sail
+    sail --lem --lem-output-dir "{{ build }}/lem" --isa-output-dir "{{ build }}/lem" \
+        -o tara model/tara.sail
 
-# Lem notes each library module it imports, and that the register state, whose fields are
-# functions, has no decidable equality. Neither is a defect, so every other warning is an error:
-# -wl sets them all, so it comes first.
+# Lem notes each library module it imports, which is not a defect; every other warning is an
+# error. -wl sets them all, so it comes first.
 
 # Generate the Lem and typecheck it against Sail's library and Lem's own.
 [default]
 build: generate
-    lem -wl err -wl_auto_import ign -wl_no_dec_eq ign -lib "{{ library }}" \
+    lem -wl err -wl_auto_import ign -lib "{{ library }}" \
         "{{ build }}/lem/tara_types.lem" "{{ build }}/lem/tara.lem"
 
 # Lem extracts only the modules it is given, so name the library modules the generated Lem imports,

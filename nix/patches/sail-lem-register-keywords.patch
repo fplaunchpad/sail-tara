@@ -1,0 +1,46 @@
+Lem: spell register-state fields in register refs as the record printer does
+
+A register named after a Lem keyword (MEM, IN, ...) becomes the record field MEM' in
+the generated register state, but its register ref read and wrote s.MEM: a Lem syntax
+error. register_refs_lem takes the backend's field spelling (fix_id), as doc_id_lem uses.
+
+--- a/src/lib/state.ml
++++ b/src/lib/state.ml
+@@ -405,7 +405,7 @@
+ let regval_convs_lem = regval_convs (fun conv -> "(fun v -> " ^ conv ^ " v)")
+ let regval_convs_isa = regval_convs (fun conv -> "(\\<lambda>v. " ^ conv ^ " v)")
+ 
+-let register_refs_lem pp_tannot env registers =
++let register_refs_lem ?(field_name = string_of_id) pp_tannot env registers =
+   let generic_convs =
+     separate_map hardline string
+       [
+@@ -461,7 +461,10 @@
+                 (string "(fun reg -> if reg = \"" ^^ idd ^^ string "\" then v else s." ^^ field_idd ^^ string " reg)")
+             )
+       )
+-      else (string "s." ^^ idd, doc_op equals idd (string "v"))
++      else (
++        let field = string (field_name id) in
++        (string "s." ^^ field, doc_op equals field (string "v"))
++      )
+     in
+     (* let field = if prefix_recordtype then string "regstate_" ^^ idd else idd in *)
+     let of_regval, regval_of = regval_convs_lem typ in
+--- a/src/sail_lem_backend/pretty_print_lem.ml
++++ b/src/sail_lem_backend/pretty_print_lem.ml
+@@ -1802,7 +1802,13 @@
+   let register_ref_tannot typ =
+     string " : register_ref regstate register_value " ^^ parens (doc_typ_lem params_to_print type_env typ)
+   in
+-  let register_refs = State.register_refs_lem register_ref_tannot type_env (State.find_registers defs) in
++  (* The register state's fields are spelled as the record printer spells them (doc_id_lem), so a
++     register named after a Lem keyword, such as MEM, is read and written as MEM'. *)
++  let register_refs =
++    State.register_refs_lem
++      ~field_name:(fun id -> fix_id false (string_of_id id))
++      register_ref_tannot type_env (State.find_registers defs)
++  in
+   let extra_monad_params =
+     if Preprocess.have_symbol "CONCURRENCY_INTERFACE_V2" symbols then
+       let open Monad_params in

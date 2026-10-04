@@ -13,7 +13,9 @@ ocamlPackages.sail.overrideAttrs (_: rec {
     url = "https://github.com/rems-project/sail/releases/download/${version}/sail-${version}.tbz";
     hash = "sha256-CyI+2D9SGth+qs2IGGOQ+68LlE9jxqBKPr35ah/1pgw=";
   };
-  patches = [ ];
+  # Register refs of the Lem output spell keyword-named registers (MEM) as the record does;
+  # unfixed upstream as of 0.20.3 and master (2026-10).
+  patches = [ ./patches/sail-lem-register-keywords.patch ];
   # The typechecker shells out to z3; the upstream wrapper only sets SAIL_DIR.
   postInstall = ''
     wrapProgram $out/bin/sail \

@@ -73,22 +73,9 @@ module Machine = struct
     | Barrier _ -> raise_s [%message "the model accessed memory outside its registers"]
   ;;
 
-  (* Grouped by type, the generated register state has no initial value: start from one in which
-     no register has a value, for the model's initialisation to define. *)
-  let unset _ = raise_s [%message "register read before its initialisation"]
-
-  let blank : t =
-    { bitvector_16_reg = unset
-    ; bitvector_5_reg = unset
-    ; bool_reg = unset
-    ; vector_2048_bitvector_8_reg = unset
-    ; vector_8_bitvector_16_reg = unset
-    }
-  ;;
-
   (** Power-on: the model initialises every register to an undefined value, so the registers and
       memory are zero, PC is 0 and the CPU is running. *)
-  let power_on () = Tara.sail_model_init () |> run blank |> snd
+  let power_on () = Tara.sail_model_init () |> run Tara.initial_regstate |> snd
 
   (** Store [words] from address 0 on, with the model's [write_word]. *)
   let load state ~words =
