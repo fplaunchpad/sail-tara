@@ -9,14 +9,8 @@ from enum import IntFlag
 type KeyChange = tuple[int, int]
 
 
-class Keys(IntFlag):
-    """The input lines that a byte read of the input port returns."""
-
-    UP = 1
-    DOWN = 2
-    LEFT = 4
-    RIGHT = 8
-    QUIT = 16
+# The input lines that a byte read of the input port returns, bits 0 to 4 in this order.
+Keys = IntFlag("Keys", "UP DOWN LEFT RIGHT QUIT")
 
 
 ALL_KEYS = int(Keys.UP | Keys.DOWN | Keys.LEFT | Keys.RIGHT | Keys.QUIT)

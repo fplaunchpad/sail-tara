@@ -11,13 +11,13 @@ from dataclasses import replace
 from hypothesis import strategies as st
 
 from tara.assembly import (
+    AddImmediate,
     Bare,
     Branch,
     Immediate,
     Instruction,
     Jump,
     Memory,
-    Mnemonic,
     Program,
     Register,
     Stack,
@@ -37,55 +37,45 @@ skips = st.integers(min_value=0, max_value=SKIP_LIMIT)
 
 # NOP first: Hypothesis shrinks towards the first alternative.
 instructions: st.SearchStrategy[Instruction] = st.one_of(
-    st.just(Bare(mnemonic=Mnemonic.NOP)),
+    st.just(Bare(mnemonic=Bare.Mnemonic.NOP)),
     st.builds(
         ThreeRegisters,
-        mnemonic=st.sampled_from(sorted(ThreeRegisters.MNEMONICS)),
+        mnemonic=st.sampled_from(ThreeRegisters.Mnemonic),
         rd=data_registers,
         rs1=registers,
         rs2=registers,
     ),
     st.builds(
         TwoRegisters,
-        mnemonic=st.sampled_from(sorted(TwoRegisters.MNEMONICS)),
+        mnemonic=st.sampled_from(TwoRegisters.Mnemonic),
         rd=data_registers,
         rs=registers,
     ),
     st.builds(
         Immediate,
-        mnemonic=st.sampled_from([Mnemonic.LIL, Mnemonic.LIH, Mnemonic.SHL, Mnemonic.SHR]),
+        mnemonic=st.sampled_from(Immediate.Mnemonic),
         rd=data_registers,
         value=st.integers(min_value=0, max_value=0xFF),
     ),
-    st.builds(
-        Immediate,
-        mnemonic=st.just(Mnemonic.ADDI),
-        rd=data_registers,
-        value=st.integers(min_value=-0x80, max_value=0x7F),
-    ),
+    st.builds(AddImmediate, rd=data_registers, value=st.integers(min_value=-0x80, max_value=0x7F)),
     st.builds(
         Memory,
-        mnemonic=st.sampled_from([Mnemonic.LDW, Mnemonic.LDB]),
+        mnemonic=st.sampled_from([Memory.Mnemonic.LDW, Memory.Mnemonic.LDB]),
         register=data_registers,
         offset=offsets,
         base=st.just(DATA_POINTER),
     ),
     st.builds(
         Memory,
-        mnemonic=st.sampled_from([Mnemonic.STW, Mnemonic.STB]),
+        mnemonic=st.sampled_from([Memory.Mnemonic.STW, Memory.Mnemonic.STB]),
         register=registers,
         offset=offsets,
         base=st.just(DATA_POINTER),
     ),
-    st.builds(Stack, mnemonic=st.just(Mnemonic.PUSH), register=registers),
-    st.builds(Stack, mnemonic=st.just(Mnemonic.POP), register=data_registers),
-    st.builds(
-        Branch,
-        mnemonic=st.sampled_from(sorted(Branch.MNEMONICS)),
-        register=registers,
-        offset=skips,
-    ),
-    st.builds(Jump, mnemonic=st.just(Mnemonic.JMP), offset=skips),
+    st.builds(Stack, mnemonic=st.just(Stack.Mnemonic.PUSH), register=registers),
+    st.builds(Stack, mnemonic=st.just(Stack.Mnemonic.POP), register=data_registers),
+    st.builds(Branch, mnemonic=st.sampled_from(Branch.Mnemonic), register=registers, offset=skips),
+    st.builds(Jump, mnemonic=st.just(Jump.Mnemonic.JMP), offset=skips),
 )
 
 
@@ -94,10 +84,10 @@ def halting(body: list[Instruction], page: int) -> Program:
     short so that it lands at the HLT at the furthest."""
 
     prologue = (
-        Immediate(mnemonic=Mnemonic.LIL, rd=DATA_POINTER, value=0),
-        Immediate(mnemonic=Mnemonic.LIH, rd=DATA_POINTER, value=page),
+        Immediate(mnemonic=Immediate.Mnemonic.LIL, rd=DATA_POINTER, value=0),
+        Immediate(mnemonic=Immediate.Mnemonic.LIH, rd=DATA_POINTER, value=page),
     )
-    epilogue = (Bare(mnemonic=Mnemonic.HLT),)
+    epilogue = (Bare(mnemonic=Bare.Mnemonic.HLT),)
     remaining = range(len(body) - 1, -1, -1)
     return Program((*prologue, *map(forward, body, remaining, strict=True), *epilogue))
 

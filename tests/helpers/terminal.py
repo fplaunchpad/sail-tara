@@ -10,7 +10,7 @@ import termios
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
-from enum import StrEnum, auto
+from enum import StrEnum
 from pathlib import Path
 
 from tara.emulator import Emulator
@@ -37,13 +37,8 @@ POLL_SECONDS = 0.02
 HOLD_SECONDS = 0.15
 
 
-class State(StrEnum):
-    """The state a status line shows."""
-
-    RUNNING = auto()
-    HALTED = auto()
-    ILLEGAL = auto()
-    LIMIT = auto()
+# The state a status line shows.
+State = StrEnum("State", "RUNNING HALTED ILLEGAL LIMIT")
 
 
 STATUS_LINE = re.compile(

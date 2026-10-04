@@ -3,7 +3,7 @@
 import re
 from collections.abc import Iterator
 from dataclasses import dataclass
-from enum import StrEnum, auto
+from enum import StrEnum
 from typing import Self
 
 from tara.isa import MEMORY_BYTES, REGISTERS, SCREEN_SIZE
@@ -20,24 +20,9 @@ SET_PIXEL = "#"
 MEMORY_ROW_BYTES = 16
 
 
-class Status(StrEnum):
-    """Why a run ended, as the status line spells it."""
-
-    HALTED = auto()
-    LIMIT = auto()
-    ILLEGAL = auto()
-
-    @property
-    def exit_status(self) -> int:
-        """The emulators' exit status for a run that ended this way."""
-
-        match self:
-            case Status.HALTED:
-                return 0
-            case Status.LIMIT:
-                return 3
-            case Status.ILLEGAL:
-                return 4
+# Why a run ended, as the status line spells it, and the emulators' exit status for it.
+Status = StrEnum("Status", "HALTED LIMIT ILLEGAL")
+EXIT_STATUSES = {Status.HALTED: 0, Status.LIMIT: 3, Status.ILLEGAL: 4}
 
 
 class TranscriptError(ValueError):
@@ -135,6 +120,12 @@ class Transcript:
 
         lines += [f"fb {row}" for row in self.framebuffer]
         return lines
+
+    @property
+    def exit_status(self) -> int:
+        """The emulators' exit status for this run."""
+
+        return EXIT_STATUSES[self.status]
 
     @property
     def pixels(self) -> frozenset[tuple[int, int]]:

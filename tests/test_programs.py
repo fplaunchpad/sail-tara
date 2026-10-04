@@ -36,7 +36,7 @@ def test_runs_like_the_reference(
     )
 
     assert run.transcript == expected
-    assert run.status == expected.status.exit_status
+    assert run.status == expected.exit_status
 
 
 @given(program=programs)
