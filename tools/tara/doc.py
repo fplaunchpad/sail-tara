@@ -79,7 +79,7 @@ class Ignored(msgspec.Struct, frozen=True, tag="ignored", tag_field="kind"):
 
     @property
     def label(self) -> str:
-        return "0" * self.width
+        return self.pattern
 
     @property
     def pattern(self) -> str:
