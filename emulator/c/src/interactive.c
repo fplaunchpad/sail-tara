@@ -68,14 +68,9 @@ static uint64_t frame_budget(struct player *player) {
 static bool run_frame(struct player *player, uint8_t keys, int64_t deadline) {
   uint64_t retired = player->run.retired;
   uint64_t budget = frame_budget(player);
-  while (player->run.state == RUN_RUNNING && budget > 0) {
-    uint64_t chunk = budget < CHUNK ? budget : CHUNK;
-    for (uint64_t i = 0; i < chunk && player->run.state == RUN_RUNNING; ++i) {
-      step_run(&player->run, keys);
-    }
-
-    budget -= chunk;
-    if (clock_ns() >= deadline) {
+  for (uint64_t steps = 1; steps <= budget && player->run.state == RUN_RUNNING; ++steps) {
+    step_run(&player->run, keys);
+    if (steps % CHUNK == 0 && clock_ns() >= deadline) {
       break;
     }
   }
@@ -102,7 +97,10 @@ static bool draw(struct player *player, uint8_t keys, bool changed) {
   }
 
   draw_display(&player->display, out, status, changed);
-  bool drawn = fclose(out) == 0 && write_terminal(frame, size);
+  bool drawn = false;
+  if (fclose(out) == 0) {
+    drawn = write_terminal(frame, size);
+  }
   free(frame);
   return drawn;
 }

@@ -46,30 +46,20 @@ static void read_row(unsigned row, uint8_t cells[DISPLAY_COLUMNS]) {
   }
 }
 
-/* The first and last column in which two rows differ; false if they do not. */
-static bool changed_columns(const uint8_t *shown, const uint8_t *cells, unsigned *first,
-                            unsigned *last) {
-  unsigned begin = 0;
-  while (begin < DISPLAY_COLUMNS && shown[begin] == cells[begin]) {
-    ++begin;
+/* Paint a row of cells that differs from the row shown, from the first column that differs to the
+ * last. The colors change only where the cells do: `color` is the cell colors in effect, or
+ * CELL_UNKNOWN. */
+static void paint_row(FILE *out, unsigned row, const uint8_t *shown, const uint8_t *cells,
+                      uint8_t *color) {
+  unsigned first = 0;
+  while (shown[first] == cells[first]) {
+    ++first;
   }
-  if (begin == DISPLAY_COLUMNS) {
-    return false;
+  unsigned last = DISPLAY_COLUMNS - 1;
+  while (shown[last] == cells[last]) {
+    --last;
   }
 
-  unsigned end = DISPLAY_COLUMNS - 1;
-  while (shown[end] == cells[end]) {
-    --end;
-  }
-  *first = begin;
-  *last = end;
-  return true;
-}
-
-/* Paint the cells of a row from column `first` to `last`. The colors change only where the cells
- * do: `color` is the cell colors in effect, or CELL_UNKNOWN. */
-static void paint(FILE *out, unsigned row, const uint8_t *cells, unsigned first, unsigned last,
-                  uint8_t *color) {
   fprintf(out, "\x1b[%u;%uH", row + 1, first + 1);
   for (unsigned x = first; x <= last; ++x) {
     if (cells[x] != *color) {
@@ -86,11 +76,8 @@ static void paint_changes(struct display *display, FILE *out) {
   for (unsigned row = 0; row < DISPLAY_ROWS; ++row) {
     uint8_t cells[DISPLAY_COLUMNS];
     read_row(row, cells);
-
-    unsigned first;
-    unsigned last;
-    if (changed_columns(display->cells[row], cells, &first, &last)) {
-      paint(out, row, cells, first, last, &color);
+    if (memcmp(display->cells[row], cells, sizeof cells) != 0) {
+      paint_row(out, row, display->cells[row], cells, &color);
       memcpy(display->cells[row], cells, sizeof cells);
     }
   }

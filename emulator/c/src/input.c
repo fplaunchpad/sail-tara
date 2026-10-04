@@ -85,25 +85,24 @@ static bool feed_sequence_byte(struct input *input, uint8_t byte, int64_t now) {
   return true;
 }
 
-/* Returns true if the byte is Ctrl-C, or an ESC that begins no sequence. */
-static bool feed_byte(struct input *input, uint8_t byte, int64_t now) {
-  if (input->state == INPUT_SEQUENCE) {
-    if (feed_sequence_byte(input, byte, now)) {
-      return false;
-    }
-    input->state = INPUT_GROUND; /* not part of the sequence: a key of its own */
+/* A byte between keys. Returns true if it is Ctrl-C. */
+static bool feed_ground_byte(struct input *input, uint8_t byte, int64_t now) {
+  if (byte == CTRL_C) {
+    return true;
   }
+  if (byte == ESC) {
+    input->state = INPUT_ESCAPE;
+  } else {
+    press(input, letter_line(byte), now);
+  }
+  return false;
+}
 
+/* Returns true if the byte is Ctrl-C, or follows an ESC that begins no sequence. */
+static bool feed_byte(struct input *input, uint8_t byte, int64_t now) {
   switch (input->state) {
   case INPUT_GROUND:
-    if (byte == ESC) {
-      input->state = INPUT_ESCAPE;
-    } else if (byte == CTRL_C) {
-      return true;
-    } else {
-      press(input, letter_line(byte), now);
-    }
-    return false;
+    return feed_ground_byte(input, byte, now);
   case INPUT_ESCAPE:
     if (byte != '[' && byte != 'O') {
       return true;
@@ -111,7 +110,11 @@ static bool feed_byte(struct input *input, uint8_t byte, int64_t now) {
     input->state = INPUT_SEQUENCE;
     return false;
   case INPUT_SEQUENCE:
-    break;
+    if (feed_sequence_byte(input, byte, now)) {
+      return false;
+    }
+    input->state = INPUT_GROUND; /* not part of the sequence: a key of its own */
+    return feed_ground_byte(input, byte, now);
   }
   return false;
 }
