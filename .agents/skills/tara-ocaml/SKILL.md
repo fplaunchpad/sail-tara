@@ -14,14 +14,16 @@ Apply these conventions to hand-written OCaml in this repository, including the 
 - Represent modes, states, and outcomes with variants rather than booleans as data. Boolean predicates and the flags required by generated Sail interfaces remain ordinary booleans.
 - Prefer types that express valid states over repeated run-time checks. Use named constants for fixed values and spellings.
 - Keep conversions in the type's owning module, such as `Keys.Line.of_key` and `Keys.Line.of_arrow`. Use a dedicated formatting operation such as `Hex.word` for a hex value.
-- Annotate record construction and destructuring explicitly, for example `({ image; max_steps; hz } : Options.t)`.
+- Annotate record construction and destructuring explicitly, for example `({ image; max_steps; hz } : Options.t)`. Do not use module-qualified record syntax such as `Options.{ image; max_steps; hz }`.
 
 ## Libraries, strings, and error handling
 
 - Use Core and `ppx_jane`. Emulator implementation modules open `Import`, which supplies Core with the printf APIs banned; interfaces may open Core where needed.
+- Derive JSON conversion for wire records with Jane Street's `ppx_yojson_conv`, using `[@@deriving yojson_of]` when only encoding is needed. Avoid manually constructing JSON trees for records that the deriver can encode.
 - Construct text with `[%string]` interpolation and write it with `Out_channel`. Do not use `^`, printf-style functions, or the `Printf` and `Format` modules. Preserve the shared import's compile-time enforcement rather than bypassing it through another module.
 - Use `{|...|}` raw strings for multiline literals.
 - Thread expected failures with `Or_error` and `let%bind.Or_error` or `let%map.Or_error`. Keep error handling at the appropriate boundary.
+- Use low-precedence application for callbacks where it removes unnecessary parentheses, such as `Or_error.try_with @@ fun () -> ...`.
 - Prefer pipelines over nested application when they make the data flow clearer.
 
 ## State and source of truth
