@@ -30,6 +30,7 @@ stdenv.mkDerivation (
           ../justfile
           ../just
           ../sail_config.json
+          ../.prettierrc.json
         ]
         ++ fileset
       );

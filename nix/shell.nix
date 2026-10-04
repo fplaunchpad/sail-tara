@@ -3,6 +3,7 @@
   lib,
   mkShell,
   sail,
+  sailDocTables,
   z3,
   just,
   jq,
@@ -17,6 +18,8 @@
   lean,
   lean-sail,
   asciidoctorSail,
+  prettier,
+  docFonts,
   python,
   pythonTest,
   uv,
@@ -29,6 +32,7 @@
 mkShell {
   packages = [
     sail
+    sailDocTables
     z3
     just
     jq
@@ -48,6 +52,7 @@ mkShell {
     rocqPackages.rocq-core
     lean
     asciidoctorSail
+    prettier
     # Python tooling: locked dev tools via uv; Pyright needs Node.
     python
     uv
@@ -62,6 +67,7 @@ mkShell {
     ocamlPackages.core
     ocamlPackages.core_unix
     ocamlPackages.ppx_jane
+    ocamlPackages.ppx_yojson_conv
   ];
 
   env = {
@@ -71,6 +77,8 @@ mkShell {
     # The interpreter of the test suite, with its dependencies; Pyright resolves imports with it.
     TARA_PYTHON = pythonTest.interpreter;
     LEAN_SAIL = "${lean-sail}";
+    TARA_DOC_FONTS = "${docFonts}/fonts";
+    TARA_DOC_PLUGIN = "${sailDocTables}/lib/sail-doc-tables/sail_doc_tables.cmxs";
     UV_PYTHON_DOWNLOADS = "never";
     UV_PYTHON = lib.getExe python;
     UV_PROJECT_ENVIRONMENT = ".venv";

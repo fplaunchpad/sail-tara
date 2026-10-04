@@ -2,7 +2,9 @@
 table."""
 
 from itertools import batched
+from pathlib import Path
 
+import pytest
 from src.assembler.asm import assemble
 
 from tara.emulator import Emulator
@@ -34,3 +36,14 @@ def test_disassembly_assembles_to_the_word(disassembly: tuple[str, ...]) -> None
 
         assert errors == []
         assert [word for _address, word in placed] == [canonical(word) for word in words]
+
+
+def test_c_and_ocaml_disassembly_match(pytestconfig: pytest.Config) -> None:
+    emulator_arguments: list[str] = pytestconfig.getoption("--emulator") or []
+    by_name = {Path(argument).name: Path(argument) for argument in emulator_arguments}
+    c = by_name.get("tara-c")
+    ocaml = by_name.get("tara-ocaml")
+    if c is None or ocaml is None:
+        pytest.skip("the C/OCaml parity check needs both emulators")
+
+    assert Emulator(c).disassembly() == Emulator(ocaml).disassembly()

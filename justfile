@@ -21,6 +21,9 @@ mod lean "just/lean.just"
 # The specification typeset from the model.
 mod doc "just/doc.just"
 
+# Instruction table metadata from Sail's typed AST.
+mod sail-doc "just/sail-doc.just"
+
 # Python tooling: dependencies, lint, format, typecheck.
 mod python "just/python.just"
 
@@ -36,11 +39,11 @@ build: c::build ocaml::build rocq::build lean::build doc::build doc::html
 test *args: c::build ocaml::build
     "$TARA_PYTHON" -m pytest --emulator="{{ build }}/c/tara-c" --emulator="{{ build }}/ocaml/tara-ocaml" "$@"
 
-# Format the Sail, C, OCaml and Python sources.
-format: model::format c::format ocaml::format python::format
+# Format Sail, C, OCaml, Python and documentation sources.
+format: model::format c::format ocaml::format sail-doc::format python::format doc::format
 
 # Check the formatting of every source, Python lint and types.
-lint: model::lint c::lint ocaml::lint rocq::lint lean::lint python::lint (python::format "--check") python::typecheck
+lint: model::lint c::lint ocaml::lint sail-doc::lint rocq::lint lean::lint doc::lint python::lint (python::format "--check") python::typecheck
 
 # Remove build outputs.
 clean:

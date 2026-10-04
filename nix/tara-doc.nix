@@ -2,8 +2,10 @@
 {
   justDerivation,
   sail,
-  texlive,
-  asciidoctor,
+  sailDocTables,
+  asciidoctorSail,
+  prettier,
+  docFonts,
   pythonRuntime,
 }:
 
@@ -13,15 +15,20 @@ justDerivation {
     ../model
     ../doc
     ../tools
+    ../.prettierrc.json
   ];
   nativeBuildInputs = [
     sail
-    texlive
-    asciidoctor
+    sailDocTables
+    asciidoctorSail
+    prettier
     pythonRuntime
   ];
-  # The interpreter that just/doc.just runs the generator of the document with.
-  env.TARA_PYTHON = pythonRuntime.interpreter;
+  env = {
+    TARA_PYTHON = pythonRuntime.interpreter;
+    TARA_DOC_FONTS = "${docFonts}/fonts";
+    TARA_DOC_PLUGIN = "${sailDocTables}/lib/sail-doc-tables/sail_doc_tables.cmxs";
+  };
   recipes = [
     "doc::build"
     "doc::html"
@@ -30,5 +37,14 @@ justDerivation {
     install -Dm644 build/doc/tara.pdf "$out/share/doc/tara/tara.pdf"
     install -Dm644 build/doc/tara.html "$out/share/doc/tara/tara.html"
     install -Dm644 build/doc/tara.adoc "$out/share/doc/tara/tara.adoc"
+    install -Dm644 build/doc/tara.json "$out/share/doc/tara/tara.json"
+    install -Dm644 build/doc/tables.json "$out/share/doc/tara/tables.json"
+    install -Dm644 build/doc/formats.adoc "$out/share/doc/tara/formats.adoc"
+    install -Dm644 build/doc/opcodes.adoc "$out/share/doc/tara/opcodes.adoc"
+    install -Dm644 build/doc/tara.css "$out/share/doc/tara/tara.css"
+    install -Dm644 build/doc/tara-theme.yml "$out/share/doc/tara/tara-theme.yml"
+    install -Dm644 "${docFonts}/fonts/License.txt" "$out/share/doc/tara/fonts/New-Computer-Modern-License.txt"
+    install -Dm644 "${docFonts}/fonts/JetBrainsMono-OFL.txt" "$out/share/doc/tara/fonts/JetBrains-Mono-OFL.txt"
+    install -m644 build/doc/fonts/*.ttf "$out/share/doc/tara/fonts/"
   '';
 }

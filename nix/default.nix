@@ -42,8 +42,9 @@ let
     taracpu = self.callPackage ./taracpu.nix { };
     lean-sail = self.callPackage ./lean-sail.nix { };
     asciidoctorSail = self.callPackage ./asciidoctor-sail.nix { };
-    texlive = self.callPackage ./texlive.nix { };
+    docFonts = self.callPackage ./doc-fonts.nix { };
     justDerivation = self.callPackage ./just-derivation.nix { };
+    sailDocTables = self.callPackage ./sail-doc-tables.nix { };
 
     tara-tools = self.callPackage ./tara-tools.nix { };
     tara-c = self.callPackage ./tara-c.nix { };
@@ -61,6 +62,7 @@ in
 {
   packages = {
     asciidoctor-sail = scope.asciidoctorSail;
+    sail-doc-tables = scope.sailDocTables;
     inherit (scope)
       sail
       rocq-sail-stdpp
@@ -75,6 +77,7 @@ in
     default = scope.tara-c;
   };
   checks = {
+    sail-doc-tables = scope.sailDocTables;
     inherit (scope)
       tara-c
       tara-ocaml

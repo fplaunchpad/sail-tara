@@ -1,0 +1,102 @@
+# Typography and colour accents inspired by Evan Chen's evan.sty:
+# https://github.com/vEnhance/dotfiles/blob/main/texmf/tex/latex/evan/evan.sty
+# This is an Asciidoctor PDF theme with New Computer Modern text and JetBrains Mono code.
+extends: default
+font:
+  catalog:
+    merge: true
+    NewCM:
+      normal: NewCM10-Regular.ttf
+      italic: NewCM10-Italic.ttf
+      bold: NewCM10-Bold.ttf
+      bold_italic: NewCM10-BoldItalic.ttf
+    JetBrainsMono:
+      normal: JetBrainsMono-Regular.ttf
+      italic: JetBrainsMono-Italic.ttf
+      bold: JetBrainsMono-Bold.ttf
+      bold_italic: JetBrainsMono-BoldItalic.ttf
+page:
+  size: A4
+  margin: [22mm, 20mm, 22mm, 20mm]
+base:
+  font_family: NewCM
+  font_size: 11
+  font_color: "202027"
+  line_height: 1.25
+heading:
+  font_family: NewCM
+  font_style: bold
+  font_color: "6B238E"
+  h1_font_size: 25
+  h2_font_size: 20
+  h3_font_size: 15
+  h4_font_size: 12
+  margin_top: 18
+  margin_bottom: 9
+title_page:
+  align: center
+  title:
+    font_family: NewCM
+    font_style: bold
+    font_size: 32
+    font_color: "6B238E"
+    top: 30%
+  subtitle:
+    font_size: 15
+    font_color: "565260"
+    margin_top: 14
+link:
+  font_color: "2457A6"
+codespan:
+  font_family: JetBrainsMono
+  font_color: "202027"
+  font_size: 0.9em
+code:
+  font_family: JetBrainsMono
+  font_size: 9
+  line_height: 1.15
+  background_color: "FBFCFF"
+  border_color: "A9BEDF"
+  border_width: 0.5
+  border_radius: 0
+  padding: [8, 10, 8, 10]
+table:
+  font_size: 9
+  head_background_color: "EEF2FA"
+  head_font_color: "243E6A"
+  head_font_style: bold
+  body_stripe_background_color: "FAFBFE"
+  border_color: "CBD4E4"
+  border_width: 0.35
+  cell_padding: [5, 4, 5, 4]
+caption:
+  font_family: NewCM
+  font_style: italic
+  font_size: 10
+toc:
+  font_family: NewCM
+  font_size: 11
+  line_height: 1.4
+  h2_font_style: bold
+header:
+  font_family: NewCM
+  font_size: 9
+  font_color: "565260"
+  border_color: "CBD4E4"
+  border_width: 0.4
+  height: 13mm
+  recto:
+    right:
+      content: "{section-or-chapter-title}"
+  verso:
+    left:
+      content: "{section-or-chapter-title}"
+footer:
+  font_family: NewCM
+  font_size: 9
+  recto:
+    center:
+      content: "{page-number}"
+  verso:
+    center:
+      content: "{page-number}"

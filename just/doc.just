@@ -1,48 +1,58 @@
-# The specification typeset from the model.
+# The specification from the Sail model, rendered as HTML and PDF from one AsciiDoc source.
 import "settings.just"
 
 set working-directory := ".."
 
-# Where Sail's output, the document and its PDF and HTML are built.
 out := build / "doc"
 
-# Sail's documentation of the model: its definitions, with their comments, their text and their
-# places in the files. Sail records the places only for a file given by a path from here.
+# Format the authored stylesheet and PDF theme.
+format:
+    prettier --write doc/tara.css doc/tara-theme.yml
+
+# Check the authored stylesheet and PDF theme formatting.
+lint:
+    prettier --check doc/tara.css doc/tara-theme.yml
+
+# Bundle the model's source text and documentation comments for the Sail Asciidoctor plugin.
 [private]
 bundle: (build-dir "doc")
-    sail --doc --doc-embed plain --doc-embed-with-location --doc-bundle tara.json -o "{{ out }}" model/syntax.sail
+    sail --doc --doc-embed plain --doc-bundle tara.json -o "{{ out }}" model/syntax.sail
 
-# Sail's LaTeX listings of the definitions of the model.
+# Place the AsciiDoc layout beside the Sail bundle for standalone rendering.
 [private]
-[working-directory(out)]
-listings: (build-dir "doc")
-    sail --latex --latex-prefix tara "{{ justfile_directory() }}/model/syntax.sail"
+specification: bundle
+    cp doc/tara.adoc doc/tara.css doc/tara-theme.yml "{{ out }}/"
 
-# Take the listing style from Sail's example document.
+# Derive table metadata from the typed codecs and native assembly mapping.
 [private]
-preamble: (build-dir "doc")
-    sed -n '/^\\usepackage/,/^\\def\\endsail/p' "{{ sail_dir }}/lib/sail.tex" \
-        > "{{ out }}/sail-preamble.tex"
+metadata: (build-dir "doc")
+    sail -plugin "$TARA_DOC_PLUGIN" --doc-tables --doc-tables-decode decode --doc-tables-encode encode --doc-tables-assembly assembly_syntax -o "{{ out }}/tables.json" model/syntax.sail
 
-# Write the document from the documentation: its sections in LaTeX, and all of it in AsciiDoc.
+# Render the opcode and format summary tables from normalized metadata.
 [private]
-specification: bundle listings
-    PYTHONPATH="{{ justfile_directory() }}/tools" "$TARA_PYTHON" -m tara.specification \
-        --bundle "{{ out }}/tara.json" --commands "{{ out }}/sail_latex/commands.tex" \
-        --latex "{{ out }}/specification.tex" --asciidoc "{{ out }}/tara.adoc"
+tables: metadata
+    PYTHONPATH="{{ justfile_directory() }}/tools" "$TARA_PYTHON" -m tara.doc_tables --metadata "{{ out }}/tables.json" --out "{{ out }}"
 
-# Copy the frame of the document next to its sections.
+# Prepare a writable font directory for repeated documentation builds.
 [private]
-frame: (build-dir "doc")
-    cp doc/tara.tex "{{ out }}/tara.tex"
+font-directory: (build-dir "doc")
+    install -d -m755 "{{ out }}/fonts"
 
-# Typeset build/doc/tara.pdf; a warning, such as an unresolved link, is an error.
+# Include the text and code fonts for offline HTML and standalone PDF rendering.
+[private]
+fonts: font-directory
+    install -m644 -t "{{ out }}/fonts" "$TARA_DOC_FONTS"/*
+
+# Render the single AsciiDoc source to PDF; a warning is an error.
 [default]
-[working-directory(out)]
-build: specification preamble frame
-    latexmk -pdf -interaction=nonstopmode -halt-on-error -Werror tara.tex
+build: specification tables fonts
+    asciidoctor-pdf -r asciidoctor-sail --failure-level WARN -a pdf-theme="{{ out }}/tara-theme.yml" -a pdf-fontsdir="{{ out }}/fonts" -o "{{ out }}/tara.pdf" "{{ out }}/tara.adoc"
 
-# Render build/doc/tara.html from the AsciiDoc; a warning is an error.
-[working-directory(out)]
-html: specification
-    asciidoctor --failure-level=WARN -o tara.html tara.adoc
+# Render the same source to HTML; a warning is an error.
+[private]
+render-html: specification tables fonts
+    asciidoctor -r asciidoctor-sail --failure-level WARN -a stylesheet=tara.css -o "{{ out }}/tara.html" "{{ out }}/tara.adoc"
+
+# Format the generated HTML for a stable, readable offline document.
+html: render-html
+    prettier --write "{{ out }}/tara.html"

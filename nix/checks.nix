@@ -4,6 +4,10 @@
   runCommand,
   justDerivation,
   sail,
+  asciidoctorSail,
+  sailDocTables,
+  docFonts,
+  prettier,
   jq,
   clang-tools,
   cmake,
@@ -29,6 +33,8 @@ let
       ../typings
       ../tests
       ../model
+      ../doc
+      ../.prettierrc.json
     ];
   };
 in
@@ -41,8 +47,15 @@ in
         nativeBuildInputs = [
           pythonTest
           sail
+          asciidoctorSail
+          sailDocTables
+          prettier
         ];
-        env.PYTHONPATH = "${taracpu}/share/taracpu";
+        env = {
+          PYTHONPATH = "${taracpu}/share/taracpu";
+          TARA_DOC_PLUGIN = "${sailDocTables}/lib/sail-doc-tables/sail_doc_tables.cmxs";
+          TARA_DOC_FONTS = "${docFonts}/fonts";
+        };
       }
       ''
         cp -r ${pythonSource}/. . && chmod -R u+w .
@@ -61,6 +74,8 @@ in
       ../emulator
       ../lean
       ../rocq
+      ../doc
+      ../tools/sail-doc
     ];
     nativeBuildInputs = [
       sail
@@ -69,6 +84,7 @@ in
       cmake
       ninja
       ocamlPackages.ocamlformat
+      prettier
     ];
     # c::lint builds the emulator for clang-tidy's compile commands.
     buildInputs = [
@@ -83,8 +99,10 @@ in
       "model::lint"
       "c::lint"
       "ocaml::lint"
+      "sail-doc::lint"
       "rocq::lint"
       "lean::lint"
+      "doc::lint"
     ];
     installPhase = "touch $out";
   };
