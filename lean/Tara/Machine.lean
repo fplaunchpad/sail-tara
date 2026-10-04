@@ -186,28 +186,30 @@ also uses `<$>` and conditionals. -/
 
 /-! ## The memory bus
 
-The byte bus returns the input lines at the input port and RAM elsewhere. The word bus is two byte
-reads, high byte first, that ignore address bit 0. These are the model's `read_byte` and
-`read_word` as functions of a machine. -/
+These views evaluate the model's generated `read_byte` and `read_word`. The fallback values only
+cover the error result that would occur if a Sail state lacked a required register; `Machine.within`
+provides every register, and the run lemmas below establish that the generated functions succeed. -/
 
-/-- The byte the model's `read_byte` returns. -/
+/-- The value returned by the model's generated `read_byte`. -/
 def Machine.readByte (m : Machine) (addr : BitVec 16) : BitVec 8 :=
-  if Sail.BitVec.extractLsb addr 10 0 = input_port then 0#3 +++ m.keys
-  else m.mem[Sail.BitVec.toNatInt (Sail.BitVec.extractLsb addr 10 0)]!
+  match (read_byte addr).run (m.within (default : State)) with
+  | .ok byte _ => byte
+  | .error _ _ => 0#8
 
-/-- The word the model's `read_word` returns. -/
+/-- The value returned by the model's generated `read_word`. -/
 def Machine.readWord (m : Machine) (addr : BitVec 16) : BitVec 16 :=
-  m.readByte (Sail.BitVec.extractLsb addr 15 1 +++ 0#1) +++
-    m.readByte (Sail.BitVec.extractLsb addr 15 1 +++ 1#1)
+  match (read_word addr).run (m.within (default : State)) with
+  | .ok word _ => word
+  | .error _ _ => 0#16
 
 @[simp] theorem run_read_byte (m : Machine) (s : State) (addr : BitVec 16) :
     (read_byte addr).run (m.within s) = .ok (m.readByte addr) (m.within s) := by
   by_cases h : Sail.BitVec.extractLsb addr 10 0 = input_port <;>
-    simp [read_byte, Machine.readByte, h]
+    simp [Machine.readByte, read_byte, h]
 
 @[simp] theorem run_read_word (m : Machine) (s : State) (addr : BitVec 16) :
     (read_word addr).run (m.within s) = .ok (m.readWord addr) (m.within s) := by
-  simp [read_word, Machine.readWord]
+  simp [Machine.readWord, read_word]
 
 /-! ## Undefined values
 
