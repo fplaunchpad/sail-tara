@@ -57,19 +57,9 @@ static const char DISASM_USAGE[] =
     "\n"
     "  -h, --help  print this text\n";
 
-/* The options that have no short form. */
-enum { OPT_KEYS = 256, OPT_KEY_SCRIPT, OPT_FRAMEBUFFER, OPT_HZ };
-
-/* Long and short spellings of one flag share an identity. */
-enum option_identity {
-  OPTION_TRACE,
-  OPTION_MAX_STEPS,
-  OPTION_KEYS_ID,
-  OPTION_KEY_SCRIPT_ID,
-  OPTION_FRAMEBUFFER_ID,
-  OPTION_HZ_ID,
-  OPTION_ID_COUNT,
-};
+/* The codes getopt_long returns for the options that have no short form; the others return their
+ * short form. Every spelling of an option returns the same code. */
+enum { OPT_KEYS = 256, OPT_KEY_SCRIPT, OPT_FRAMEBUFFER, OPT_HZ, OPT_CODES };
 
 static const struct option RUN_OPTIONS[] = {
     {"trace", no_argument, NULL, 't'},
@@ -169,42 +159,12 @@ static bool apply(struct command *command, int option, const char *argument) {
   }
 }
 
-/* Map getopt's option code to the flag identity used to reject repetitions. */
-static enum option_identity identity(int option) {
-  switch (option) {
-  case 't':
-    return OPTION_TRACE;
-  case 'n':
-    return OPTION_MAX_STEPS;
-  case OPT_KEYS:
-    return OPTION_KEYS_ID;
-  case OPT_KEY_SCRIPT:
-    return OPTION_KEY_SCRIPT_ID;
-  case OPT_FRAMEBUFFER:
-    return OPTION_FRAMEBUFFER_ID;
-  case OPT_HZ:
-    return OPTION_HZ_ID;
-  default:
-    return OPTION_ID_COUNT;
-  }
-}
-
-static const char *option_name(enum option_identity option) {
-  switch (option) {
-  case OPTION_TRACE:
-    return "--trace";
-  case OPTION_MAX_STEPS:
-    return "--max-steps";
-  case OPTION_KEYS_ID:
-    return "--keys";
-  case OPTION_KEY_SCRIPT_ID:
-    return "--key-script";
-  case OPTION_FRAMEBUFFER_ID:
-    return "--framebuffer";
-  case OPTION_HZ_ID:
-    return "--hz";
-  case OPTION_ID_COUNT:
-    break;
+/* The long spelling of the option getopt_long returned as `code`. */
+static const char *long_name(const struct syntax *syntax, int code) {
+  for (const struct option *option = syntax->long_options; option->name; ++option) {
+    if (option->val == code) {
+      return option->name;
+    }
   }
   return "option";
 }
@@ -282,9 +242,8 @@ struct parse_result parse_command_line(int argc, char *argv[]) {
     report_error("'%s' is not a subcommand: run, play or disasm", argv[1]);
     return fail();
   }
-  struct parse_result result = {.status = PARSE_OK, .command = default_command(syntax->subcommand)};
-  struct command *command = &result.command;
-  bool seen[OPTION_ID_COUNT] = {false};
+  struct command command = default_command(syntax->subcommand);
+  bool seen[OPT_CODES] = {false}; /* by option code */
 
   /* The subcommand's arguments follow its name, which getopt_long takes for the program's name
    * in its own messages. */
@@ -300,20 +259,20 @@ struct parse_result parse_command_line(int argc, char *argv[]) {
       fputs(syntax->usage, stdout);
       return HELP;
     }
-    enum option_identity flag = identity(option);
-    if (flag != OPTION_ID_COUNT && seen[flag]) {
-      report_error("%s may only be specified once", option_name(flag));
+    if (option == '?') {
       return fail();
     }
-    if (flag != OPTION_ID_COUNT) {
-      seen[flag] = true;
+    if (seen[option]) {
+      report_error("--%s may only be specified once", long_name(syntax, option));
+      return fail();
     }
-    if (option == '?' || !apply(command, option, optarg)) {
+    seen[option] = true;
+    if (!apply(&command, option, optarg)) {
       return fail();
     }
   }
-  if (!take_operands(command, syntax, count - optind, arguments + optind)) {
+  if (!take_operands(&command, syntax, count - optind, arguments + optind)) {
     return fail();
   }
-  return result;
+  return (struct parse_result){.status = PARSE_OK, .command = command};
 }
