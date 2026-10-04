@@ -1,0 +1,20 @@
+; 16-bit wrapping arithmetic, signed SLT and ADDI, the low half of MUL, and sources read before
+; the destination is written.
+
+        LIL  R1, 0xFF
+        LIH  R1, 0xFF       ; R1 = 0xFFFF, -1
+        LIL  R2, 1
+        ADD  R3, R1, R2     ; 0x0000
+        SUB  R4, R3, R2     ; 0xFFFF
+        ADDI R2, -128       ; 0xFF81
+        SLT  R5, R1, R3     ; -1 < 0: 1
+        SLT  R6, R3, R1     ; 0
+        MUL  R4, R1, R2     ; 0xFFFF * 0xFF81: 0x007F
+        ADD  R1, R1, R1     ; 0xFFFE
+        NOT  R3, R3         ; 0xFFFF
+        XOR  R3, R3, R1     ; 0x0001
+        LIL  R7, 0x0F
+        LIH  R7, 0xF0       ; R7 = 0xF00F
+        AND  R6, R7, R1     ; 0xF00E
+        OR   R7, R7, R2     ; 0xFF8F
+        HLT

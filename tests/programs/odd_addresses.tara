@@ -1,0 +1,21 @@
+; Word accesses ignore address bit 0 (word index = address >> 1): odd LDW, STW, PUSH and POP use
+; the aligned word, byte accesses keep bit 0, and a word access at 0x7FF uses 0x7FE.
+
+        LIL  R1, 0x01
+        LIH  R1, 0x04       ; R1 = 0x0401
+        LIL  R2, 0x34
+        LIH  R2, 0x12       ; R2 = 0x1234
+        STW  R2, 0(R1)      ; 0x400 = 0x12, 0x401 = 0x34
+        LDW  R3, 0(R1)      ; R3 = 0x1234
+        LDB  R4, 0(R1)      ; R4 = 0x0034
+        LIL  R7, 0x03
+        LIH  R7, 0x05       ; SP = 0x0503
+        PUSH R2             ; SP = 0x0501: 0x500 = 0x12, 0x501 = 0x34
+        POP  R5             ; R5 = 0x1234, SP = 0x0503
+        LIL  R1, 0xFF
+        LIH  R1, 0x07       ; R1 = 0x07FF
+        LIL  R2, 0xBC
+        LIH  R2, 0x9A       ; R2 = 0x9ABC
+        STW  R2, 0(R1)      ; 0x7FE = 0x9A, 0x7FF = 0xBC
+        LDW  R6, 0(R1)      ; R6 = 0x9ABC
+        HLT

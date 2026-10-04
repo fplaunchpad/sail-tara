@@ -1,0 +1,8 @@
+; Writes 0xD800, an instruction with the unassigned opcode 27, over the instruction after the
+; store, and runs into it: the run stops after 3 retirements with PC past it, at 0x0008.
+
+        LIL  R1, 0x00
+        LIH  R1, 0xD8       ; R1 = 0xD800
+        STW  R1, 6(R0)      ; R0 = 0, so this writes the word at 0x0006
+        NOP                 ; replaced by 0xD800 before it is fetched
+        HLT

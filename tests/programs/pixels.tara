@@ -1,0 +1,12 @@
+; Sets the framebuffer's first and last pixels: (0, 0) at the bottom left, (63, 63) at the top
+; right. Pixel (x, y) is bit 7 - x mod 8 of the byte at 0x600 + 8y + x / 8.
+
+        LIL  R1, 0x00
+        LIH  R1, 0x06       ; R1 = 0x0600: row 0, pixels 0 to 7
+        LIL  R2, 0x80
+        STB  R2, 0(R1)      ; pixel (0, 0) is bit 7
+        LIL  R1, 0xFF
+        LIH  R1, 0x07       ; R1 = 0x07FF: row 63, pixels 56 to 63
+        LIL  R2, 0x01
+        STB  R2, 0(R1)      ; pixel (63, 63) is bit 0
+        HLT

@@ -1,55 +1,14 @@
 """Assemble TARA source with the TARA Studio assembler into a loadable image."""
 
-from collections.abc import Sequence
 from dataclasses import dataclass
-from enum import StrEnum
 from pathlib import Path
 from typing import override
 
 import click
 from src.assembler.asm import AssemblerError, assemble
 
-MEMORY_BYTES = 2048
-WORD_BYTES = 2
-
-
-class ImageFormat(StrEnum):
-    """Loadable image encodings, named by their file suffix."""
-
-    BIN = ".bin"
-    HEX = ".hex"
-
-    def render(self, words: Sequence[int]) -> bytes:
-        """Encode instruction words, loaded from address 0, in this format."""
-
-        match self:
-            case ImageFormat.BIN:
-                return b"".join(word.to_bytes(WORD_BYTES, "big") for word in words)
-            case ImageFormat.HEX:
-                return "".join(f"{word:04x}\n" for word in words).encode()
-
-
-@dataclass(frozen=True)
-class Image:
-    """A loadable image file, encoded as its suffix says."""
-
-    path: Path
-
-    def __post_init__(self) -> None:
-        if self.path.suffix not in ImageFormat:
-            formats = " or ".join(ImageFormat)
-            raise ValueError(f"{self.path}: expected a {formats} file")
-
-    @property
-    def format(self) -> ImageFormat:
-        """The encoding selected by the file suffix."""
-
-        return ImageFormat(self.path.suffix)
-
-    def write(self, words: Sequence[int]) -> None:
-        """Write instruction words, loaded from address 0, to this file."""
-
-        self.path.write_bytes(self.format.render(words))
+from tara.image import Image, ImageFormat
+from tara.isa import MEMORY_BYTES, WORD_BYTES
 
 
 class ImageType(click.ParamType):

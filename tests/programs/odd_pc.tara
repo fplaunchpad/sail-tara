@@ -1,0 +1,12 @@
+; PC can be odd: RET to 0x7FF fetches the word at 0x7FE (zero, a NOP), and PC then wraps to
+; 0x001, which fetches the word at 0x000. PC-relative control flow keeps bit 0, so the program
+; halts with PC 0x011.
+
+start:  BZ   R5, setup      ; first pass: R5 = 0
+        JMP  done           ; second pass, from PC 0x003: to done + 1
+setup:  ADDI R5, 1
+        LIL  R6, 0xFF
+        LIH  R6, 0x07       ; R6 = 0x07FF
+        RET                 ; to PC 0x7FF
+done:   LIL  R3, 9          ; runs at PC 0x00D
+        HLT                 ; runs at PC 0x00F

@@ -32,8 +32,9 @@ list:
 # Build the emulators, the Rocq and Lean definitions and the PDF.
 build: c::build ocaml::build rocq::build lean::build doc::build
 
-# Run the model's unit tests.
-test: model::test
+# Test the emulators against the reference model; ARGS go to pytest (e.g. -k tara-c).
+test *args: c::build ocaml::build
+    uv run --frozen --no-python-downloads pytest --emulator="{{ build }}/c/tara-c" --emulator="{{ build }}/ocaml/tara-ocaml" "$@"
 
 # Format the Sail, C, OCaml and Python sources.
 format: model::format c::format ocaml::format python::format

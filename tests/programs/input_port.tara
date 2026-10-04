@@ -1,0 +1,19 @@
+; The input port: a byte read of 0x5FF returns the input lines {000, QUIT, RIGHT, LEFT, DOWN,
+; UP}, while stores to 0x5FF reach the RAM byte behind it, which reads never see. A word read at
+; 0x5FE, and a fetch from there, get the input lines in the low byte.
+
+        LIL  R1, 0xFF
+        LIH  R1, 0x05       ; R1 = 0x05FF, the input port
+        LDB  R2, 0(R1)      ; R2 = the input lines
+        LIL  R3, 0xEF
+        STB  R3, 0(R1)      ; RAM[0x5FF] = 0xEF
+        LDB  R4, 0(R1)      ; still the input lines
+        LIL  R3, 0x1B
+        STB  R3, -1(R1)     ; RAM[0x5FE] = 0x1B: the word there is LIL R3, <input lines>
+        LDW  R5, -1(R1)     ; R5 = 0x1B00 + the input lines
+        LIL  R3, 0x00
+        LIH  R3, 0x08       ; R3 = 0x0800, HLT
+        STW  R3, 1(R1)      ; HLT at 0x0600
+        LIL  R6, 0xFE
+        LIH  R6, 0x05       ; R6 = 0x05FE
+        RET                 ; fetch from 0x5FE: LIL R3, <input lines>, then HLT at 0x600

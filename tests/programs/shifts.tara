@@ -1,0 +1,18 @@
+; The shift count is imm8[4:0]: counts of 32 and more wrap, and counts from 16 to 31 shift every
+; bit out. SHR is a logical shift.
+
+        LIL  R1, 0x81       ; R1 = 0x0081
+        MOV  R2, R1
+        SHL  R2, 0x21       ; count 1: 0x0102
+        MOV  R3, R1
+        SHL  R3, 16         ; 0x0000
+        MOV  R4, R1
+        SHL  R4, 0x20       ; count 0: 0x0081
+        LIH  R1, 0x80       ; R1 = 0x8081
+        MOV  R5, R1
+        SHR  R5, 15         ; 0x0001
+        MOV  R6, R1
+        SHR  R6, 255        ; count 31: 0x0000
+        MOV  R7, R1
+        SHR  R7, 4          ; 0x0808
+        HLT

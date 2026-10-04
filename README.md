@@ -16,8 +16,9 @@ and the [hardware manual](https://www.cse.iitm.ac.in/~ayon/courses/CS2300/tarama
 | `emulator/host.sail` | Host interface shared by the emulators |
 | `emulator/c/`, `emulator/ocaml/` | The C and OCaml emulators |
 | `rocq/`, `lean/`, `doc/` | Rocq smoke test, Lean project file, LaTeX document |
-| `tests/model/` | Sail unit tests of the model |
-| `tools/tara/` | Python tools built on TARA Studio's assembler |
+| `tests/` | pytest suite: the emulators against the reference model |
+| `tests/programs/` | Test programs, in assembly |
+| `tools/tara/` | `tara-asm`, and the reference model: TARA Studio's CPU with the RTL corrections below |
 | `nix/`, `just/` | Flake packages and just recipes |
 
 ## Usage
@@ -26,7 +27,7 @@ Run inside `nix develop` (or direnv); `just` lists the modules and recipes,
 `just --list MODULE` a module's. Outputs go to `build/`.
 
 ```sh
-just test                 # the model's unit tests
+just test                 # test both emulators; pytest options pass through (-k tara-c)
 just c                    # build/c/tara-c (likewise: ocaml, rocq, lean, doc)
 just c run prog.tara -t   # assemble and run a program (likewise: ocaml)
 tara-asm prog.tara        # assemble to prog.bin (-o prog.hex for text)

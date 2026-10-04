@@ -16,12 +16,12 @@ lock-check:
 # Lint Python sources and imports with Ruff.
 [group('quality')]
 lint *args:
-    uv run --frozen --no-python-downloads ruff check tools typings "$@"
+    uv run --frozen --no-python-downloads ruff check tools typings tests "$@"
 
 # Format Python with Black; pass --check to inspect without changes.
 [group('quality')]
 format *args:
-    uv run --frozen --no-python-downloads black tools typings "$@"
+    uv run --frozen --no-python-downloads black tools typings tests "$@"
 
 # Check Python types with the strict project configuration.
 [group('quality')]

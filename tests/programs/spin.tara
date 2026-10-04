@@ -1,0 +1,3 @@
+; Jumps to itself forever, so a run ends only at the step limit.
+
+loop:   JMP  loop

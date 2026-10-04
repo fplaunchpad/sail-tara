@@ -1,0 +1,19 @@
+; The stack: PUSH decrements SP (R7) and then stores, POP loads and then increments, both in the
+; order the ISA table gives, also for R7 itself; SP wraps below 0. CALL links through R6.
+
+        LIL  R7, 0x00
+        LIH  R7, 0x05       ; SP = 0x0500
+        LIL  R1, 0x34
+        LIH  R1, 0x12       ; R1 = 0x1234
+        PUSH R1             ; SP = 0x04FE
+        PUSH R7             ; SP = 0x04FC, which it stores
+        POP  R2             ; R2 = 0x04FC, SP = 0x04FE
+        POP  R7             ; R7 = 0x1234, then 0x1236
+        LIL  R7, 0x00
+        LIH  R7, 0x00       ; SP = 0x0000
+        PUSH R1             ; SP = 0xFFFE, which addresses 0x7FE
+        POP  R3             ; R3 = 0x1234, SP = 0x0000
+        CALL sub
+        HLT
+sub:    MOV  R4, R6         ; R4 = the link
+        RET

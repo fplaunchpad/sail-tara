@@ -1,0 +1,8 @@
+; Reads the input port into R1, R3 and R4, after 2, 3 and 4 retirements, then halts.
+
+        LIL  R2, 0xFF
+        LIH  R2, 0x05       ; R2 = 0x05FF, the input port
+        LDB  R1, 0(R2)
+        LDB  R3, 0(R2)
+        LDB  R4, 0(R2)
+        HLT

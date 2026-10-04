@@ -1,0 +1,25 @@
+; Branches: BZ and BN test their register, taken and not, a loop branches backwards, and a branch
+; from 0x000 to two words before it wraps to 0x7FE.
+
+start:  BN   R5, -2         ; on the second pass, R5 < 0: 0x000 + 2 - 4 wraps to 0x7FE
+        LIL  R1, 0
+        BZ   R1, zero       ; taken
+        HLT
+zero:   ADDI R1, -1         ; R1 = 0xFFFF
+        BN   R1, minus      ; taken
+        HLT
+minus:  BZ   R1, wrong      ; not taken
+        BN   R2, wrong      ; R2 = 0: not taken
+        LIL  R3, 3
+loop:   ADDI R3, -1         ; three times round
+        BZ   R3, done
+        JMP  loop
+done:   LIL  R4, 0x00
+        LIH  R4, 0x08       ; R4 = 0x0800, HLT
+        LIL  R6, 0xFE
+        LIH  R6, 0x07       ; R6 = 0x07FE
+        STW  R4, 0(R6)      ; HLT at 0x7FE
+        MOV  R5, R1         ; R5 = -1
+        JMP  start          ; halts at 0x7FE, with PC 0x000
+wrong:  LIL  R7, 0xBA
+        HLT

@@ -1,0 +1,10 @@
+; Fetches see earlier stores: the program writes HLT over an instruction before reaching it.
+; Address bits above bit 10 are ignored, so 0xF80A addresses 0x00A.
+
+        LIL  R1, 0x00
+        LIH  R1, 0x08       ; R1 = 0x0800, HLT
+        LIL  R2, 0x0A
+        LIH  R2, 0xF8       ; R2 = 0xF80A
+        STW  R1, 0(R2)      ; HLT over the instruction at 0x00A
+        LIL  R3, 7          ; replaced before it is fetched: R3 stays 0
+        HLT

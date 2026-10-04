@@ -61,6 +61,8 @@ mkShell {
 
   env = {
     TARACPU = "${taracpu}/share/taracpu";
+    # TARA Studio's modules (src.*), for the reference model and the tests.
+    PYTHONPATH = "${taracpu}/share/taracpu";
     LEAN_SAIL = "${lean-sail}";
     UV_PYTHON_DOWNLOADS = "never";
     UV_PYTHON = lib.getExe python;

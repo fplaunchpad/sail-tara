@@ -4,31 +4,44 @@
   runCommand,
   justDerivation,
   sail,
-  gmp,
-  zlib,
   jq,
   clang-tools,
   ocamlPackages,
-  pythonRuntime,
+  taracpu,
+  tara-c,
+  tara-ocaml,
+  pythonTest,
   pythonDevTools,
 }:
 
-{
-  # The model's Sail unit tests, through the C backend.
-  model = justDerivation {
-    pname = "model-tests";
-    fileset = [
-      ../model
-      ../tests/model
+let
+  # The Python sources and their configuration, writable for the tools' caches.
+  pythonSource = lib.fileset.toSource {
+    root = ../.;
+    fileset = lib.fileset.unions [
+      ../pyproject.toml
+      ../tools
+      ../typings
+      ../tests
     ];
-    nativeBuildInputs = [ sail ];
-    buildInputs = [
-      gmp
-      zlib
-    ];
-    recipes = [ "model::test" ];
-    installPhase = "touch $out";
   };
+in
+{
+  # The emulator test suite: both emulators against the reference model.
+  tests =
+    runCommand "tests"
+      {
+        nativeBuildInputs = [ pythonTest ];
+        env.PYTHONPATH = "${taracpu}/share/taracpu";
+      }
+      ''
+        cp -r ${pythonSource}/. . && chmod -R u+w .
+        export HOME="$TMPDIR"
+        pytest -p no:cacheprovider \
+          --emulator=${lib.getExe tara-c} \
+          --emulator=${lib.getExe tara-ocaml}
+        touch "$out"
+      '';
 
   # Formatting and line width of the Sail, C and OCaml sources.
   lint = justDerivation {
@@ -36,7 +49,6 @@
     fileset = [
       ../model
       ../emulator
-      ../tests/model
     ];
     nativeBuildInputs = [
       sail
@@ -56,21 +68,13 @@
   python-lint =
     runCommand "python-lint"
       {
-        src = lib.fileset.toSource {
-          root = ../.;
-          fileset = lib.fileset.unions [
-            ../pyproject.toml
-            ../tools
-            ../typings
-          ];
-        };
-        nativeBuildInputs = [ pythonRuntime ] ++ pythonDevTools;
+        nativeBuildInputs = [ pythonTest ] ++ pythonDevTools;
       }
       ''
-        cp -r "$src"/. . && chmod -R u+w .
+        cp -r ${pythonSource}/. . && chmod -R u+w .
         export HOME="$TMPDIR"
-        ruff check --no-cache tools typings
-        black --check tools typings
+        ruff check --no-cache tools typings tests
+        black --check tools typings tests
         pyright
         touch "$out"
       '';

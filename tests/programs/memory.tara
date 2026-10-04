@@ -1,0 +1,17 @@
+; Memory: big-endian words, byte loads that zero-extend, byte stores of the low byte, and 11-bit
+; addresses: 0 - 1 wraps to 0x7FF and bits above bit 10 are ignored.
+
+        LIL  R1, 0xCD
+        LIH  R1, 0xAB       ; R1 = 0xABCD
+        LIL  R2, 0x00
+        LIH  R2, 0x04       ; R2 = 0x0400
+        STW  R1, 0(R2)      ; 0x400 = 0xAB, 0x401 = 0xCD
+        LDB  R3, 0(R2)      ; 0x00AB
+        LDB  R4, 1(R2)      ; 0x00CD
+        STB  R1, -16(R2)    ; 0x3F0 = 0xCD
+        LIL  R5, 0
+        STB  R1, -1(R5)     ; 0x7FF = 0xCD
+        LIH  R5, 0xFC       ; R5 = 0xFC00, which addresses 0x400
+        LDW  R6, 0(R5)      ; 0xABCD
+        LDW  R7, -16(R2)    ; the word at 0x3F0: 0xCD00
+        HLT

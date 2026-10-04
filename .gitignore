@@ -12,6 +12,8 @@ sail_smt_cache
 .venv/
 **/__pycache__/
 .ruff_cache/
+.pytest_cache/
 
 # Environment
 .direnv/
+.claude/worktrees/

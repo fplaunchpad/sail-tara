@@ -27,6 +27,10 @@ let
       ps: map (pinnedPackage ps) pyproject.project.dependencies
     );
     pythonDevTools = map (pinnedPackage pkgs) pyproject.dependency-groups.dev;
+    # The runtime and pytest: the interpreter of the test suite and of Pyright.
+    pythonTest = self.python.withPackages (
+      ps: map (pinnedPackage ps) (pyproject.project.dependencies ++ pyproject.dependency-groups.test)
+    );
 
     sail = self.callPackage ./sail.nix { };
     rocq-sail-stdpp = self.rocqPackages.callPackage ./rocq-sail-stdpp.nix { };
