@@ -43,9 +43,11 @@ just ci                    # nix flake check
 - `--key-script FILE`: change the input lines as the run goes on, with `STEP KEYS` lines.
 - `--fb`: print the framebuffer after the final state.
 - `--disasm-all`: print the disassembly of every 16-bit word.
-- `-i`, `--interactive`: run in the terminal at `--hz` instructions a second (default 2000). The arrow keys or WASD drive the input lines, Q drives QUIT, and Esc quits.
+- `-i`, `--interactive`: run in the terminal at `--hz` instructions a second (default 2000). 
+  The arrow keys or WASD drive the input lines, Q drives QUIT, and Esc quits.
 
-A batch run ends by printing the final state (`status`, `steps`, `pc`, `r0` to `r7`, `mem`). The exit status says how the run ended:
+A batch run ends by printing the final state (`status`, `steps`, `pc`, `r0` to `r7`, `mem`). 
+The exit status says how the run ended:
 
 - 0: the CPU halted.
 - 1: an error, such as a bad option or a bad image.
