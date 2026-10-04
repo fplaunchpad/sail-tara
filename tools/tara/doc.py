@@ -22,12 +22,21 @@ from tara.asciidoc import (
     Column,
     Inline,
     Link,
+    Row,
     Table,
     Text,
 )
 
 PADDING = "padding"  # the plugin's name for bits that decoding ignores
 HEX_DIGIT_BITS = 4
+# A tint of the accent colour of styles.css and theme.yml; Asciidoctor takes only literal colours.
+UNASSIGNED_BACKGROUND = "#F6DADF"
+# The decode clause for the words of unassigned opcodes, with its description.
+FALLBACK = """
+include::sailcomment:decode[grep=None\\(,indent=0]
+
+sail::decode[grep=None\\(]
+"""
 FORMATS = "formats.adoc"
 OPCODES = "opcodes.adoc"
 INSTRUCTIONS = "instructions.adoc"
@@ -145,7 +154,7 @@ class InstructionSet(msgspec.Struct, frozen=True, kw_only=True):
 
         formats = self.formats()
         placements = [set(format.placements) for format in formats]
-        rows: list[tuple[Cell, ...]] = []
+        rows: list[Row] = []
         for index, format in enumerate(formats):
             cells = [Cell(content=(Anchor(format.anchor), Text(format.name)))]
             for placement in format.placements:
@@ -170,7 +179,7 @@ class InstructionSet(msgspec.Struct, frozen=True, kw_only=True):
                 )
 
             names = ", ".join(instruction.constructor for instruction in format.instructions)
-            rows.append((*cells, Cell(content=(Code(names),))))
+            rows.append(Row(cells=(*cells, Cell(content=(Code(names),)))))
 
         return Table(
             columns=(
@@ -183,10 +192,20 @@ class InstructionSet(msgspec.Struct, frozen=True, kw_only=True):
             width=92,
         )
 
+    @property
+    def opcode_width(self) -> int:
+        return len(self.instructions[0].opcode_bits)
+
+    def opcodes(self) -> str:
+        """The opcode table, and the decode clause for unassigned opcodes if there are any."""
+
+        table = str(self.opcode_table())
+        return table if len(self.instructions) == 1 << self.opcode_width else table + FALLBACK
+
     def opcode_table(self) -> Table:
         """A row per opcode, and one per run of unassigned opcodes."""
 
-        opcode_width = len(self.instructions[0].opcode_bits)
+        opcode_width = self.opcode_width
         digits = math.ceil(opcode_width / HEX_DIGIT_BITS)
         formats = {
             instruction.constructor: format
@@ -194,7 +213,7 @@ class InstructionSet(msgspec.Struct, frozen=True, kw_only=True):
             for instruction in format.instructions
         }
         by_opcode = {instruction.opcode: instruction for instruction in self.instructions}
-        rows: list[tuple[Cell, ...]] = []
+        rows: list[Row] = []
         for assigned, run in itertools.groupby(range(1 << opcode_width), by_opcode.__contains__):
             opcodes = list(run)
             if assigned:
@@ -202,21 +221,25 @@ class InstructionSet(msgspec.Struct, frozen=True, kw_only=True):
                     instruction = by_opcode[opcode]
                     format = formats[instruction.constructor]
                     rows.append(
-                        (
-                            Cell(content=(Text(str(opcode)),)),
-                            Cell(content=(Code(f"{opcode:0{digits}X}"),)),
-                            Cell(content=(Code(instruction.opcode_bits),)),
-                            Cell(
-                                content=(
-                                    Link(
-                                        target=instruction.anchor,
-                                        content=Code(instruction.constructor),
+                        Row(
+                            cells=(
+                                Cell(content=(Text(str(opcode)),)),
+                                Cell(content=(Code(f"{opcode:0{digits}X}"),)),
+                                Cell(content=(Code(instruction.opcode_bits),)),
+                                Cell(
+                                    content=(
+                                        Link(
+                                            target=instruction.anchor,
+                                            content=Code(instruction.constructor),
+                                        ),
                                     ),
+                                    alignment=CellAlignment.CENTER,
                                 ),
-                                alignment=CellAlignment.CENTER,
-                            ),
-                            Cell(content=(Code(instruction.syntax),)),
-                            Cell(content=(Link(target=format.anchor, content=Text(format.name)),)),
+                                Cell(content=(Code(instruction.syntax),)),
+                                Cell(
+                                    content=(Link(target=format.anchor, content=Text(format.name)),)
+                                ),
+                            )
                         )
                     )
 
@@ -224,11 +247,18 @@ class InstructionSet(msgspec.Struct, frozen=True, kw_only=True):
 
             ends = sorted({opcodes[0], opcodes[-1]})
             rows.append(
-                (
-                    Cell(content=(Text("-".join(map(str, ends))),)),
-                    Cell(content=dashed([f"{opcode:0{digits}X}" for opcode in ends])),
-                    Cell(content=dashed([f"{opcode:0{opcode_width}b}" for opcode in ends])),
-                    Cell(content=(Text("unassigned"),), columns=3),
+                Row(
+                    cells=(
+                        Cell(content=(Text("-".join(map(str, ends))),)),
+                        Cell(content=dashed([f"{opcode:0{digits}X}" for opcode in ends])),
+                        Cell(content=dashed([f"{opcode:0{opcode_width}b}" for opcode in ends])),
+                        Cell(
+                            content=(Text("unassigned"),),
+                            columns=3,
+                            alignment=CellAlignment.CENTER,
+                        ),
+                    ),
+                    background=UNASSIGNED_BACKGROUND,
                 )
             )
 
@@ -285,7 +315,7 @@ def main(metadata: Path, directory: Path) -> None:
     instruction_set = InstructionSet.read(metadata)
     directory.mkdir(parents=True, exist_ok=True)
     (directory / FORMATS).write_text(str(instruction_set.format_table()))
-    (directory / OPCODES).write_text(str(instruction_set.opcode_table()))
+    (directory / OPCODES).write_text(instruction_set.opcodes())
     (directory / INSTRUCTIONS).write_text(instruction_set.sections())
 
 

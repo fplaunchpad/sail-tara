@@ -1,9 +1,10 @@
 """AsciiDoc tables as typed values: `str()` of a table is its AsciiDoc source."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import StrEnum
 
 SEPARATOR = "|"
+BACKGROUND = "cellbgcolor"  # the document attribute both converters read for a cell's background
 
 
 class Alignment(StrEnum):
@@ -63,7 +64,17 @@ class Link:
         return f"<<{self.target},{self.content}>>"
 
 
-type Inline = Text | Code | Anchor | Link
+@dataclass(frozen=True)
+class Background:
+    """Sets the background of this cell and the cells after it, or with no colour, clears it."""
+
+    color: str | None
+
+    def __str__(self) -> str:
+        return f"{{set:{BACKGROUND}:{self.color}}}" if self.color else f"{{set:{BACKGROUND}!}}"
+
+
+type Inline = Text | Code | Anchor | Link | Background
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -80,6 +91,14 @@ class Cell:
         rows = f".{self.rows}" if self.rows > 1 else ""
         span = f"{columns}{rows}+" if columns or rows else ""
         return f"{span}{self.alignment}{SEPARATOR}{''.join(map(str, self.content))}"
+
+
+@dataclass(frozen=True, kw_only=True)
+class Row:
+    """A row of cells, on `background` (a colour such as `#F6DADF`) if given."""
+
+    cells: tuple[Cell, ...]
+    background: str | None = None
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -101,18 +120,38 @@ class Table:
 
     columns: tuple[Column, ...]
     header: tuple[str, ...]
-    rows: tuple[tuple[Cell, ...], ...]
+    rows: tuple[Row, ...]
     width: int
 
     def __str__(self) -> str:
         columns = ",".join(map(str, self.columns))
-        header = tuple(
-            Cell(content=(Text(label),), alignment=CellAlignment.CENTER) for label in self.header
+        header = Row(
+            cells=tuple(
+                Cell(content=(Text(label),), alignment=CellAlignment.CENTER)
+                for label in self.header
+            )
         )
         lines = [
             f'[cols="{columns}", options="header",width="{self.width}%",role="center"]',
             "|===",
-            *(" ".join(map(str, row)) for row in (header, *self.rows)),
-            "|===",
         ]
+        background = None
+        for row in (header, *self.rows):
+            cells = row.cells
+            if row.background != background:
+                # The background is a document attribute, which a cell sets as it is converted:
+                # set it in the first cell of a row, and clear it in the first cell after.
+                first, *others = cells
+                cells = (
+                    replace(first, content=(Background(row.background), *first.content)),
+                    *others,
+                )
+                background = row.background
+
+            lines.append(" ".join(map(str, cells)))
+
+        lines.append("|===")
+        if background:
+            lines.append(f":{BACKGROUND}!:")
+
         return "".join(f"{line}\n" for line in lines)

@@ -108,8 +108,13 @@ let extract_one env ({ pattern; body } : Sail_ast.Function_clause.t) =
 ;;
 
 let extract env (clauses : Sail_ast.Function_clause.t list) =
+  (* Even when every opcode is assigned, the fallback is required: when the clauses cover every
+     word, Sail's completeness check turns the last clause's opcode into a wildcard. *)
   let rec validate_fallback = function
-    | [] -> Sail_ast.fail_at Parse_ast.Unknown "decode must end with a wildcard None() clause"
+    | [] ->
+      Sail_ast.fail_at
+        Parse_ast.Unknown
+        "decode must end with a wildcard None() clause, even when every opcode is assigned"
     | ({ pattern; body } : Sail_ast.Function_clause.t) :: remaining ->
       (match Sail_ast.decode_result body with
        | Some _ -> validate_fallback remaining

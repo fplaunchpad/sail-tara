@@ -11,7 +11,7 @@ from src.simulation.cpu import OP_NAME
 
 from helpers.doc import INSTRUCTION_SETS, Bundle, Specification, Workspace
 from tara.asciidoc import Text
-from tara.doc import FORMATS, OPCODES, Field, Instruction, InstructionSet
+from tara.doc import OPCODES, Field, Instruction, InstructionSet
 
 needs_plugin = pytest.mark.skipif(
     "TARA_DOC_PLUGIN" not in os.environ, reason="needs the Sail plugin in tools/sail-doc"
@@ -198,6 +198,15 @@ def test_rejects_a_model_it_cannot_tabulate(
             ],
             id="32-bit",
         ),
+        pytest.param(
+            "full",
+            4,
+            [
+                ("ZERO", "0", "zero", [("opcode", 1), ("padding", 3)]),
+                ("ONE", "1", "one value", [("opcode", 1), ("value", 3)]),
+            ],
+            id="every-opcode-assigned",
+        ),
     ],
 )
 def test_tabulates_other_instruction_sets(
@@ -211,9 +220,7 @@ def test_tabulates_other_instruction_sets(
     workspace.build("doc", "sections")
     instruction_set = InstructionSet.read(workspace.output / METADATA)
     tables = workspace.output / "tables.adoc"
-    tables.write_text(
-        (workspace.output / FORMATS).read_text() + (workspace.output / OPCODES).read_text()
-    )
+    tables.write_text(f"{instruction_set.format_table()}\n{instruction_set.opcode_table()}")
 
     assert instruction_set.word_width == word_width
     assert [
@@ -227,6 +234,18 @@ def test_tabulates_other_instruction_sets(
         check=False,
     )
     assert rendered.returncode == 0, rendered.stderr
+
+
+@needs_plugin
+def test_leaves_out_the_fallback_when_every_opcode_is_assigned(tmp_path: Path) -> None:
+    workspace = Workspace.copy(tmp_path)
+    workspace.install(INSTRUCTION_SETS / "full.sail")
+    workspace.build("doc", "sections")
+
+    opcodes = (workspace.output / OPCODES).read_text()
+
+    assert "unassigned" not in opcodes
+    assert "None" not in opcodes
 
 
 @needs_plugin
@@ -258,7 +277,7 @@ def test_opcode_table_runs_unassigned_opcodes_together() -> None:
         word_width=8, instructions=tuple(instruction(opcode, field="x") for opcode in opcodes)
     )
 
-    first_cells = [row[0].content for row in instruction_set.opcode_table().rows]
+    first_cells = [row.cells[0].content for row in instruction_set.opcode_table().rows]
 
     assert first_cells == [
         (Text(label),) for label in ["0", "1", "2", *map(str, opcodes[2:]), "11-15"]
@@ -272,7 +291,9 @@ def test_format_table_merges_a_field_across_formats() -> None:
     )
 
     rows = instruction_set.format_table().rows
-    opcode_cells = [cell for row in rows for cell in row if str(cell).endswith("`+opcode+`")]
+    opcode_cells = [cell for row in rows for cell in row.cells if str(cell).endswith("`+opcode+`")]
 
-    assert [row[0].content[-1] for row in rows] == [Text(f"F{number}") for number in range(1, 11)]
+    assert [row.cells[0].content[-1] for row in rows] == [
+        Text(f"F{number}") for number in range(1, 11)
+    ]
     assert [(cell.columns, cell.rows) for cell in opcode_cells] == [(4, 10)]

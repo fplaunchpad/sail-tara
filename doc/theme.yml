@@ -48,6 +48,9 @@ list:
 ulist:
   marker:
     font_size: 16
+    # Petrona has no small square (U+25AA), which marks the references.
+    square:
+      font_family: $code_font_family
 heading:
   font_family: $body_font_family
   font_style: bold

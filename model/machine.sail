@@ -7,7 +7,7 @@ default Order dec
 $include <prelude.sail>
 
 /*!
-= The TARA Instruction Set Architecture */
+= TARA ISA */
 $anchor document_title
 
 /*!

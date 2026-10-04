@@ -5,15 +5,15 @@ set working-directory := ".."
 
 out := build / "doc"
 
-# Format the authored documentation configuration, stylesheet and PDF theme.
+# Format the stylesheet, the PDF theme and the listing width.
 format:
-    prettier --write doc/tara.css doc/tara-theme.yml doc/sail_config.json
+    prettier --write doc/styles.css doc/theme.yml doc/sail_config.json
 
-# Check the authored documentation configuration, stylesheet and PDF theme formatting.
+# Check the formatting of the stylesheet, the PDF theme and the listing width.
 lint:
-    prettier --check doc/tara.css doc/tara-theme.yml doc/sail_config.json
+    prettier --check doc/styles.css doc/theme.yml doc/sail_config.json
 
-# Format a build-only copy of the Sail sources to fit the documentation code panels.
+# Format a copy of the Sail sources to the width of the listings.
 [private]
 [script("bash", "-euo", "pipefail")]
 documentation-sources: (build-dir "doc/model")
@@ -24,21 +24,23 @@ documentation-sources: (build-dir "doc/model")
         sail --sail-config doc/sail_config.json --fmt --fmt-emit stdout "$source" > "$destination"
     done
 
-# Bundle the formatted source text and documentation comments for the Sail Asciidoctor plugin.
+# Bundle the formatted sources and their documentation comments for the Asciidoctor plugin.
 [private]
-[working-directory: out]
+[working-directory(out)]
 bundle: documentation-sources
     sail --doc --doc-embed plain --doc-bundle tara.json -o . model/syntax.sail
 
-# Place the AsciiDoc layout beside the Sail bundle for standalone rendering.
+# Place the AsciiDoc layout and its styles beside the bundle.
 [private]
 specification: bundle
-    cp doc/tara.adoc doc/tara.css doc/tara-theme.yml doc/cover.svg doc/sections.rb "{{ out }}/"
+    cp doc/main.adoc doc/styles.css doc/theme.yml doc/cover.svg doc/sections.rb "{{ out }}/"
 
-# Derive table metadata from the typed codecs and native assembly mapping.
+# Derive the instruction metadata from the model's encode, decode and assembly definitions.
 [private]
 metadata: (build-dir "doc")
-    sail -plugin "$TARA_DOC_PLUGIN" --doc-tables --doc-tables-decode decode --doc-tables-encode encode --doc-tables-assembly assembly -o "{{ out }}/tables.json" model/syntax.sail
+    sail -plugin "$TARA_DOC_PLUGIN" --doc-tables --doc-tables-decode decode \
+        --doc-tables-encode encode --doc-tables-assembly assembly \
+        -o "{{ out }}/tables.json" model/syntax.sail
 
 # Generate the format and opcode tables and the instruction sections from the metadata.
 [private]
@@ -51,21 +53,24 @@ sections: metadata
 font-directory: (build-dir "doc")
     install -d -m755 "{{ out }}/fonts"
 
-# Include the text and code fonts for offline HTML and standalone PDF rendering.
+# Include the text and code fonts, for offline HTML and a standalone PDF.
 [private]
 fonts: font-directory
     install -m644 -t "{{ out }}/fonts" "$TARA_DOC_FONTS"/*
 
-# Render the single AsciiDoc source to PDF; a warning is an error.
+# Render the PDF, build/doc/tara.pdf; a warning is an error.
 [default]
 build: specification sections fonts
-    asciidoctor-pdf -r asciidoctor-sail -r "{{ out }}/sections.rb" --failure-level WARN -a pdf-theme="{{ out }}/tara-theme.yml" -a pdf-fontsdir="{{ out }}/fonts" -o "{{ out }}/tara.pdf" "{{ out }}/tara.adoc"
+    asciidoctor-pdf -r asciidoctor-sail -r "{{ out }}/sections.rb" --failure-level WARN \
+        -a pdf-theme="{{ out }}/theme.yml" -a pdf-fontsdir="{{ out }}/fonts" \
+        -o "{{ out }}/tara.pdf" "{{ out }}/main.adoc"
 
-# Render the same source to HTML; a warning is an error.
+# Render the HTML; a warning is an error.
 [private]
 render-html: specification sections fonts
-    asciidoctor -r asciidoctor-sail -r "{{ out }}/sections.rb" --failure-level WARN -a stylesheet=tara.css -o "{{ out }}/tara.html" "{{ out }}/tara.adoc"
+    asciidoctor -r asciidoctor-sail -r "{{ out }}/sections.rb" --failure-level WARN \
+        -a stylesheet=styles.css -o "{{ out }}/tara.html" "{{ out }}/main.adoc"
 
-# Format the generated HTML for a stable, readable offline document.
+# Render the HTML, build/doc/tara.html, formatted for reading.
 html: render-html
     prettier --write "{{ out }}/tara.html"
