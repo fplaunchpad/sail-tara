@@ -50,6 +50,11 @@ def Machine.within (m : Machine) (s : State) : State := { s with regs := m.regs 
 
 /-! ## Registers in the register map -/
 
+/-- Prove two register maps equal by comparing them at each register. -/
+local macro "regs_ext" : tactic =>
+  `(tactic| (apply Std.ExtDHashMap.ext_get?; intro k; cases k <;>
+     simp_all [Machine.regs, Machine.overwrite, Std.ExtDHashMap.get?_insert]))
+
 section
 local macro "get_simp" : tactic =>
   `(tactic| simp [Machine.regs, Machine.overwrite, Std.ExtDHashMap.get?_insert])
@@ -63,30 +68,22 @@ theorem Machine.get?_nextPC (m : Machine) :
     m.regs.get? Register.nextPC = some m.nextPC := by get_simp
 end
 
-section
-local macro "insert_simp" : tactic =>
-  `(tactic| (apply Std.ExtDHashMap.ext_get?; intro k; cases k <;>
-     simp [Machine.regs, Machine.overwrite, Std.ExtDHashMap.get?_insert]))
-
 theorem Machine.insert_GPR (m : Machine) (v : Vector (BitVec 16) 8) :
-    m.regs.insert GPR v = { m with gpr := v }.regs := by insert_simp
+    m.regs.insert GPR v = { m with gpr := v }.regs := by regs_ext
 theorem Machine.insert_PC (m : Machine) (v : BitVec 16) :
-    m.regs.insert PC v = { m with pc := v }.regs := by insert_simp
+    m.regs.insert PC v = { m with pc := v }.regs := by regs_ext
 theorem Machine.insert_MEM (m : Machine) (v : Vector (BitVec 8) 2048) :
-    m.regs.insert MEM v = { m with mem := v }.regs := by insert_simp
+    m.regs.insert MEM v = { m with mem := v }.regs := by regs_ext
 theorem Machine.insert_HALTED (m : Machine) (v : Bool) :
-    m.regs.insert HALTED v = { m with halted := v }.regs := by insert_simp
+    m.regs.insert HALTED v = { m with halted := v }.regs := by regs_ext
 theorem Machine.insert_KEYS (m : Machine) (v : BitVec 5) :
-    m.regs.insert KEYS v = { m with keys := v }.regs := by insert_simp
+    m.regs.insert KEYS v = { m with keys := v }.regs := by regs_ext
 theorem Machine.insert_nextPC (m : Machine) (v : BitVec 16) :
-    m.regs.insert Register.nextPC v = { m with nextPC := v }.regs := by insert_simp
-end
+    m.regs.insert Register.nextPC v = { m with nextPC := v }.regs := by regs_ext
 
 /-- Writing every register leaves exactly the registers written, whatever the map held before. -/
 theorem Machine.regs_overwrite (r : RegMap) (m : Machine) : m.overwrite r = m.regs := by
-  apply Std.ExtDHashMap.ext_get?
-  intro x
-  cases x <;> simp [Machine.regs, Machine.overwrite, Std.ExtDHashMap.get?_insert]
+  regs_ext
 
 /-- A Sail state determines the machine inside it. -/
 theorem Machine.within_inj {m m' : Machine} {s : State} (h : m.within s = m'.within s) :
@@ -104,6 +101,12 @@ theorem Machine.within_inj {m m' : Machine} {s : State} (h : m.within s = m'.wit
   cases m'
   simp_all
 
+/-- A result in a machine view determines its value and the machine. -/
+theorem Machine.ok_within_inj {ε α : Type} {a a' : α} {m m' : Machine} {s : State}
+    (h : (EStateM.Result.ok a (m.within s) : EStateM.Result ε State α) = .ok a' (m'.within s)) :
+    a = a' ∧ m = m' :=
+  ⟨(EStateM.Result.ok.inj h).1, Machine.within_inj (EStateM.Result.ok.inj h).2⟩
+
 /-! ## The run of a register read or write
 
 Reading a register of `m.within s` gives the value in `m` and leaves the state alone; writing one
@@ -114,16 +117,9 @@ theorem run_readReg_of_some {r : Register} {v : RegisterType r} {s : State}
     (h : s.regs.get? r = some v) : (readReg r).run s = .ok v s := by
   simp [readReg, PreSail.readReg, h]
 
-/-- `s` with its register map transformed by `f`. -/
-def State.mapRegs (f : RegMap → RegMap) (s : State) : State := { s with regs := f s.regs }
-
-/-- Writes in a row stay one small update of the register map, not a growing tower of states. -/
-@[simp] theorem State.mapRegs_mapRegs (f g : RegMap → RegMap) (s : State) :
-    (s.mapRegs f).mapRegs g = s.mapRegs (fun regs => g (f regs)) := rfl
-
 theorem run_writeReg (r : Register) (v : RegisterType r) (s : State) :
-    (writeReg r v).run s = .ok () (s.mapRegs (fun regs => regs.insert r v)) := by
-  simp [writeReg, PreSail.writeReg, State.mapRegs]
+    (writeReg r v).run s = .ok () { s with regs := s.regs.insert r v } := by
+  simp [writeReg, PreSail.writeReg]
 
 section
 variable (m : Machine) (s : State)
@@ -151,38 +147,34 @@ variable (m : Machine) (s : State)
 
 @[simp] theorem run_writeReg_GPR (v : Vector (BitVec 16) 8) :
     (writeReg GPR v).run (m.within s) = .ok () ({ m with gpr := v }.within s) := by
-  simp [run_writeReg, State.mapRegs, Machine.within, Machine.insert_GPR]
+  simp [run_writeReg, Machine.within, Machine.insert_GPR]
 @[simp] theorem run_writeReg_PC (v : BitVec 16) :
     (writeReg PC v).run (m.within s) = .ok () ({ m with pc := v }.within s) := by
-  simp [run_writeReg, State.mapRegs, Machine.within, Machine.insert_PC]
+  simp [run_writeReg, Machine.within, Machine.insert_PC]
 @[simp] theorem run_writeReg_MEM (v : Vector (BitVec 8) 2048) :
     (writeReg MEM v).run (m.within s) = .ok () ({ m with mem := v }.within s) := by
-  simp [run_writeReg, State.mapRegs, Machine.within, Machine.insert_MEM]
+  simp [run_writeReg, Machine.within, Machine.insert_MEM]
 @[simp] theorem run_writeReg_HALTED (v : Bool) :
     (writeReg HALTED v).run (m.within s) = .ok () ({ m with halted := v }.within s) := by
-  simp [run_writeReg, State.mapRegs, Machine.within, Machine.insert_HALTED]
+  simp [run_writeReg, Machine.within, Machine.insert_HALTED]
 @[simp] theorem run_writeReg_KEYS (v : BitVec 5) :
     (writeReg KEYS v).run (m.within s) = .ok () ({ m with keys := v }.within s) := by
-  simp [run_writeReg, State.mapRegs, Machine.within, Machine.insert_KEYS]
+  simp [run_writeReg, Machine.within, Machine.insert_KEYS]
 @[simp] theorem run_writeReg_nextPC (v : BitVec 16) :
     (writeReg Register.nextPC v).run (m.within s) =
       .ok () ({ m with nextPC := v }.within s) := by
-  simp [run_writeReg, State.mapRegs, Machine.within, Machine.insert_nextPC]
+  simp [run_writeReg, Machine.within, Machine.insert_nextPC]
 end
 
 /-! ## The rest of the monad's operations
 
 The core library gives the run of `pure`, `bind`, `get`, `set` and `modify`. The generated code
-also uses `<$>` and conditionals. -/
+also uses `<$>`. -/
 
 @[simp] theorem run_map {ε σ α β : Type} (f : α → β) (x : EStateM ε σ α) (s : σ) :
     EStateM.run (f <$> x) s = match EStateM.run x s with
       | .ok a s' => .ok (f a) s'
       | .error e s' => .error e s' := rfl
-
-@[simp] theorem run_ite {ε σ α : Type} (c : Prop) [Decidable c] (a b : EStateM ε σ α) (s : σ) :
-    EStateM.run (if c then a else b) s = if c then EStateM.run a s else EStateM.run b s := by
-  split <;> rfl
 
 /-! ## The memory bus
 
@@ -211,16 +203,6 @@ def Machine.readWord (m : Machine) (addr : BitVec 16) : BitVec 16 :=
     (read_word addr).run (m.within s) = .ok (m.readWord addr) (m.within s) := by
   simp [Machine.readWord, read_word]
 
-/-! ## Undefined values
-
-The model's choice source resolves every undefined value to zero or false and keeps no state, and
-`sail_model_init` is the only place the model asks for one. -/
-
-theorem run_undefined_bitvector (n : Nat) (s : State) :
-    (undefined_bitvector n).run s = .ok 0#n s := rfl
-
-theorem run_undefined_bool (s : State) : (undefined_bool ()).run s = .ok false s := rfl
-
 /-! ## Machine states are the complete Sail states -/
 
 /-- A Sail state with a value for every register: the states the model runs from. A state that
@@ -238,8 +220,6 @@ theorem State.exists_machine {s : State} (hs : s.Complete) : ∃ m : Machine, s 
   refine ⟨⟨g, p, r, h, k, n⟩, ?_⟩
   suffices s.regs = Machine.regs ⟨g, p, r, h, k, n⟩ by
     cases s; simp_all [Machine.within]
-  apply Std.ExtDHashMap.ext_get?
-  intro x
-  cases x <;> simp_all [Machine.regs, Machine.overwrite, Std.ExtDHashMap.get?_insert]
+  regs_ext
 
 end Tara.Proofs

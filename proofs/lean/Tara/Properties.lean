@@ -19,10 +19,10 @@ succeeds with result `r` in the state `st'`, and `.error e st'` when it fails.
 | 1. Progress                 | `step_progress`, `step_progress_of_complete`,                     |
 |                             | `step_fails_without_registers`                                    |
 | 2. Preservation of `wf`     | `step_preserves_wf`, `reset_wf`, `sail_model_init_wf`,            |
-|                             | `power_on_safe`                                                   |
+|                             | `steps_safe`, `power_on_safe`                                     |
 | 3. Halting is absorbing     | `step_halted`                                                     |
-| 4. Codec                    | `decode_encode`, `encode_injective`, `decode_eq_none_iff`         |
-|                             | (`Tara/Codec.lean`, `Tara/Decode.lean`)                           |
+| 4. Codec                    | `encode_opcode`, `decode_encode`, `encode_injective`,             |
+|                             | `decode_eq_none_iff` (`Tara/Codec.lean`, `Tara/Decode.lean`)      |
 | 5. Illegal step             | `step_illegal`, `step_illegal_pc`, `step_illegal_of_opcode`       |
 | 6. Frame conditions         | `execute_memory`, `execute_halted`, `execute_hlt`,                |
 |                             | `retire_sequential`, `step_memory`, `step_halts`,                 |
@@ -67,20 +67,16 @@ theorem step_fails_without_registers (keys : BitVec 5) :
 Only a halted CPU needs the hypothesis: every other step ends by writing PC masked to 11 bits. -/
 theorem step_preserves_wf {m m' : Machine} {keys : BitVec 5} {s : State} {r : retirement}
     (hwf : m.WF) (h : (step keys).run (m.within s) = .ok r (m'.within s)) : m'.WF := by
-  rcases step_cases h with ⟨-, -, rfl⟩ | ⟨-, -, -, rfl⟩ | ⟨-, -, -, -, hpc, -⟩
-  · exact hwf
-  · exact pc_mask_lt _
-  · exact hpc
+  cases step_cases h with
+  | stopped => exact hwf
+  | illegal => exact pc_mask_lt _
+  | retired _ _ _ hpc => exact hpc
 
 /-- The reset button restarts from PC 0 with the CPU running, so the invariant holds. -/
 theorem reset_wf (m : Machine) (s : State) :
     (reset ()).run (m.within s) = .ok () ({ m with pc := 0#16, halted := false }.within s) ∧
       ({ m with pc := 0#16, halted := false } : Machine).WF := by
-  refine ⟨?_, by simp [Machine.WF]⟩
-  unfold reset
-  rw [EStateM.run_bind, run_writeReg_PC]
-  show EStateM.run (writeReg HALTED false) _ = _
-  rw [run_writeReg_HALTED]
+  exact ⟨by simp [reset], by simp [Machine.WF]⟩
 
 /-- The machine with every register zero and the CPU running. -/
 def Machine.zero : Machine where
@@ -98,9 +94,8 @@ theorem sail_model_init_wf (s : State) :
     (sail_model_init ()).run s = .ok () (Machine.zero.within s) ∧ Machine.zero.WF := by
   refine ⟨?_, by simp [Machine.WF, Machine.zero]⟩
   have h : (sail_model_init ()).run s =
-      .ok () (s.mapRegs fun regs => Machine.zero.overwrite regs) := rfl
-  rw [h]
-  simp only [Machine.regs_overwrite]
+      .ok () { s with regs := Machine.zero.overwrite s.regs } := rfl
+  rw [h, Machine.regs_overwrite]
   rfl
 
 /-- Step once for each of a list of input-line values. -/
@@ -143,7 +138,7 @@ theorem step_halted {s : State} (h : s.regs.get? HALTED = some true) (keys : Bit
 
 /-! ## 5. Illegal steps
 
-(4 is in `Tara/Codec.lean`.) -/
+(4 is in `Tara/Codec.lean` and `Tara/Decode.lean`.) -/
 
 /-- When the CPU runs and the fetched word does not decode, `step` returns `Illegal` with that word
 and changes only KEYS, to `keys`, and PC, to the masked PC + 2. -/
@@ -151,21 +146,18 @@ theorem step_illegal {m : Machine} (keys : BitVec 5) (s : State) (hrun : m.halte
     (hd : decode (m.fetch keys) = none) :
     (step keys).run (m.within s) = .ok (.Illegal (m.fetch keys))
       ({ m with keys := keys, pc := pc_mask (m.pc + 2#16) }.within s) := by
-  obtain ⟨r, m', hall⟩ := step_progress m keys
-  have h := hall s
-  rcases step_cases h with ⟨hh, -⟩ | ⟨-, -, rfl, rfl⟩ | ⟨-, insn, hd', -⟩
-  · simp [hh] at hrun
-  · exact h
-  · simp [hd] at hd'
+  obtain ⟨r, m', hall, hcase⟩ := step_spec m keys
+  cases hcase with
+  | stopped hh => simp [hh] at hrun
+  | illegal => exact hall s
+  | retired _ _ hd' => simp [hd] at hd'
 
 /-- After an illegal step PC is (PC + 2) mod 2048. -/
 theorem step_illegal_pc {m m' : Machine} {keys : BitVec 5} {s : State} {w : BitVec 16}
     (h : (step keys).run (m.within s) = .ok (.Illegal w) (m'.within s)) :
     m'.pc.toNat = (m.pc.toNat + 2) % 2048 := by
-  rcases step_cases h with ⟨-, h', -⟩ | ⟨-, -, -, rfl⟩ | ⟨-, insn, -, h', -⟩
-  · cases h'
-  · exact pc_mask_add_two m.pc
-  · cases h'
+  cases step_cases h with
+  | illegal => exact pc_mask_add_two m.pc
 
 /-- A word whose opcode, the top five bits, is 27 or more is illegal. -/
 theorem step_illegal_of_opcode {m : Machine} (keys : BitVec 5) (s : State)
@@ -182,18 +174,18 @@ What an instruction, and so a step, leaves alone. -/
 theorem execute_memory {insn : instruction} {m m' : Machine} {s : State}
     (h : (execute insn).run (m.within s) = .ok () (m'.within s)) (hn : ¬ Stores insn) :
     m'.mem = m.mem :=
-  (execute_frame h).2.2.1 hn
+  (execute_frame h).mem hn
 
 /-- Only HLT sets HALTED: executing any other instruction leaves it as it was. -/
 theorem execute_halted {insn : instruction} {m m' : Machine} {s : State}
     (h : (execute insn).run (m.within s) = .ok () (m'.within s)) (hn : insn ≠ .HLT ()) :
     m'.halted = m.halted :=
-  (execute_frame h).2.2.2.1 hn
+  (execute_frame h).halted hn
 
 /-- HLT sets HALTED. -/
 theorem execute_hlt {m m' : Machine} {s : State}
     (h : (execute (.HLT ())).run (m.within s) = .ok () (m'.within s)) : m'.halted = true :=
-  (execute_frame h).2.2.2.2.1 rfl
+  (execute_frame h).hlt rfl
 
 /-- Every instruction other than BZ, BN, JMP, CALL and RET retires with PC set to
 (PC + 2) mod 2048. -/
@@ -207,10 +199,11 @@ theorem retire_sequential {insn : instruction} (hn : ¬ Branches insn) (m : Mach
 theorem step_memory {m m' : Machine} {keys : BitVec 5} {s : State} {r : retirement}
     (h : (step keys).run (m.within s) = .ok r (m'.within s)) :
     m'.mem = m.mem ∨ ∃ insn, decode (m.fetch keys) = some insn ∧ Stores insn := by
-  rcases step_cases h with ⟨-, -, rfl⟩ | ⟨-, -, -, rfl⟩ | ⟨-, insn, hd, -, -, -, hmem, -⟩
-  · exact Or.inl rfl
-  · exact Or.inl rfl
-  · by_cases hs : Stores insn
+  cases step_cases h with
+  | stopped => exact Or.inl rfl
+  | illegal => exact Or.inl rfl
+  | retired insn _ hd _ _ hmem =>
+    by_cases hs : Stores insn
     · exact Or.inr ⟨insn, hd, hs⟩
     · exact Or.inl (hmem hs)
 
@@ -219,10 +212,11 @@ theorem step_halts {m m' : Machine} {keys : BitVec 5} {s : State} {r : retiremen
     (h : (step keys).run (m.within s) = .ok r (m'.within s)) :
     (m.halted = true → m'.halted = true) ∧
       (m.halted = false → m'.halted = true → decode (m.fetch keys) = some (.HLT ())) := by
-  rcases step_cases h with ⟨hh, -, rfl⟩ | ⟨hh, -, -, rfl⟩ | ⟨hh, insn, hd, -, -, -, -, hne, -, -⟩
-  · exact ⟨fun _ => hh, fun h' => absurd hh (by simp [h'])⟩
-  · exact ⟨fun h' => absurd h' (by simp [hh]), fun _ h' => by simp [hh] at h'⟩
-  · refine ⟨fun h' => absurd h' (by simp [hh]), fun _ h' => ?_⟩
+  cases step_cases h with
+  | stopped hh => simp [hh]
+  | illegal hh => simp [hh]
+  | retired insn hh hd _ _ _ hne =>
+    refine ⟨by simp [hh], fun _ h' => ?_⟩
     by_cases hi : insn = .HLT ()
     · simpa [hi] using hd
     · simp [hne hi] at h'
@@ -233,14 +227,13 @@ theorem step_sequential {m : Machine} (keys : BitVec 5) (s : State) (hrun : m.ha
     {insn : instruction} (hd : decode (m.fetch keys) = some insn) (hn : ¬ Branches insn) :
     ∃ m' : Machine, (step keys).run (m.within s) = .ok (.Retired ()) (m'.within s) ∧
       m'.pc.toNat = (m.pc.toNat + 2) % 2048 := by
-  obtain ⟨r, m', hall⟩ := step_progress m keys
-  have h := hall s
-  rcases step_cases h with ⟨hh, -⟩ | ⟨-, hd', -⟩ | ⟨-, insn', hd', hr, -, -, -, -, -, hpc⟩
-  · simp [hh] at hrun
-  · simp [hd] at hd'
-  · obtain rfl : insn' = insn := Option.some.inj (hd'.symm.trans hd)
-    subst hr
-    exact ⟨m', h, by rw [hpc hn, pc_mask_add_two]⟩
+  obtain ⟨r, m', hall, hcase⟩ := step_spec m keys
+  cases hcase with
+  | stopped hh => simp [hh] at hrun
+  | illegal _ hd' => simp [hd] at hd'
+  | retired insn' _ hd' _ _ _ _ _ hpc =>
+    obtain rfl : insn' = insn := Option.some.inj (hd'.symm.trans hd)
+    exact ⟨m', hall s, by rw [hpc hn, pc_mask_add_two]⟩
 
 /-! ## What the proofs rely on -/
 

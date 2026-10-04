@@ -15,8 +15,8 @@ The main results are:
 
 - `Decode.lean`: `decode`, what `encdec_backwards` returns as an option; `decode_eq_none_iff`, and the run lemmas that let `step`'s proofs use it.
 - `Codec.lean`: `encode_opcode`, `decode_encode` and `encode_injective` for `encdec_forwards`.
-- `Execute.lean`: `execute_spec` describes all 27 generated instruction cases and the permitted register changes; `execute_frame` derives frame conditions for any successful execution.
-- `Step.lean`: `step_spec` covers halted, illegal-opcode, and decoded-instruction cases, including the 11-bit PC mask and frame properties.
+- `Execute.lean`: `execute_spec` shows that each of the 27 generated instruction cases succeeds and changes only what `ExecuteFrame` permits; `execute_frame` gives that frame for any successful execution.
+- `Step.lean`: `StepCase` describes the halted, illegal-opcode and decoded-instruction outcomes, including the 11-bit PC mask and frame properties; `step_spec` shows that every step has one of them.
 - `Properties.lean`: progress, PC-bound preservation, absorbing halt, illegal-step, sequential-PC, and memory/halt frame theorems.
 - `Machine.lean`: machine values are views of the generated Sail register map. `readByte` and `readWord` evaluate generated Sail functions; the run lemmas show they succeed on machine views.
 
