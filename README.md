@@ -24,6 +24,8 @@ Run inside `nix develop` (or direnv); `just` lists every recipe.
 ```sh
 just check            # typecheck the model and tests
 just test             # run the Sail test suite through the C backend
+just format           # format the Sail sources (sail --fmt, 100 columns)
+just lint             # check Sail formatting and line width
 tara-asm prog.tara    # assemble to prog.bin (-o prog.hex for text)
 just python lint      # also: format, typecheck
 ```

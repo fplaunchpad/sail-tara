@@ -5,6 +5,7 @@
   sail,
   z3,
   just,
+  jq,
   gmp,
   zlib,
   ocamlPackages,
@@ -24,6 +25,7 @@ mkShell {
     sail
     z3
     just
+    jq
     nixfmt
     # C emulator and the Sail test suite.
     gmp
