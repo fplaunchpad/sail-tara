@@ -114,10 +114,10 @@ let mapping_clauses (ast : Type_check.typed_ast) name : Mapping_clause.t list =
   List.concat_map ast.defs ~f:(function
     | DEF_aux (DEF_mapdef (MD_aux (MD_mapping (id, _, clauses), _)), _)
       when String.equal (id_string id) name ->
-      List.filter_map clauses ~f:(function
-        | MCL_aux (MCL_bidir (MPat_aux (MPat_pat left, _), MPat_aux (MPat_pat right, _)), (annot, _))
-          -> Some ({ left; right; location = annot.loc } : Mapping_clause.t)
-        | MCL_aux (_, (annot, _)) ->
-          fail_at annot.loc [%string "%{name} must be made of unguarded two-way clauses"])
+      List.map clauses ~f:(fun (MCL_aux (clause, (annot, _))) ->
+        match clause with
+        | MCL_bidir (MPat_aux (MPat_pat left, _), MPat_aux (MPat_pat right, _)) ->
+          ({ left; right; location = annot.loc } : Mapping_clause.t)
+        | _ -> fail_at annot.loc [%string "%{name} must be made of unguarded two-way clauses"])
     | _ -> [])
 ;;

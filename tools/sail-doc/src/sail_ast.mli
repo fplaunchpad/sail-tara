@@ -1,4 +1,5 @@
-(** What the plugin reads from Sail's typed AST. Its failures are Sail errors at a source location. *)
+(** What the plugin reads from Sail's typed AST. Its failures are Sail errors at a source
+    location. *)
 
 open Libsail
 open Type_check
