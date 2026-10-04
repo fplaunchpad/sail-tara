@@ -1,11 +1,11 @@
-open! Core
+open! Import
 
 type t =
   { initial : Keys.t
   ; entries : (int * Keys.t) array
   }
 
-let constant initial = { initial; entries = [||] }
+let constant initial = ({ initial; entries = [||] } : t)
 
 (* A line of the script, with its number: STEP and KEYS. *)
 let parse_line (line, fields) =
@@ -38,17 +38,12 @@ let parse text =
 let load filename ~initial =
   let%bind.Or_error text = Source.read filename in
   let%map.Or_error entries = parse text |> Or_error.tag ~tag:filename in
-  { initial; entries }
+  ({ initial; entries } : t)
 ;;
 
-let at { initial; entries } ~retired =
-  match
-    Array.binary_search
-      entries
-      `Last_less_than_or_equal_to
-      retired
-      ~compare:(fun (step, _) retired -> Int.compare step retired)
-  with
-  | Some index -> snd entries.(index)
+let at ({ initial; entries } : t) ~retired =
+  let compare (step, _) retired = Int.compare step retired in
+  match Array.binary_search entries `Last_less_than_or_equal_to retired ~compare with
+  | Some index -> entries.(index) |> snd
   | None -> initial
 ;;

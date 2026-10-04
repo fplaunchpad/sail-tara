@@ -28,9 +28,13 @@ compile: project
 build: compile
     ln -sf _build/default/src/main.exe "{{ build }}/ocaml/tara-ocaml"
 
-# Assemble a TARA program and run it: just ocaml run PROGRAM.tara [OPTION...]
+# Assemble a TARA program and run it to its end: just ocaml run PROGRAM.tara [OPTION...]
 run program *options: build (assemble program)
-    "{{ build }}/ocaml/tara-ocaml" "${@:2}" "{{ build }}/programs/$(basename "$1" .tara).bin"
+    "{{ build }}/ocaml/tara-ocaml" run "${@:2}" "{{ build }}/programs/$(basename "$1" .tara).bin"
+
+# Assemble a TARA program and play it in the terminal: just ocaml play PROGRAM.tara [OPTION...]
+play program *options: build (assemble program)
+    "{{ build }}/ocaml/tara-ocaml" play "${@:2}" "{{ build }}/programs/$(basename "$1" .tara).bin"
 
 # Format the OCaml sources in place.
 format:

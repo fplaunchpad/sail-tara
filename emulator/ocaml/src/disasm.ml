@@ -1,7 +1,9 @@
-open! Core
+open! Import
 
 let print_all () =
   for word = 0 to 0xFFFF do
-    printf "%04x %s\n" word (Machine.disasm word)
+    let hex = Hex.word word in
+    let assembly = Machine.disasm word in
+    Out_channel.output_string stdout [%string "%{hex} %{assembly}\n"]
   done
 ;;

@@ -1,4 +1,4 @@
-open! Core
+open! Import
 
 let size = 64
 let base = 0x600
@@ -6,34 +6,36 @@ let pixels_per_byte = 8
 let bytes_per_row = size / pixels_per_byte
 
 type t =
-  { seen : int array array
-    (* The last value of each framebuffer byte, by row and byte; -1 before the first. *)
-  ; pixels : bool array array (* By row (y) and column (x). *)
+  { bytes : int array array (* The framebuffer's bytes, by row (y) and byte. *)
+  ; pixels : Machine.Pixel.t array array (* By row (y) and column (x). *)
   }
 
-let create () =
-  { seen = Array.make_matrix ~dimx:size ~dimy:bytes_per_row (-1)
-  ; pixels = Array.make_matrix ~dimx:size ~dimy:size false
-  }
+let read_bytes ~y =
+  Array.init bytes_per_row ~f:(fun byte ->
+    Machine.peek ~address:(base + (y * bytes_per_row) + byte))
 ;;
 
-(* The pixels of row [y] that its byte [byte] holds are read from the model, which knows their bit
-   order. *)
-let read_byte t ~y ~byte =
-  let first = byte * pixels_per_byte in
-  for x = first to first + pixels_per_byte - 1 do
-    t.pixels.(y).(x) <- Machine.pixel ~x ~y
-  done
+let read () =
+  let bytes = Array.init size ~f:(fun y -> read_bytes ~y) in
+  let pixels = Array.init size ~f:(fun y -> Array.init size ~f:(fun x -> Machine.pixel ~x ~y)) in
+  ({ bytes; pixels } : t)
 ;;
 
-let refresh t =
-  Array.iteri t.seen ~f:(fun y row ->
-    Array.iteri row ~f:(fun byte seen ->
-      let value = Machine.peek ~address:(base + (y * bytes_per_row) + byte) in
-      if value <> seen
-      then (
-        row.(byte) <- value;
-        read_byte t ~y ~byte)))
+(* The pixels of row [y], given its bytes now: those of [before] where the byte that holds a pixel
+   has not changed, and the others read from the model, which knows their bit order. *)
+let refresh_row (before : t) ~y ~bytes =
+  if Array.equal Int.equal bytes before.bytes.(y)
+  then before.pixels.(y)
+  else
+    Array.init size ~f:(fun x ->
+      let byte = x / pixels_per_byte in
+      if bytes.(byte) = before.bytes.(y).(byte) then before.pixels.(y).(x) else Machine.pixel ~x ~y)
+;;
+
+let refresh before =
+  let bytes = Array.init size ~f:(fun y -> read_bytes ~y) in
+  let pixels = Array.init size ~f:(fun y -> refresh_row before ~y ~bytes:bytes.(y)) in
+  ({ bytes; pixels } : t)
 ;;
 
 let pixel t ~x ~y = t.pixels.(y).(x)

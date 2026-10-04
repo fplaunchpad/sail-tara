@@ -2,26 +2,33 @@
 
 open! Core
 
-(** Whether standard input and standard output are both terminals. *)
-val available : unit -> bool
+(** Whether standard input and standard output are both terminals; the error says so if not. *)
+val check : unit -> unit Or_error.t
 
 (** Run [f] with the terminal in raw mode on the alternate screen, with the cursor hidden. Raw
     mode is no echo, no line editing and no signal keys, so that Ctrl-C reads as a byte.
 
     The terminal is put back as it was when [f] returns or raises. SIGINT, SIGTERM and SIGHUP do
-    not stop the process while [f] runs: they make {!interrupted} true, and [f] is expected to
-    return soon after. The signal is then sent again to end the process, once the terminal is
+    not stop the process while [f] runs: they make {!interrupted} say which, and [f] is expected
+    to return soon after. The signal is then sent again to end the process, once the terminal is
     back. A second signal ends the process at once. A signal that was being ignored stays so.
 
     Fails if the terminal cannot be set up, or stops taking output or input while [f] runs. *)
 val with_screen : (unit -> 'a) -> 'a Or_error.t
 
-(** Whether a signal has asked the program to stop. *)
-val interrupted : unit -> bool
+(** The signal that has asked the program to stop, if one has. *)
+val interrupted : unit -> Signal.t option
 
-(** Whether the terminal has been resized since the last call, which leaves the screen to be
-    drawn again. *)
-val resized : unit -> bool
+(** Whether the terminal changed size. *)
+module Size_change : sig
+  type t =
+    | Resized
+    | Unchanged
+end
+
+(** Whether the terminal has been resized since the last call, which leaves the screen to be drawn
+    again. *)
+val resized : unit -> Size_change.t
 
 (** Send [text] to the screen. *)
 val write : string -> unit

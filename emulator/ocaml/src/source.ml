@@ -1,4 +1,4 @@
-open! Core
+open! Import
 
 let read filename =
   match In_channel.read_all filename with

@@ -1,4 +1,4 @@
-open! Core
+open! Import
 
 (* A line stays held this long after its key was last pressed. *)
 let hold = Time_ns.Span.of_int_ms 150
@@ -6,99 +6,97 @@ let hold = Time_ns.Span.of_int_ms 150
 (* An escape waits this long for the rest of its sequence before it counts as the Escape key. *)
 let escape_wait = Time_ns.Span.of_int_ms 20
 
-module Event = struct
+module Request = struct
   type t =
-    | Press of Keys.Line.t
+    | Stay
     | Leave
 end
 
-let line_of_letter : char -> Keys.Line.t option = function
-  | 'w' | 'W' -> Some Up
-  | 's' | 'S' -> Some Down
-  | 'a' | 'A' -> Some Left
-  | 'd' | 'D' -> Some Right
-  | 'q' | 'Q' -> Some Quit
-  | _ -> None
-;;
+module Event = struct
+  type t =
+    | Press of Keys.Line.t
+    | Leave_key
+end
 
-(* An arrow key ends its escape sequence with a letter, in normal and application cursor mode. *)
-let line_of_arrow : char -> Keys.Line.t option = function
-  | 'A' -> Some Up
-  | 'B' -> Some Down
-  | 'C' -> Some Right
-  | 'D' -> Some Left
-  | _ -> None
-;;
-
+(* [events], reversed, and the press of [line] if it is one. *)
 let press events line =
   match line with
   | Some line -> Event.Press line :: events
   | None -> events
 ;;
 
-(* The events that [chars] make, and the escape sequence at their end that has not finished. *)
+(* [events], reversed into their order, and nothing left over. *)
+let finished events = List.rev events, []
+
+(* The events that [chars] make, and the escape sequence at their end that has not finished.
+   [events] are those before [chars], reversed. *)
 let rec decode events (chars : char list) =
   match chars with
-  | [] -> List.rev events, []
-  | '\003' :: _ -> List.rev (Event.Leave :: events), []
+  | [] -> finished events
+  | '\003' :: _ -> finished (Event.Leave_key :: events)
   | '\027' :: rest -> decode_escape events chars rest
-  | letter :: rest -> decode (press events (line_of_letter letter)) rest
+  | key :: rest ->
+    let events = Keys.Line.of_key key |> press events in
+    decode events rest
 
 (* [chars] begins with an escape, which [rest] follows. *)
 and decode_escape events chars rest =
   let unfinished = List.rev events, chars in
   match rest with
   | [] | [ 'O' ] -> unfinished
-  | 'O' :: arrow :: rest -> decode (press events (line_of_arrow arrow)) rest
+  | 'O' :: arrow :: rest ->
+    let events = Keys.Line.of_arrow arrow |> press events in
+    decode events rest
   | '[' :: parameters ->
     let _, tail = List.split_while parameters ~f:(Char.between ~low:' ' ~high:'?') in
     (match tail with
      | [] -> unfinished
      | final :: rest when Char.between final ~low:'@' ~high:'~' ->
-       decode (press events (line_of_arrow final)) rest
+       let events = Keys.Line.of_arrow final |> press events in
+       decode events rest
      | broken -> decode events broken)
-  | _ -> List.rev (Event.Leave :: events), []
+  | _ -> finished (Event.Leave_key :: events)
 ;;
 
 type t =
-  { mutable pending : string (* An escape sequence that has not finished. *)
-  ; mutable pending_since : Time_ns.t
-  ; release : Time_ns.t array (* When each line is let go, by its index. *)
-  ; mutable leaving : bool
+  { pending : string (* An escape sequence that has not finished. *)
+  ; pending_since : Time_ns.t
+  ; release : Time_ns.t Keys.Line.Map.t (* When each line held is let go. *)
+  ; request : Request.t
   }
 
 let create () =
-  { pending = ""
-  ; pending_since = Time_ns.epoch
-  ; release = Array.create ~len:(List.length Keys.Line.all) Time_ns.epoch
-  ; leaving = false
-  }
+  ({ pending = ""; pending_since = Time_ns.epoch; release = Keys.Line.Map.empty; request = Stay }
+   : t)
 ;;
 
 let feed t ~now bytes =
   let events, pending = [%string "%{t.pending}%{bytes}"] |> String.to_list |> decode [] in
-  t.pending <- String.of_char_list pending;
-  t.pending_since <- now;
-  List.iter events ~f:(function
-    | Press line -> t.release.(Keys.Line.index line) <- Time_ns.add now hold
-    | Leave -> t.leaving <- true)
+  let pending = String.of_char_list pending in
+  List.fold events ~init:{ t with pending; pending_since = now } ~f:(fun t event ->
+    match event with
+    | Press line ->
+      let released_at = Time_ns.add now hold in
+      { t with release = Map.set t.release ~key:line ~data:released_at }
+    | Leave_key -> { t with request = Leave })
 ;;
 
 let deadline t =
-  if String.is_empty t.pending then None else Some (Time_ns.add t.pending_since escape_wait)
+  match t.pending with
+  | "" -> None
+  | _ -> Time_ns.add t.pending_since escape_wait |> Some
 ;;
 
 let expire t ~now =
   match deadline t with
-  | Some deadline when Time_ns.O.(now >= deadline) ->
-    t.pending <- "";
-    t.leaving <- true
-  | Some _ | None -> ()
+  | Some deadline when Time_ns.O.(now >= deadline) -> { t with pending = ""; request = Leave }
+  | Some _ | None -> t
 ;;
 
-let leaving t = t.leaving
+let request t = t.request
 
 let held t ~now =
-  List.filter Keys.Line.all ~f:(fun line -> Time_ns.O.(now < t.release.(Keys.Line.index line)))
+  Map.filter t.release ~f:(fun released_at -> Time_ns.O.(now < released_at))
+  |> Map.keys
   |> Keys.of_lines
 ;;

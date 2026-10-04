@@ -1,4 +1,4 @@
-open! Core
+open! Import
 
 module Colour = struct
   type t =
@@ -23,5 +23,7 @@ let colour ~layer ({ red; green; blue } : Colour.t) =
 ;;
 
 let colours ~foreground ~background =
-  [%string "%{escape}%{colour ~layer:38 foreground};%{colour ~layer:48 background}m"]
+  let foreground = colour ~layer:38 foreground
+  and background = colour ~layer:48 background in
+  [%string "%{escape}%{foreground};%{background}m"]
 ;;

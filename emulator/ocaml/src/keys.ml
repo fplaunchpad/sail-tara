@@ -1,16 +1,48 @@
-open! Core
+open! Import
 
 module Line = struct
-  type t =
-    | Up
-    | Down
-    | Left
-    | Right
-    | Quit
-  [@@deriving enumerate, equal, string ~capitalize:"snake_case"]
+  module T = struct
+    type t =
+      | Up
+      | Down
+      | Left
+      | Right
+      | Quit
+    [@@deriving enumerate, compare, sexp_of, string ~capitalize:"snake_case"]
+  end
+
+  include T
+  include Comparable.Make_plain (T)
 
   let index line = List.findi_exn all ~f:(fun _ other -> equal line other) |> fst
-  let letter line = (to_string line).[0] |> Char.uppercase
+
+  let letter line =
+    let name = to_string line in
+    name.[0] |> Char.uppercase
+  ;;
+
+  let of_key : char -> t option = function
+    | 'w' | 'W' -> Some Up
+    | 's' | 'S' -> Some Down
+    | 'a' | 'A' -> Some Left
+    | 'd' | 'D' -> Some Right
+    | 'q' | 'Q' -> Some Quit
+    | _ -> None
+  ;;
+
+  let of_arrow : char -> t option = function
+    | 'A' -> Some Up
+    | 'B' -> Some Down
+    | 'C' -> Some Right
+    | 'D' -> Some Left
+    | _ -> None
+  ;;
+end
+
+module State = struct
+  type t =
+    | Held
+    | Released
 end
 
 type t = int [@@deriving equal]
@@ -18,7 +50,7 @@ type t = int [@@deriving equal]
 let none = 0
 let bit line = 1 lsl Line.index line
 let of_lines lines = List.fold lines ~init:none ~f:(fun keys line -> keys lor bit line)
-let mem keys line = keys land bit line <> 0
+let state keys line = if keys land bit line <> 0 then State.Held else Released
 let to_int keys = keys
 let all = of_lines Line.all
 

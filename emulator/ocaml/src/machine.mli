@@ -1,5 +1,6 @@
 (** The TARA machine: the Sail model, compiled through [emulator/host.sail]. Hides the generated
-    names and the model's bit lists. *)
+    names and the model's bit lists. The model's state is global: these functions read and change
+    it, and nothing else does. *)
 
 (** The result of one step. *)
 module Step : sig
@@ -8,6 +9,21 @@ module Step : sig
     | Stopped (** The CPU was already halted. *)
     | Illegal (** An unassigned opcode; PC has advanced past it. *)
   [@@deriving sexp_of]
+end
+
+(** A pixel of the framebuffer. *)
+module Pixel : sig
+  type t =
+    | Lit
+    | Dark
+  [@@deriving equal]
+end
+
+(** Whether the CPU can execute instructions: it halts on HLT. *)
+module Cpu : sig
+  type t =
+    | Running
+    | Halted
 end
 
 (** Start the model at power-on: registers and memory cleared, PC 0. *)
@@ -19,12 +35,12 @@ val poke : address:int -> int -> unit
 (** A byte of RAM, without the input port. *)
 val peek : address:int -> int
 
-(** Whether the pixel at column [x] and row [y] of the framebuffer is set; row 0 is the bottom
-    row. Each call takes about ten microseconds. *)
-val pixel : x:int -> y:int -> bool
+(** The pixel at column [x] and row [y] of the framebuffer; row 0 is the bottom row. Each call
+    takes about ten microseconds. *)
+val pixel : x:int -> y:int -> Pixel.t
 
 val pc : unit -> int
-val halted : unit -> bool
+val cpu : unit -> Cpu.t
 
 (** Execute one instruction with the given input lines (bits 0-4). *)
 val step : keys:int -> Step.t

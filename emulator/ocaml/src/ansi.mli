@@ -1,4 +1,4 @@
-(** The ANSI control sequences that the interactive mode sends to the terminal. *)
+(** The ANSI control sequences that play sends to the terminal. *)
 
 (** A 24-bit colour. *)
 module Colour : sig

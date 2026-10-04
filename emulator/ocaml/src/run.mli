@@ -1,4 +1,5 @@
-(** A run of the loaded program: its steps, counted against a limit. *)
+(** A run of the loaded program: its steps, counted against a limit. The machine is global, so there
+    is one run at a time; a [t] is the count of its steps and the result of the last. *)
 
 (** Why a run ended: the dump's status line and the exit code. *)
 module Status : sig
@@ -23,5 +24,6 @@ val retired : t -> int
 (** Why the run has ended, or [None] while it can go on. *)
 val status : t -> Status.t option
 
-(** Execute one instruction with the given input lines. The run must not have ended. *)
-val step : t -> keys:Keys.t -> unit
+(** Execute one instruction with the given input lines; the run after it. The run must not have
+    ended. *)
+val step : t -> keys:Keys.t -> t

@@ -11,13 +11,26 @@ module Line : sig
     | Left
     | Right
     | Quit
-  [@@deriving enumerate, equal]
+  [@@deriving enumerate]
 
-  (** The position of the line in {!all}: its bit number. *)
-  val index : t -> int
+  include Comparable.S_plain with type t := t
 
   (** The status line's letter for the line: [U], [D], [L], [R] or [Q]. *)
   val letter : t -> char
+
+  (** The line that a key drives: W, A, S and D, and Q for QUIT, in either case. *)
+  val of_key : char -> t option
+
+  (** The line that an arrow key drives, by the last character of its escape sequence: [A] for up,
+      [B] for down, [C] for right and [D] for left. *)
+  val of_arrow : char -> t option
+end
+
+(** Whether a line is held. *)
+module State : sig
+  type t =
+    | Held
+    | Released
 end
 
 (** The lines held at one time. *)
@@ -27,7 +40,7 @@ type t [@@deriving equal]
 val none : t
 
 val of_lines : Line.t list -> t
-val mem : t -> Line.t -> bool
+val state : t -> Line.t -> State.t
 
 (** The byte a read of the input port returns. *)
 val to_int : t -> int

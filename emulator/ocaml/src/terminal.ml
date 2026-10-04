@@ -1,7 +1,11 @@
-open! Core
+open! Import
 module Terminal_io = Core_unix.Terminal_io
 
-let available () = Core_unix.isatty Core_unix.stdin && Core_unix.isatty Core_unix.stdout
+let check () =
+  if Core_unix.isatty Core_unix.stdin && Core_unix.isatty Core_unix.stdout
+  then Ok ()
+  else Or_error.error_string "play needs a terminal on standard input and output"
+;;
 
 let wait_until_writable () =
   Core_unix.select ~restart:true ~read:[] ~write:[ Core_unix.stdout ] ~except:[] ~timeout:`Never ()
@@ -13,14 +17,8 @@ let write text =
   let rec go ~pos =
     if pos < String.length text
     then (
-      match
-        Core_unix.single_write_substring
-          Core_unix.stdout
-          ~restart:true
-          ~buf:text
-          ~pos
-          ~len:(String.length text - pos)
-      with
+      let len = String.length text - pos in
+      match Core_unix.single_write_substring Core_unix.stdout ~restart:true ~buf:text ~pos ~len with
       | written -> go ~pos:(pos + written)
       | exception Core_unix.Unix_error ((EAGAIN | EWOULDBLOCK), _, _) ->
         wait_until_writable ();
@@ -36,8 +34,6 @@ module Input = struct
     | Closed
 end
 
-let buffer = Bytes.create 256
-
 let read ~timeout =
   let timeout = if Time_ns.Span.(timeout > zero) then `After timeout else `Immediately in
   let ready =
@@ -46,32 +42,42 @@ let read ~timeout =
   match ready.read with
   | [] -> Input.Nothing
   | _ :: _ ->
-    (match Core_unix.read ~restart:true Core_unix.stdin ~buf:buffer with
+    let buf = Bytes.create 256 in
+    (match Core_unix.read ~restart:true Core_unix.stdin ~buf with
      | 0 -> Closed
-     | length -> Bytes (Bytes.To_string.sub buffer ~pos:0 ~len:length)
+     | length -> Bytes (Bytes.To_string.sub buf ~pos:0 ~len:length)
      | exception Core_unix.Unix_error (EIO, _, _) -> Closed)
 ;;
 
-(* The signals that end the program, and the first one that arrived. *)
-let ending = [ Signal.hup; Signal.int; Signal.term ]
+(* A signal handler can only change a global; the first signal that asked the program to stop. *)
 let received : Signal.t option ref = ref None
-let interrupted () = Option.is_some !received
+let interrupted () = !received
 
-(* A signal that arrives again ends the program as it would have, so that a program that does not
-   answer the first can still be stopped. *)
+module Size_change = struct
+  type t =
+    | Resized
+    | Unchanged
+end
+
+(* Set by the handler of SIGWINCH, a global because a signal handler can only change one. *)
+let size_change = ref Size_change.Unchanged
+
+let resized () =
+  let change = !size_change in
+  size_change := Unchanged;
+  change
+;;
+
+(* The signals that end the program. A signal that arrives again ends it as it would have, so that
+   a program that does not answer the first can still be stopped. *)
+let ending = [ Signal.hup; Signal.int; Signal.term ]
+
 let note_ending signal =
   received := Some signal;
   Signal.Expert.set signal `Default
 ;;
 
 let resize = Signal.of_caml_int Stdlib.Sys.sigwinch
-let resize_arrived = ref false
-
-let resized () =
-  let arrived = !resize_arrived in
-  resize_arrived := false;
-  arrived
-;;
 
 (* Handle [signal] with [f], unless it is being ignored, as it is for a program started by nohup:
    that stays so. Returns how the signal was handled before. *)
@@ -108,11 +114,12 @@ let restore settings =
 
 let run_on_screen settings f =
   let handled =
-    handle resize ~f:(fun _ -> resize_arrived := true) :: List.map ending ~f:(handle ~f:note_ending)
+    handle resize ~f:(fun _ -> size_change := Resized) :: List.map ending ~f:(handle ~f:note_ending)
   in
   Exn.protect
     ~f:(fun () ->
-      Terminal_io.tcsetattr (raw settings) Core_unix.stdin ~mode:TCSAFLUSH;
+      let raw_settings = raw settings in
+      Terminal_io.tcsetattr raw_settings Core_unix.stdin ~mode:TCSAFLUSH;
       write [%string "%{Ansi.enter_alternate_screen}%{Ansi.hide_cursor}"];
       f ())
     ~finally:(fun () ->
@@ -129,6 +136,9 @@ let with_screen f =
       let message = Core_unix.Error.message error in
       Or_error.error_string [%string "cannot use the terminal: %{syscall}: %{message}"]
   in
-  Option.iter !received ~f:(fun signal -> Signal_unix.send_exn signal (`Pid (Core_unix.getpid ())));
+  interrupted ()
+  |> Option.iter ~f:(fun signal ->
+    let pid = Core_unix.getpid () in
+    Signal_unix.send_exn signal (`Pid pid));
   result
 ;;

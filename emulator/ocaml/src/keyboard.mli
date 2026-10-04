@@ -5,23 +5,30 @@
 
 open! Core
 
+(** What the keys ask of the program: to go on, or to leave. *)
+module Request : sig
+  type t =
+    | Stay
+    | Leave
+end
+
+(** The keys pressed so far, as of the last bytes taken. *)
 type t
 
 val create : unit -> t
 
 (** Take the bytes that the terminal sent at time [now]. The bytes of an arrow key's escape
     sequence may arrive in several reads. *)
-val feed : t -> now:Time_ns.t -> string -> unit
+val feed : t -> now:Time_ns.t -> string -> t
 
 (** When the escape at the end of the bytes taken so far, if there is one, stops waiting for the
     rest of its sequence. *)
 val deadline : t -> Time_ns.t option
 
 (** Take that escape for the Escape key if it has waited too long at time [now]. *)
-val expire : t -> now:Time_ns.t -> unit
+val expire : t -> now:Time_ns.t -> t
 
-(** Whether a key has asked to leave. *)
-val leaving : t -> bool
+val request : t -> Request.t
 
 (** The input lines held at time [now]. *)
 val held : t -> now:Time_ns.t -> Keys.t
