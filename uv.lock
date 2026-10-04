@@ -41,6 +41,12 @@ wheels = [
 ]
 
 [[package]]
+name = "msgspec"
+version = "0.21.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/e3/60/f79b9b013a16fa3a58350c9295ddc6789f2e335f36ea61ed10a21b215364/msgspec-0.21.1.tar.gz", hash = "sha256:2313508e394b0d208f8f56892ca9b2799e2561329de9763b19619595a6c0f72c", size = 319193, upload-time = "2026-04-12T21:44:50.394Z" }
+
+[[package]]
 name = "mypy-extensions"
 version = "1.1.0"
 source = { registry = "https://pypi.org/simple" }
@@ -138,6 +144,7 @@ version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
     { name = "click" },
+    { name = "msgspec" },
 ]
 
 [package.dev-dependencies]
@@ -148,7 +155,10 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "click", specifier = "==8.3.3" }]
+requires-dist = [
+    { name = "click", specifier = "==8.3.3" },
+    { name = "msgspec", specifier = "==0.21.1" },
+]
 
 [package.metadata.requires-dev]
 dev = [

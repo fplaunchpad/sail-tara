@@ -3,7 +3,7 @@ name = "tara-tools"
 version = "0.1.0"
 description = "Reference-simulator wrappers and differential tests for the TARA Sail model"
 requires-python = ">=3.15.0rc2"
-dependencies = ["click==8.3.3"]
+dependencies = ["click==8.3.3", "msgspec==0.21.1"]
 
 [dependency-groups]
 # Pinned, like the runtime dependencies, to the nixpkgs releases the Nix checks run.
