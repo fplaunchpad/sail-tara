@@ -8,12 +8,21 @@
 /* Room for strerror_r's text of an error number. */
 #define REASON_SIZE 256
 
+/* Print "tara-c: MESSAGE" on standard error, followed by ": REASON" if there is a reason. */
+__attribute__((format(printf, 1, 0))) static void
+print_report(const char *format, va_list arguments, const char *reason) {
+  fputs(PROGRAM_NAME ": ", stderr);
+  vfprintf(stderr, format, arguments);
+  if (reason) {
+    fprintf(stderr, ": %s", reason);
+  }
+  fputc('\n', stderr);
+}
+
 bool report_error(const char *format, ...) {
   va_list arguments;
   va_start(arguments, format);
-  fputs(PROGRAM_NAME ": ", stderr);
-  vfprintf(stderr, format, arguments);
-  fputc('\n', stderr);
+  print_report(format, arguments, NULL);
   va_end(arguments);
   return false;
 }
@@ -26,9 +35,7 @@ bool report_system_error(int error, const char *format, ...) {
 
   va_list arguments;
   va_start(arguments, format);
-  fputs(PROGRAM_NAME ": ", stderr);
-  vfprintf(stderr, format, arguments);
-  fprintf(stderr, ": %s\n", reason);
+  print_report(format, arguments, reason);
   va_end(arguments);
   return false;
 }

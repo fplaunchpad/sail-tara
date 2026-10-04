@@ -18,9 +18,7 @@
 #define ENTER_SCREEN "\x1b[?1049h\x1b[?25l"
 #define LEAVE_SCREEN "\x1b[0m\x1b[?25h\x1b[?1049l"
 
-/* The signals that end the process by default: those a terminal session can end in, and those of
- * a crash, which must not leave the terminal raw either. */
-/* Whether a failed write would have blocked; POSIX allows EWOULDBLOCK to equal EAGAIN. */
+/* Whether a failed read or write would have blocked; POSIX allows EWOULDBLOCK to equal EAGAIN. */
 static bool would_block(int error) {
   return error == EAGAIN
 #if EWOULDBLOCK != EAGAIN
@@ -29,6 +27,8 @@ static bool would_block(int error) {
       ;
 }
 
+/* The signals that end the process by default: those a terminal session can end in, and those of
+ * a crash, which must not leave the terminal raw either. */
 static const int FATAL_SIGNALS[] = {SIGHUP,  SIGINT, SIGQUIT, SIGTERM, SIGABRT,
                                     SIGSEGV, SIGBUS, SIGFPE,  SIGILL};
 
@@ -75,10 +75,7 @@ static void on_fatal_signal(int signal_number) {
   raise(signal_number);
 }
 
-static void on_resize(int signal_number) {
-  (void)signal_number;
-  resized = 1;
-}
+static void on_resize(int signal_number __attribute__((unused))) { resized = 1; }
 
 static void install_handlers(void) {
   /* glibc's SA_RESETHAND is 0x80000000, beyond int: the conversion is the documented use. */
@@ -154,5 +151,5 @@ ssize_t read_terminal(uint8_t *buffer, size_t size, int timeout_ms) {
   if (count > 0) {
     return count;
   }
-  return count < 0 && (errno == EINTR || errno == EAGAIN) ? 0 : -1;
+  return count < 0 && (errno == EINTR || would_block(errno)) ? 0 : -1;
 }
