@@ -16,7 +16,11 @@ void machine_stop(void) { model_fini(); }
 
 void machine_poke(uint16_t address, uint8_t value) { zhost_poke(address, value); }
 
+uint16_t machine_pc(void) { return (uint16_t)zhost_pc(UNIT); }
+
 bool machine_halted(void) { return zhost_halted(UNIT); }
+
+bool machine_pixel(unsigned x, unsigned y) { return zhost_pixel(x, y); }
 
 enum step_result machine_step(uint8_t keys) { return (enum step_result)zhost_step(keys); }
 
@@ -35,3 +39,11 @@ void machine_print_trace(FILE *out) {
 }
 
 void machine_print_dump(FILE *out) { print_text(out, zhost_dump); }
+
+void machine_print_disasm(FILE *out, uint16_t word) {
+  sail_string s;
+  CREATE(sail_string)(&s);
+  zhost_disasm(&s, word);
+  fputs(s, out);
+  KILL(sail_string)(&s);
+}

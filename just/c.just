@@ -8,10 +8,10 @@ set working-directory := ".."
 generate: (build-dir "c")
     sail -c -O --c-no-main emulator/host.sail -o "{{ build }}/c/tara"
 
-# Compile the emulator's own sources, with warnings as errors.
+# Compile the emulator's own sources as C11 with POSIX.1-2008, with warnings as errors.
 [private]
 compile: generate
-    cd "{{ build }}/c" && cc -O2 -Wall -Wextra -Werror -I"{{ sail_dir }}/lib" -I. -c "{{ justfile_directory() }}"/emulator/c/*.c
+    cd "{{ build }}/c" && cc -std=c11 -D_POSIX_C_SOURCE=200809L -O2 -Wall -Wextra -Werror -I"{{ sail_dir }}/lib" -I. -c "{{ justfile_directory() }}"/emulator/c/*.c
 
 # Link the C emulator, build/c/tara-c.
 [default]

@@ -30,6 +30,7 @@ just c                     # build build/c/tara-c; likewise ocaml, rocq, lean an
 just lean smoke            # run the Fibonacci program on the generated Lean model
 just c run prog.tara -t    # assemble a program and run it; likewise ocaml
 tara-asm prog.tara         # assemble to prog.bin; -o prog.hex for hex words
+build/c/tara-c -i prog.bin # play a program in the terminal (--help lists every option)
 just format                # format every language
 just lint                  # check the formatting, Python lint and types
 just ci                    # nix flake check
