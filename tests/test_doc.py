@@ -108,18 +108,8 @@ def test_follows_changes_to_the_model(tmp_path: Path) -> None:
             id="opcode-width-differs",
         ),
         pytest.param(
-            [
-                (
-                    DATA_MOVEMENT,
-                    "encode(MOV(rd, rs)) = 0b00010 @ rd @ rs",
-                    "encode(MOV(rd, rs)) = 0b00010 @ rs @ rd",
-                )
-            ],
-            id="encode-disagrees-with-decode",
-        ),
-        pytest.param(
-            [(SYNTAX, '<-> "NOP"', '<-> if true then "NOP" else "HLT"')],
-            id="assembly-not-a-concatenation",
+            [(SYNTAX, '<-> "NOP"', '<-> "NOP" ^ dec_bits_8(0x00)')],
+            id="assembly-prints-a-constant",
         ),
         pytest.param(
             [

@@ -1,7 +1,10 @@
 open Ppx_yojson_conv_lib.Yojson_conv.Primitives
 
 type t =
-  { word_width : int
-  ; instructions : Instruction.t list
+  { name : string
+  ; width : int
   }
 [@@deriving yojson_of]
+
+let opcode = "opcode"
+let padding = "padding"
