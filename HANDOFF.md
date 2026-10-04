@@ -82,13 +82,25 @@ Done and pushed on `tara-toolchain` (HEAD `beb1d1f`):
 
 Agent branches are local git worktrees under `.claude/worktrees/`; each agent was told to commit its work in progress as a `wip:` commit on its branch. Inspect a branch with `git log tara-toolchain..BRANCH` and `git diff tara-toolchain...BRANCH`; merge with `git merge --squash BRANCH`, check, commit, push. Remove merged worktrees afterwards (`git worktree remove`, `git branch -D`).
 
-1. **OCaml rework** (`worktree-agent-a94465c609e3c3990`). Rebase on `tara-toolchain`, finish, and make `just test -k tara-ocaml`, `just lint` and `nix build .#tara-ocaml .#tara-lem` pass. It must:
-   - switch to the subcommands `run`/`play`/`disasm` with Core's `Command.group` (delete the cross-flag checks; `--fb` becomes `--framebuffer`), and add `run`/`play` recipes to `just/ocaml.just` as in `just/c.just`;
-   - replace booleans as data (fields, parameters, returns) with variants, e.g. `Machine.Pixel.t = Lit | Dark`, `Cpu.t = Running | Halted`, `Terminal.check : unit -> unit Or_error.t`;
-   - make state functional (`Run.step`, `Keyboard.feed`, `Display.draw`, `Framebuffer.refresh` return new values; the frame loop threads state); only the Sail model's globals and signal-handler flags stay mutable, each with a comment;
-   - ban printf and friends: an `Import` module (`include Core`, shadow `printf`/`sprintf`/`eprintf`/`ksprintf`/`failwithf`/`Printf`/`Format` with `[@@deprecated]`), `open! Import` everywhere, `-alert ++deprecated` in dune; a `Hex` module for 4-digit hex;
-   - move `line_of_letter`/`line_of_arrow` into `Keys.Line.of_key`/`of_arrow`; annotate record construction as `({ ... } : Module.t)`; prefer pipelines;
-   - apply the same rules to `lem/smoke.ml`.
+1. **OCaml rework: done, not merged** (`worktree-agent-a94465c609e3c3990`, commit `9aac386`, on top of `01520f2`).
+   - On that tip:
+     - `just test` passes for both emulators (199 tests);
+     - `just lint` is clean;
+     - `just lem smoke` passes;
+     - the pty checks of `play` against tara-c pass.
+   - What it covers:
+     - subcommands via `Command.group`, plus `run`/`play` recipes in `just/ocaml.just`;
+     - booleans replaced by variants;
+     - functional state, threaded through the frame loop; only signal-handler flags and the Sail model's globals stay mutable, with comments;
+     - printf banned through `import.ml`/`import.mli` and `-alert ++deprecated`, with `Hex.word` for hex;
+     - `Keys.Line.of_key`/`of_arrow`, annotated records and pipelines;
+     - `Image.Format` renamed `Encoding`;
+     - the same rules applied to `lem/` (its own `import.ml`, a `Verdict` variant).
+   - Left to do:
+     - merge, then run `nix build .#tara-ocaml .#tara-lem --no-update-lock-file -L`, which was not run on that tip;
+     - decide two command-line differences from tara-c with the user. A repeated flag (`run -n 50 -n 31 IMAGE`) exits 1 in tara-ocaml, because Core rejects it, while tara-c takes the last value. Core also accepts subcommand prefixes such as `r` for `run`, which tara-c rejects.
+     - Then make both emulators agree, and add a test for whichever behaviour is chosen.
+
 2. **Rocq properties: done, not merged** (`worktree-agent-a95442f43f0e29961`, commit `27c24e5`).
    - Proved, with no `Admitted` and no axioms (21 `Print Assumptions` all closed):
      - `Progress.v`: `step_progress`, `step_one_outcome`, `run_instruction_progress`, `reset_progress`, `fetch_progress`;
