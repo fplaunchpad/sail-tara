@@ -17,11 +17,14 @@
     }:
     let
       inherit (nixpkgs) lib;
+      leanOverlay = import ./nix/lean-overlay.nix {
+        lean4Nix = lean4-nix;
+        toolchain = ./lean/lean-toolchain;
+      };
       # x86_64-linux is tested; the other systems are best-effort.
       systems = [
         "x86_64-linux"
         "aarch64-linux"
-        "x86_64-darwin"
         "aarch64-darwin"
       ];
       forEachSystem =
@@ -32,7 +35,7 @@
             import ./nix {
               pkgs = import nixpkgs {
                 inherit system;
-                overlays = [ (lean4-nix.readToolchainFile ./lean/lean-toolchain) ];
+                overlays = [ leanOverlay ];
               };
             }
           )
