@@ -1,11 +1,11 @@
-import Tara
+import Tara.Decode
 
 /-!
 # The instruction codec
 
-`encode` writes an instruction as a 16-bit word: a 5-bit opcode, then operand fields. `decode`
-reads the opcode and the fields back, ignoring the unused padding bits, and returns `none` for the
-unassigned opcodes. The round trip is proved without computing over the 30355 instructions: the
+`encdec_forwards` writes an instruction as a 16-bit word: a 5-bit opcode, then operand fields.
+`decode` reads the opcode and the fields back through `encdec_backwards`, ignoring the unused
+bits. The round trip is proved without computing over the 30355 instructions: the
 fields of an encoded word are read back by general lemmas about `extractLsb` of an append.
 -/
 
@@ -52,7 +52,7 @@ theorem extract_op (op : BitVec 5) (rest : BitVec 11) : (op +++ rest).extractLsb
   BitVec.extractLsb'_append_eq_left
 
 /-- Encoded instructions carry the opcode assigned to their constructor. -/
-theorem encode_opcode (i : instruction) : (encode i).extractLsb 15 11 = opcode i := by
+theorem encode_opcode (i : instruction) : (encdec_forwards i).extractLsb 15 11 = opcode i := by
   cases i <;> exact BitVec.extractLsb'_append_eq_left
 
 /-- Bits 10 to 8 of `op ++ (a ++ b)`: the first register field. -/
@@ -108,14 +108,16 @@ local macro "read_fields" : tactic =>
 
 /-- Unfold `decode` on an encoded word, find its opcode, and read the fields back. -/
 local macro "roundtrip" : tactic =>
-  `(tactic| (simp only [decode, Sail.BitVec.extractLsb]
+  `(tactic| (simp only [decode, encdec_backwards, Sail.BitVec.extractLsb, ignored_backwards,
+               Sail.BitVec.length]
              rw [encode_opcode]
-             simp only [opcode, encode]
+             simp only [opcode, encdec_forwards, ignored_forwards]
              simp (config := {decide := true}) only [ite_true, ite_false, ↓reduceIte]
-             read_fields))
+             read_fields
+             try rfl))
 
 /-- Decoding an encoded instruction gives the instruction back. -/
-theorem decode_encode (i : instruction) : decode (encode i) = some i := by
+theorem decode_encode (i : instruction) : decode (encdec_forwards i) = some i := by
   cases i with
   | NOP u => cases u; roundtrip
   | HLT u => cases u; roundtrip
@@ -146,25 +148,10 @@ theorem decode_encode (i : instruction) : decode (encode i) = some i := by
   | POP a => roundtrip
 
 /-- Distinct instructions have distinct encodings. -/
-theorem encode_injective : Function.Injective encode := by
+theorem encode_injective : Function.Injective encdec_forwards := by
   intro i j h
   have := decode_encode i
   rw [h, decode_encode j] at this
   exact (Option.some.inj this).symm
-
-/-- A conditional that yields `some x` or `o` is `none` when the condition fails and `o` is. -/
-theorem ite_some_eq_none {α : Type} (c : Prop) [Decidable c] (a : α) (o : Option α) :
-    (if c then some a else o) = none ↔ ¬c ∧ o = none := by
-  split <;> simp_all
-
-/-- A word fails to decode exactly when its opcode, the top five bits, is 27 or more. -/
-theorem decode_eq_none_iff (w : BitVec 16) :
-    decode w = none ↔ 27 ≤ (w.extractLsb 15 11).toNat := by
-  generalize hop : w.extractLsb 15 11 = op
-  simp only [decode, Sail.BitVec.extractLsb, hop, ite_some_eq_none]
-  simp only [beq_iff_eq]
-  clear hop
-  revert op
-  decide
 
 end Tara.Proofs

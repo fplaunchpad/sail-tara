@@ -13,7 +13,8 @@ The build generates the model, copies the pinned local `lean-sail` library and t
 
 The main results are:
 
-- `Codec.lean`: `encode_opcode`, `decode_encode`, `encode_injective`, and `decode_eq_none_iff`.
+- `Decode.lean`: `decode`, what `encdec_backwards` returns as an option; `decode_eq_none_iff`, and the run lemmas that let `step`'s proofs use it.
+- `Codec.lean`: `encode_opcode`, `decode_encode` and `encode_injective` for `encdec_forwards`.
 - `Execute.lean`: `execute_spec` describes all 27 generated instruction cases and the permitted register changes; `execute_frame` derives frame conditions for any successful execution.
 - `Step.lean`: `step_spec` covers halted, illegal-opcode, and decoded-instruction cases, including the 11-bit PC mask and frame properties.
 - `Properties.lean`: progress, PC-bound preservation, absorbing halt, illegal-step, sequential-PC, and memory/halt frame theorems.

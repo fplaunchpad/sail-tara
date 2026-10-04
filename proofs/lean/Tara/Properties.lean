@@ -6,7 +6,8 @@ import Tara.Step
 # Properties of the generated model
 
 Every theorem is about the Lean that Sail generates from `model/`: `step`, `retire`, `execute`,
-`decode`, `encode`, `reset` and `sail_model_init`, run in the generated monad `SailM`.
+`encdec_forwards`, `encdec_backwards`, `reset` and `sail_model_init`, run in the generated monad
+`SailM`. `decode` (`Tara/Decode.lean`) reads what `encdec_backwards` returns.
 
 A machine state is a value for every register (`Machine`, in `Tara/Machine.lean`). Sail keeps the
 registers in a state `s : State` next to bookkeeping that the model never touches, and `m.within s`
@@ -21,7 +22,7 @@ succeeds with result `r` in the state `st'`, and `.error e st'` when it fails.
 |                             | `power_on_safe`                                                   |
 | 3. Halting is absorbing     | `step_halted`                                                     |
 | 4. Codec                    | `decode_encode`, `encode_injective`, `decode_eq_none_iff`         |
-|                             | (`Tara/Codec.lean`)                                               |
+|                             | (`Tara/Codec.lean`, `Tara/Decode.lean`)                           |
 | 5. Illegal step             | `step_illegal`, `step_illegal_pc`, `step_illegal_of_opcode`       |
 | 6. Frame conditions         | `execute_memory`, `execute_halted`, `execute_hlt`,                |
 |                             | `retire_sequential`, `step_memory`, `step_halts`,                 |
@@ -256,7 +257,8 @@ elab "#standard_axioms " ids:ident+ : command => do
 #standard_axioms encode_opcode step_progress step_progress_of_complete
   step_fails_without_registers
   step_preserves_wf reset_wf sail_model_init_wf steps_safe power_on_safe step_halted
-  decode_encode encode_injective decode_eq_none_iff
+  decode_encode encode_injective decode_eq_none_iff encdec_backwards_matches_run
+  encdec_backwards_run
   step_illegal step_illegal_pc step_illegal_of_opcode
   execute_memory execute_halted execute_hlt retire_sequential step_memory step_halts
   step_sequential

@@ -1,11 +1,12 @@
 import Tara.Execute
+import Tara.Decode
 
 /-!
 # What `step` does to a machine
 
-`step` fetches the word at PC and decodes it. A halted CPU stops, an illegal word advances PC and
-reports itself, and anything else retires, and `retire` leaves PC masked to 11 bits. `step_spec`
-packages the three cases for the theorems in `Tara/Properties.lean`.
+`step` fetches the word at PC and decodes it with `encdec`. A halted CPU stops, an illegal word
+advances PC and reports itself, and anything else retires, and `retire` leaves PC masked to 11
+bits. `step_spec` packages the three cases for the theorems in `Tara/Properties.lean`.
 -/
 
 namespace Tara.Proofs
@@ -77,13 +78,13 @@ private theorem step_of_illegal (m : Machine) (s : State) (keys : BitVec 5)
     (step keys).run (m.within s) = .ok (.Illegal (m.fetch keys))
       ({ m with keys := keys, pc := pc_mask (m.pc + 2#16) }.within s) := by
   simp [step, h, Machine.fetch] at hd ⊢
-  simp [hd]
+  simp [encdec_backwards_matches_run, hd]
 
 private theorem step_of_decoded (m : Machine) (s : State) (keys : BitVec 5)
     (h : m.halted = false) (insn : instruction) (hd : decode (m.fetch keys) = some insn) :
     (step keys).run (m.within s) = (retire insn).run ({ m with keys := keys }.within s) := by
   simp [step, h, Machine.fetch] at hd ⊢
-  simp [hd]
+  simp [encdec_backwards_matches_run, encdec_backwards_run _ insn hd, hd]
 
 /-- What `step keys` does to a machine, whatever surrounds the registers: it succeeds, and either
 
