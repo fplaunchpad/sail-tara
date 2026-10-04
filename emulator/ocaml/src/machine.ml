@@ -13,7 +13,7 @@ module Step = struct
   [@@deriving sexp_of]
 
   let of_bits result =
-    match Sail.Big_int.to_int (Sail.uint result) with
+    match result |> Sail.uint |> Sail.Big_int.to_int with
     | 0 -> Retired
     | 1 -> Stopped
     | 2 -> Illegal
@@ -28,6 +28,6 @@ let start () =
 
 let poke ~address value = Tara.zhost_poke (bits ~width:11 address) (bits ~width:8 value)
 let halted () = Tara.zhost_halted ()
-let step ~keys = Step.of_bits (Tara.zhost_step (bits ~width:5 keys))
+let step ~keys = bits ~width:5 keys |> Tara.zhost_step |> Step.of_bits
 let trace () = Tara.zhost_trace ()
 let dump () = Tara.zhost_dump ()

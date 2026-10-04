@@ -23,7 +23,7 @@ let word token =
 let words text =
   String.split_lines text
   |> List.concat_map ~f:(fun line ->
-    let code = Option.value_map (String.lsplit2 line ~on:';') ~default:line ~f:fst in
+    let code = String.lsplit2 line ~on:';' |> Option.value_map ~default:line ~f:fst in
     String.split_on_chars code ~on:[ ' '; '\t'; '\r' ] |> List.filter ~f:(Fn.non String.is_empty))
   |> List.map ~f:word
   |> Or_error.all
@@ -46,5 +46,5 @@ let load filename =
   let%bind.Or_error bytes = bytes format contents in
   if List.length bytes > memory_bytes
   then Or_error.error_string [%string "larger than %{memory_bytes#Int} bytes"]
-  else Ok (List.iteri bytes ~f:(fun address byte -> Machine.poke ~address byte))
+  else Ok (List.iteri bytes ~f:(fun address -> Machine.poke ~address))
 ;;

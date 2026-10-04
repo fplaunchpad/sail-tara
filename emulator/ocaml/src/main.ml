@@ -32,7 +32,7 @@ Exit status: 0 halted, 1 error, 3 step limit, 4 illegal opcode.|})
        let status, steps = Run.run ~max_steps ~trace in
        print_endline [%string "status %{status#Run.Status}"];
        print_endline [%string "steps %{steps#Int}"];
-       print_string (Machine.dump ());
+       Machine.dump () |> print_string;
        match Run.Status.exit_code status with
        | 0 -> ()
        | code -> Stdlib.exit code)

@@ -15,7 +15,7 @@ module Status = struct
 end
 
 let run ~max_steps ~trace =
-  let trace_line () = if trace then print_endline (Machine.trace ()) in
+  let trace_line () = if trace then Machine.trace () |> print_endline in
   let rec go steps : Status.t * int =
     if Machine.halted ()
     then Halted, steps
