@@ -397,4 +397,3 @@ def test_format_table_merges_a_field_across_formats() -> None:
         Text(f"F{number}") for number in range(1, 11)
     ]
     assert [(cell.columns, cell.rows) for cell in opcode_cells] == [(1, 10)]
-
