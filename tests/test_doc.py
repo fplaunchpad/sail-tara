@@ -193,8 +193,8 @@ def test_native_sail_docs_render_tables_and_all_instruction_sources(tmp_path: Pa
     machine_path = tmp_path / "model/machine.sail"
     machine = machine_path.read_text(encoding="utf-8")
     machine = machine.replace(
-        "= The TARA Instruction Set Architecture */",
-        "= Native bundle title marker */",
+        "The TARA Instruction Set Architecture",
+        "Native bundle title marker",
         1,
     )
     machine = machine.replace("== Machine state */", "== Native machine section marker */", 1)
@@ -214,7 +214,7 @@ def test_native_sail_docs_render_tables_and_all_instruction_sources(tmp_path: Pa
     movement_path = tmp_path / "model/instructions/data_movement.sail"
     movement = movement_path.read_text(encoding="utf-8")
     movement = movement.replace(
-        "/*! Does nothing.", "/*! Native instruction comment marker. Does nothing.", 1
+        "Does nothing.", "Native instruction comment marker. Does nothing.", 1
     )
     movement_path.write_text(movement, encoding="utf-8")
 
@@ -229,9 +229,19 @@ def test_native_sail_docs_render_tables_and_all_instruction_sources(tmp_path: Pa
     assert "Native bundle title marker" in rendered_text
     assert "Native machine section marker" in rendered_text
     assert "Native instruction comment marker" in rendered_text
+    assert "The program counter" in rendered_text
+    assert "PC wraps around" in rendered_text
+    assert "<code>pc_mask</code>" in html_path.read_text(encoding="utf-8")
+    assert all("The program counter" not in block for block in rendered.preformatted)
     assert len(metadata.instructions) == len(OP_NAME) == 27
     assert {int(item.opcode_bits, 2): item.constructor for item in metadata.instructions} == OP_NAME
     assert set(rendered.listings) == {item.constructor for item in metadata.instructions}
+    expected_instruction_links = {item.constructor for item in metadata.instructions}
+    assert rendered.toc_instruction_links == expected_instruction_links
+    assert rendered.toc_instruction_code_links == expected_instruction_links
+    assert set(rendered.instruction_heading_levels) == expected_instruction_links
+    assert set(rendered.instruction_heading_families) == expected_instruction_links
+    assert set(rendered.instruction_heading_levels.values()) == {4}
     assert "tara.css" in rendered.stylesheets or "JetBrainsMono" in rendered_text
 
     for instruction in metadata.instructions:
@@ -260,6 +270,15 @@ def test_native_sail_docs_render_tables_and_all_instruction_sources(tmp_path: Pa
         for table in rendered.tables
         if table and normalize_document_text(table[0][0]) == "Opcode"
     )
+    opcode_table_index = rendered.tables.index(opcode_table)
+    assert rendered.table_header_alignments[opcode_table_index] == ["center"] * len(opcode_table[0])
+    format_table_index = next(
+        index
+        for index, table in enumerate(rendered.tables)
+        if table and normalize_document_text(table[0][0]) == "Format"
+    )
+    format_table = rendered.tables[format_table_index]
+    assert rendered.table_header_alignments[format_table_index] == ["center"] * len(format_table[0])
     all_opcode_rows = [[normalize_document_text(cell) for cell in row] for row in opcode_table[1:]]
     opcode_rows = [row for row in all_opcode_rows if row[0].isdigit()]
     expected_opcodes = sorted(metadata.instructions, key=lambda item: int(item.opcode_bits, 2))
@@ -273,7 +292,7 @@ def test_native_sail_docs_render_tables_and_all_instruction_sources(tmp_path: Pa
     assert [row[0] for row in all_opcode_rows if not row[0].isdigit()] == ["27-31"]
 
 
-def test_renderer_supports_arbitrary_word_width_and_more_than_nine_formats() -> None:
+def test_renderer_supports_arbitrary_word_width_and_more_than_nine_formats(tmp_path: Path) -> None:
     opcodes = (0, 1, 3, 4, 5, 6, 7, 8, 9, 10)
     instructions = [
         Instruction(
@@ -307,9 +326,23 @@ def test_renderer_supports_arbitrary_word_width_and_more_than_nine_formats() -> 
     assert (
         formats.index("|[[fmt-F1]]") < formats.index("|[[fmt-F2]]") < formats.index("|[[fmt-F10]]")
     )
-    assert "|Format |7 |6 |5 |4 |3 |2 |1 |0 |Instructions" in formats
+    assert "^m|Format ^m|7 ^m|6 ^m|5 ^m|4 ^m|3 ^m|2 ^m|1 ^m|0 ^m|Instructions" in formats
     assert "|2 |`+2+` |`+0010+` 3+|unassigned" in opcodes
     assert "|11-15 |`+B+`-`+F+` |`+1011+`-`+1111+` 3+|unassigned" in opcodes
+    source = tmp_path / "tables.adoc"
+    output = tmp_path / "tables.html"
+    source.write_text(formats + "\n" + opcodes, encoding="utf-8")
+    result = subprocess.run(
+        ["asciidoctor", "-o", str(output), str(source)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    rendered = InstructionListings()
+    rendered.feed(output.read_text(encoding="utf-8"))
+    assert len(rendered.tables) == 2
+    assert rendered.table_header_alignments == [["center"] * 10, ["center"] * 6]
 
 
 def test_invalid_metadata_fails_without_creating_output(tmp_path: Path) -> None:

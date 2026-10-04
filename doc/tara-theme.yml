@@ -17,30 +17,44 @@ font:
       bold_italic: JetBrainsMono-BoldItalic.ttf
 page:
   size: A4
-  margin: [22mm, 20mm, 22mm, 20mm]
+  margin: [20mm, 20mm, 21mm, 20mm]
 base:
   font_family: NewCM
   font_size: 11
   font_color: "202027"
-  line_height: 1.25
+  line_height: 1.28
 heading:
   font_family: NewCM
   font_style: bold
   font_color: "6B238E"
+  min_height_after: auto
   h1_font_size: 25
-  h2_font_size: 20
-  h3_font_size: 15
-  h4_font_size: 12
-  margin_top: 18
-  margin_bottom: 9
+  h2_font_size: 19
+  h2_border_color: "2457A6"
+  h2_border_width: [0, 0, 1.1, 0]
+  h2_padding: [0, 0, 4, 0]
+  h3_font_size: 14
+  h3_border_color: "CBD4E4"
+  h3_border_width: [0, 0, 0.55, 0]
+  h3_padding: [0, 0, 3, 0]
+  h4_font_family: JetBrainsMono
+  h4_font_size: 11.5
+  h4_font_color: "2457A6"
+  h4_border_color: "CBD4E4"
+  h4_border_width: [0, 0, 0.4, 0]
+  h4_padding: [0, 0, 2, 0]
+  margin_top: 16
+  margin_bottom: 7
 title_page:
+  background_color: "FCFBFE"
+  background_image: image:cover.svg[]
   align: center
   title:
     font_family: NewCM
     font_style: bold
-    font_size: 32
+    font_size: 30
     font_color: "6B238E"
-    top: 30%
+    top: 26%
   subtitle:
     font_size: 15
     font_color: "565260"
@@ -59,7 +73,8 @@ code:
   border_color: "A9BEDF"
   border_width: 0.5
   border_radius: 0
-  padding: [8, 10, 8, 10]
+  padding: [6, 10, 6, 10]
+  margin_bottom: 8
 table:
   font_size: 9
   head_background_color: "EEF2FA"
@@ -75,9 +90,17 @@ caption:
   font_size: 10
 toc:
   font_family: NewCM
-  font_size: 11
-  line_height: 1.4
+  font_size: 9.3
+  line_height: 1.12
+  indent: 12
+  margin_top: 0
+  h2_font_size: 10.2
   h2_font_style: bold
+  h2_font_color: "6B238E"
+  h3_font_size: 9.2
+  h4_font_family: JetBrainsMono
+  h4_font_size: 8.7
+  h4_font_color: "2457A6"
 header:
   font_family: NewCM
   font_size: 9
@@ -94,9 +117,18 @@ header:
 footer:
   font_family: NewCM
   font_size: 9
+  font_color: "565260"
   recto:
+    left:
+      content: ""
     center:
-      content: "{page-number}"
+      content: "TARA  ·  {page-number}"
+    right:
+      content: ""
   verso:
+    left:
+      content: ""
     center:
-      content: "{page-number}"
+      content: "TARA  ·  {page-number}"
+    right:
+      content: ""

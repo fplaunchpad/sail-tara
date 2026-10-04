@@ -62,10 +62,11 @@
   color-scheme: light;
   --ink: #202027;
   --muted: #65616e;
-  --purple: #6b238e;
+  --purple: #642287;
   --blue: #2457a6;
-  --rule: #cbd4e4;
-  --paper: #fff;
+  --rule: #c9d4e8;
+  --panel: #fbfaff;
+  --paper: #fdfdff;
 }
 * {
   box-sizing: border-box;
@@ -76,11 +77,11 @@ html {
 }
 body {
   margin: 0;
-  padding: 3rem 3rem 4rem;
+  padding: 3.25rem 3rem 4rem;
   background: var(--paper);
   color: var(--ink);
   font:
-    19px/1.55 NewCM,
+    18px/1.58 NewCM,
     "Latin Modern Roman",
     Georgia,
     serif;
@@ -89,13 +90,13 @@ body {
 #header,
 #content,
 #footer {
-  max-width: 58rem;
+  max-width: 62rem;
   margin: 0 auto;
 }
 #header {
-  padding-bottom: 1.6rem;
-  margin-bottom: 2.5rem;
-  border-bottom: 2px solid var(--rule);
+  padding-bottom: 1.8rem;
+  margin-bottom: 2.8rem;
+  border-bottom: 2px solid var(--blue);
 }
 h1,
 h2,
@@ -114,18 +115,46 @@ h1 {
 }
 h2 {
   font-size: 2rem;
-  margin: 2.8rem 0 1rem;
+  margin: 3rem 0 1.1rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 2px solid var(--blue);
 }
 h3 {
   font-size: 1.5rem;
-  margin: 2rem 0 0.8rem;
+  margin: 2.1rem 0 0.85rem;
+  padding-bottom: 0.25rem;
+  border-bottom: 1px solid var(--rule);
 }
 h4 {
-  font-size: 1.25rem;
-  margin: 1.8rem 0 0.65rem;
+  font-size: 1rem;
+  margin: 1.5rem 0 0.7rem;
+  padding-bottom: 0.25rem;
+  border-bottom: 1px solid var(--rule);
+}
+h4 code {
+  color: var(--blue);
+  font-size: 0.95em;
+  font-weight: 700;
 }
 p {
   margin: 0 0 1rem;
+}
+.sect1 p,
+.sect2 p,
+.sect3 p,
+.sect4 p,
+.sect1 .ulist,
+.sect2 .ulist,
+.sect3 .ulist,
+.sect4 .ulist,
+.sect1 .olist,
+.sect2 .olist,
+.sect3 .olist,
+.sect4 .olist {
+  max-width: 78ch;
+}
+table.tableblock p {
+  max-width: none;
 }
 a {
   color: var(--blue);
@@ -147,6 +176,9 @@ kbd {
 }
 code {
   color: #243e6a;
+  background: #f2f2fa;
+  border-radius: 2px;
+  padding: 0.04em 0.18em;
 }
 .listingblock {
   margin: 0 0 1.1rem;
@@ -156,15 +188,19 @@ code {
   margin: 0;
   padding: 0.9rem 1.1rem;
   overflow-x: auto;
-  background: #fbfcff;
+  background: var(--panel);
   border: 1px solid var(--rule);
-  border-left: 3px solid #a9bedf;
+  border-left: 3px solid var(--purple);
+  border-radius: 2px;
   line-height: 1.4;
   tab-size: 4;
 }
 .listingblock pre code {
   color: var(--ink);
   font-size: inherit;
+  background: transparent;
+  border-radius: 0;
+  padding: 0;
 }
 .title {
   margin: 0.5rem 0;
@@ -187,7 +223,7 @@ td {
 th {
   background: #eef2fa;
   color: #243e6a;
-  text-align: left;
+  text-align: center;
   font-weight: 700;
 }
 tbody tr:nth-child(even) {
@@ -237,7 +273,7 @@ svg {
   border-top: 1px solid var(--rule);
 }
 #toctitle {
-  font-size: 1.1rem;
+  font-size: 1.05rem;
   color: var(--purple);
   font-weight: 700;
   margin-bottom: 1rem;
@@ -252,7 +288,7 @@ svg {
   margin-top: 0.4rem;
 }
 #toc li {
-  margin-bottom: 0.45rem;
+  margin-bottom: 0.3rem;
 }
 #toc a {
   text-decoration: none;
@@ -262,9 +298,15 @@ svg {
   color: var(--purple);
   text-decoration: underline;
 }
+#toc a code {
+  color: inherit;
+  background: transparent;
+  padding: 0;
+  font-size: 0.88em;
+}
 #toc {
-  font-size: 0.9rem;
-  line-height: 1.35;
+  font-size: 0.88rem;
+  line-height: 1.28;
 }
 body.toc2 {
   padding-left: 21rem;
@@ -272,8 +314,8 @@ body.toc2 {
 #toc.toc2 {
   position: fixed;
   inset: 0 auto 0 0;
-  width: 18rem;
-  padding: 2rem 1.5rem;
+  width: 19rem;
+  padding: 1.8rem 1.35rem;
   overflow-y: auto;
   background: #f9f8fc;
   border-right: 1px solid var(--rule);
@@ -337,5 +379,9 @@ body.toc2 {
   a {
     color: inherit;
     text-decoration: none;
+  }
+  .listingblock pre,
+  .literalblock pre {
+    border-left-color: var(--blue);
   }
 }

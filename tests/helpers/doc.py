@@ -48,6 +48,7 @@ class InstructionListings(HTMLParser):
         super().__init__(convert_charrefs=True)
         self.current: str | None = None
         self.in_pre = False
+        self.preformatted: list[str] = []
         self.source: list[str] | None = None
         self.listings: dict[str, list[str]] = {}
         self.text: list[str] = []
@@ -59,12 +60,35 @@ class InstructionListings(HTMLParser):
         self.tables: list[list[list[str]]] = []
         self.table_spans: list[list[list[int]]] = []
         self.current_table_spans: list[list[int]] | None = None
+        self.table_header_alignments: list[list[str]] = []
+        self.current_table_header_alignments: list[str] | None = None
+        self.cell_alignment: str | None = None
         self.stylesheets: list[str] = []
+        self.toc_instruction_links: set[str] = set()
+        self.toc_instruction_code_links: set[str] = set()
+        self.toc_depth: int | None = None
+        self.current_instruction_link: str | None = None
+        self.instruction_heading_levels: dict[str, int] = {}
+        self.instruction_heading_families: dict[str, str] = {}
+        self.family_heading: str | None = None
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         attributes = dict(attrs)
+        if tag == "div":
+            if attributes.get("id") == "toc":
+                self.toc_depth = 1
+            elif self.toc_depth is not None:
+                self.toc_depth += 1
         if tag in {"h1", "h2", "h3", "h4", "h5", "h6"}:
             identifier = attributes.get("id")
+            heading_level = int(tag[1])
+            if identifier and identifier.startswith("insn-"):
+                constructor = identifier.removeprefix("insn-")
+                self.instruction_heading_levels[constructor] = heading_level
+                if self.family_heading is not None:
+                    self.instruction_heading_families[constructor] = self.family_heading
+            elif heading_level == 3 and identifier:
+                self.family_heading = identifier
             self.current = (
                 identifier.removeprefix("insn-")
                 if identifier and identifier.startswith("insn-")
@@ -72,15 +96,24 @@ class InstructionListings(HTMLParser):
             )
         elif tag == "pre":
             self.in_pre = True
+            self.preformatted.append("")
         elif tag == "code" and self.in_pre and self.current is not None:
             self.source = []
         elif tag == "link" and attributes.get("rel") == "stylesheet":
             href = attributes.get("href")
             if href is not None:
                 self.stylesheets.append(href)
+        elif tag == "a":
+            href = attributes.get("href") or ""
+            if self.toc_depth is not None and href.startswith("#insn-"):
+                self.current_instruction_link = href.removeprefix("#insn-")
+                self.toc_instruction_links.add(self.current_instruction_link)
+        elif tag == "code" and self.current_instruction_link is not None:
+            self.toc_instruction_code_links.add(self.current_instruction_link)
         elif tag == "table":
             self.table = []
             self.current_table_spans = []
+            self.current_table_header_alignments = []
         elif tag == "tr" and self.table is not None:
             self.row = []
             self.row_spans = []
@@ -88,16 +121,34 @@ class InstructionListings(HTMLParser):
             self.cell = []
             colspan = attributes.get("colspan")
             self.cell_span = int(colspan) if colspan is not None else 1
+            if tag == "th":
+                classes = (attributes.get("class") or "").split()
+                self.cell_alignment = next(
+                    (
+                        name.removeprefix("halign-")
+                        for name in classes
+                        if name.startswith("halign-")
+                    ),
+                    None,
+                )
 
     def handle_data(self, data: str) -> None:
         self.text.append(data)
         if self.source is not None:
             self.source.append(data)
+        if self.in_pre:
+            self.preformatted[-1] += data
         if self.cell is not None:
             self.cell.append(data)
 
     def handle_endtag(self, tag: str) -> None:
-        if tag == "code" and self.source is not None:
+        if tag == "div" and self.toc_depth is not None:
+            self.toc_depth -= 1
+            if self.toc_depth == 0:
+                self.toc_depth = None
+        elif tag == "a":
+            self.current_instruction_link = None
+        elif tag == "code" and self.source is not None:
             if self.current is not None:
                 self.listings.setdefault(self.current, []).append("".join(self.source))
             self.source = None
@@ -107,6 +158,9 @@ class InstructionListings(HTMLParser):
             self.row.append("".join(self.cell))
             if self.row_spans is not None:
                 self.row_spans.append(self.cell_span)
+            if tag == "th" and self.current_table_header_alignments is not None:
+                self.current_table_header_alignments.append(self.cell_alignment or "")
+            self.cell_alignment = None
             self.cell = None
         elif (
             tag == "tr"
@@ -122,8 +176,11 @@ class InstructionListings(HTMLParser):
         elif tag == "table" and self.table is not None and self.current_table_spans is not None:
             self.tables.append(self.table)
             self.table_spans.append(self.current_table_spans)
+            if self.current_table_header_alignments is not None:
+                self.table_header_alignments.append(self.current_table_header_alignments)
             self.table = None
             self.current_table_spans = None
+            self.current_table_header_alignments = None
 
 
 def normalize_document_text(text: str) -> str:

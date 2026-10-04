@@ -43,6 +43,7 @@ justDerivation {
     install -Dm644 build/doc/opcodes.adoc "$out/share/doc/tara/opcodes.adoc"
     install -Dm644 build/doc/tara.css "$out/share/doc/tara/tara.css"
     install -Dm644 build/doc/tara-theme.yml "$out/share/doc/tara/tara-theme.yml"
+    install -Dm644 build/doc/cover.svg "$out/share/doc/tara/cover.svg"
     install -Dm644 "${docFonts}/fonts/License.txt" "$out/share/doc/tara/fonts/New-Computer-Modern-License.txt"
     install -Dm644 "${docFonts}/fonts/JetBrainsMono-OFL.txt" "$out/share/doc/tara/fonts/JetBrains-Mono-OFL.txt"
     install -m644 build/doc/fonts/*.ttf "$out/share/doc/tara/fonts/"

@@ -21,7 +21,7 @@ bundle: (build-dir "doc")
 # Place the AsciiDoc layout beside the Sail bundle for standalone rendering.
 [private]
 specification: bundle
-    cp doc/tara.adoc doc/tara.css doc/tara-theme.yml "{{ out }}/"
+    cp doc/tara.adoc doc/tara.css doc/tara-theme.yml doc/cover.svg "{{ out }}/"
 
 # Derive table metadata from the typed codecs and native assembly mapping.
 [private]

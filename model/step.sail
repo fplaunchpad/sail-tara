@@ -6,7 +6,8 @@
 == Execution */
 $anchor section_execution
 
-/*! The drivers run one instruction per call. `step` and `run_instruction` take the five input lines
+/*!
+The drivers run one instruction per call. `step` and `run_instruction` take the five input lines
 as their first argument and hold them for the duration of the call. A driver reports what happened
 with a `retirement`.
 
@@ -24,7 +25,8 @@ union retirement = {
   Illegal : word
 }
 
-/*! Retires a decoded instruction. The successor defaults to `PC + 2`; `execute` may replace it in
+/*!
+Retires a decoded instruction. The successor defaults to `PC + 2`; `execute` may replace it in
 `nextPC`, and the result, masked to 11 bits, becomes PC. An instruction therefore sees PC as its own
 address, while the RTL has already incremented PC by the time the instruction executes: the
 PC-relative targets of the instruction set are written accordingly.
@@ -36,7 +38,8 @@ function retire(insn : instruction) -> retirement = {
     Retired()
 }
 
-/*! Executes an instruction that is already decoded, as if it had been fetched from PC, without
+/*!
+Executes an instruction that is already decoded, as if it had been fetched from PC, without
 placing it in memory. It does no fetch; a halted CPU does nothing, as for `step`.
  */
 val run_instruction : (bits(5), instruction) -> retirement
@@ -49,7 +52,8 @@ function run_instruction(keys, insn) =
         retire(insn)
     }
 
-/*! The model of the processor: it runs the next instruction from memory. A halted CPU returns
+/*!
+The model of the processor: it runs the next instruction from memory. A halted CPU returns
 `Stopped`. Otherwise `step` latches the input lines in `KEYS`, fetches the word at PC with
 `read_word`, decodes it and retires the instruction. The fetch is an ordinary word read: it ignores
 bit 0 of PC, it sees the input port if it covers 0x5FF, and it sees the stores of earlier
@@ -75,7 +79,8 @@ function step(keys) =
         }
     }
 
-/*! The reset button: "clears halted state, and restarts from PC 0". Registers and memory keep their
+/*!
+The reset button: "clears halted state, and restarts from PC 0". Registers and memory keep their
 values.
  */
 val reset : unit -> unit

@@ -18,7 +18,8 @@ $include "machine.sail"
 == The instruction set */
 $anchor section_instruction_set
 
-/*! An instruction is one word, stored big-endian like every word. The opcode and operand fields
+/*!
+An instruction is one word, stored big-endian like every word. The opcode and operand fields
 are defined by `decode` and `encode`; fields written as zeros are padding. `decode` ignores the
 padding and `encode` writes it as zeros, so every word with an assigned opcode decodes, and several
 words give the same instruction. The format labels in the tables are derived from the ordered field
@@ -34,7 +35,8 @@ $anchor section_instruction_formats
 === Opcodes */
 $anchor section_opcodes
 
-/*! The operands of the instructions are named as follows.
+/*!
+The operands of the instructions are named as follows.
 
 - `rd`, `rs`, `rs1`, `rs2`, `base`: a register number, 0 to 7. `rd` is the destination; `rs`, `rs1`
 and `rs2` are sources; `base` holds a memory address.
@@ -47,19 +49,22 @@ $anchor operands
 
 scattered union instruction
 
-/*! Turns an instruction into its 16-bit word: the opcode, then the fields, with the padding written
+/*!
+Turns an instruction into its 16-bit word: the opcode, then the fields, with the padding written
 as zeros.
  */
 val encode : instruction -> word
 scattered function encode
 
-/*! Turns a word into an instruction, or `None`. Each clause matches the opcode in bits 15 to 11 and
+/*!
+Turns a word into an instruction, or `None`. Each clause matches the opcode in bits 15 to 11 and
 ignores the padding.
  */
 val decode : word -> option(instruction)
 scattered function decode
 
-/*! Carries out an instruction. It reads and writes the machine state; it sees PC as the address of
+/*!
+Carries out an instruction. It reads and writes the machine state; it sees PC as the address of
 the instruction itself and proposes the successor in `nextPC`, which the drivers commit. An
 instruction reads its sources before it writes its result. `PUSH` and `POP` take two steps that
 depend on each other, and they take them in the order of their clauses.
@@ -76,7 +81,8 @@ $include "instructions/comparison.sail"
 $include "instructions/control_flow.sail"
 $include "instructions/stack.sail"
 
-/*! Opcodes 27 to 31 are unassigned: no instruction decodes from them, and `step` reports them as
+/*!
+Opcodes 27 to 31 are unassigned: no instruction decodes from them, and `step` reports them as
 `Illegal`.
  */
 function clause decode(_) = None()

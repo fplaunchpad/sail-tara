@@ -1,19 +1,32 @@
 :doctype: book
 :toc: left
-:toclevels: 3
+:toclevels: 4
 :sectnums:
 :reproducible:
-:nofooter:
 :sail-doc: {docdir}/tara.json
+:document-title-suffix:
+
+include::sailcomment:document_subtitle[type=anchor,indent=0]
+
+ifdef::backend-pdf[]
+:document-title-suffix: : {document-subtitle}
+endif::[]
 
 include::sailcomment:document_title[type=anchor,indent=0]
-include::sailcomment:document_subtitle[type=anchor,indent=0]
+
+ifndef::backend-pdf[]
+[.lead]
+{document-subtitle}
+endif::[]
+
+[preface]
+== Preface
 
 include::sailcomment:document_introduction[type=anchor,indent=0]
 
-include::sailcomment:section_machine[type=anchor,indent=0]
-
 include::sailcomment:machine[type=anchor,indent=0]
+
+include::sailcomment:section_machine[type=anchor,indent=0]
 
 include::sailcomment:types[type=anchor,indent=0]
 
@@ -107,8 +120,11 @@ include::sailcomment:section_data_movement[type=anchor,indent=0]
 
 include::sailcomment:data_movement[type=anchor,indent=0]
 
-[#insn-NOP]
-=== NOP
+[#insn-NOP%breakable]
+==== `NOP`
+
+[.instruction%unbreakable]
+--
 
 include::sailcomment:execute[clause="NOP()",indent=0]
 sail::encode[clause="NOP()"]
@@ -116,8 +132,13 @@ sail::decode[grep=Some\(NOP\(]
 sail::execute[clause="NOP()"]
 sail::assembly_syntax[type=mapping,left-clause="NOP()"]
 
-[#insn-HLT]
-=== HLT
+--
+
+[#insn-HLT%breakable]
+==== `HLT`
+
+[.instruction%unbreakable]
+--
 
 include::sailcomment:execute[clause="HLT()",indent=0]
 sail::encode[clause="HLT()"]
@@ -125,8 +146,13 @@ sail::decode[grep=Some\(HLT\(]
 sail::execute[clause="HLT()"]
 sail::assembly_syntax[type=mapping,left-clause="HLT()"]
 
-[#insn-MOV]
-=== MOV
+--
+
+[#insn-MOV%breakable]
+==== `MOV`
+
+[.instruction%unbreakable]
+--
 
 include::sailcomment:execute[clause="MOV(_, _)",indent=0]
 sail::encode[clause="MOV(_, _)"]
@@ -134,8 +160,13 @@ sail::decode[grep=Some\(MOV\(]
 sail::execute[clause="MOV(_, _)"]
 sail::assembly_syntax[type=mapping,left-clause="MOV(_, _)"]
 
-[#insn-LIL]
-=== LIL
+--
+
+[#insn-LIL%breakable]
+==== `LIL`
+
+[.instruction%unbreakable]
+--
 
 include::sailcomment:execute[clause="LIL(_, _)",indent=0]
 sail::encode[clause="LIL(_, _)"]
@@ -143,8 +174,13 @@ sail::decode[grep=Some\(LIL\(]
 sail::execute[clause="LIL(_, _)"]
 sail::assembly_syntax[type=mapping,left-clause="LIL(_, _)"]
 
-[#insn-LIH]
-=== LIH
+--
+
+[#insn-LIH%breakable]
+==== `LIH`
+
+[.instruction%unbreakable]
+--
 
 include::sailcomment:execute[clause="LIH(_, _)",indent=0]
 sail::encode[clause="LIH(_, _)"]
@@ -152,12 +188,17 @@ sail::decode[grep=Some\(LIH\(]
 sail::execute[clause="LIH(_, _)"]
 sail::assembly_syntax[type=mapping,left-clause="LIH(_, _)"]
 
+--
+
 include::sailcomment:section_memory[type=anchor,indent=0]
 
 include::sailcomment:memory[type=anchor,indent=0]
 
-[#insn-LDW]
-=== LDW
+[#insn-LDW%breakable]
+==== `LDW`
+
+[.instruction%unbreakable]
+--
 
 include::sailcomment:execute[clause="LDW(_, _, _)",indent=0]
 sail::encode[clause="LDW(_, _, _)"]
@@ -165,8 +206,13 @@ sail::decode[grep=Some\(LDW\(]
 sail::execute[clause="LDW(_, _, _)"]
 sail::assembly_syntax[type=mapping,left-clause="LDW(_, _, _)"]
 
-[#insn-STW]
-=== STW
+--
+
+[#insn-STW%breakable]
+==== `STW`
+
+[.instruction%unbreakable]
+--
 
 include::sailcomment:execute[clause="STW(_, _, _)",indent=0]
 sail::encode[clause="STW(_, _, _)"]
@@ -174,8 +220,13 @@ sail::decode[grep=Some\(STW\(]
 sail::execute[clause="STW(_, _, _)"]
 sail::assembly_syntax[type=mapping,left-clause="STW(_, _, _)"]
 
-[#insn-LDB]
-=== LDB
+--
+
+[#insn-LDB%breakable]
+==== `LDB`
+
+[.instruction%unbreakable]
+--
 
 include::sailcomment:execute[clause="LDB(_, _, _)",indent=0]
 sail::encode[clause="LDB(_, _, _)"]
@@ -183,8 +234,13 @@ sail::decode[grep=Some\(LDB\(]
 sail::execute[clause="LDB(_, _, _)"]
 sail::assembly_syntax[type=mapping,left-clause="LDB(_, _, _)"]
 
-[#insn-STB]
-=== STB
+--
+
+[#insn-STB%breakable]
+==== `STB`
+
+[.instruction%unbreakable]
+--
 
 include::sailcomment:execute[clause="STB(_, _, _)",indent=0]
 sail::encode[clause="STB(_, _, _)"]
@@ -192,12 +248,17 @@ sail::decode[grep=Some\(STB\(]
 sail::execute[clause="STB(_, _, _)"]
 sail::assembly_syntax[type=mapping,left-clause="STB(_, _, _)"]
 
+--
+
 include::sailcomment:section_arithmetic[type=anchor,indent=0]
 
 include::sailcomment:arithmetic[type=anchor,indent=0]
 
-[#insn-ADD]
-=== ADD
+[#insn-ADD%breakable]
+==== `ADD`
+
+[.instruction%unbreakable]
+--
 
 include::sailcomment:execute[clause="ADD(_, _, _)",indent=0]
 sail::encode[clause="ADD(_, _, _)"]
@@ -205,8 +266,13 @@ sail::decode[grep=Some\(ADD\(]
 sail::execute[clause="ADD(_, _, _)"]
 sail::assembly_syntax[type=mapping,left-clause="ADD(_, _, _)"]
 
-[#insn-SUB]
-=== SUB
+--
+
+[#insn-SUB%breakable]
+==== `SUB`
+
+[.instruction%unbreakable]
+--
 
 include::sailcomment:execute[clause="SUB(_, _, _)",indent=0]
 sail::encode[clause="SUB(_, _, _)"]
@@ -214,8 +280,13 @@ sail::decode[grep=Some\(SUB\(]
 sail::execute[clause="SUB(_, _, _)"]
 sail::assembly_syntax[type=mapping,left-clause="SUB(_, _, _)"]
 
-[#insn-ADDI]
-=== ADDI
+--
+
+[#insn-ADDI%breakable]
+==== `ADDI`
+
+[.instruction%unbreakable]
+--
 
 include::sailcomment:execute[clause="ADDI(_, _)",indent=0]
 sail::encode[clause="ADDI(_, _)"]
@@ -223,8 +294,13 @@ sail::decode[grep=Some\(ADDI\(]
 sail::execute[clause="ADDI(_, _)"]
 sail::assembly_syntax[type=mapping,left-clause="ADDI(_, _)"]
 
-[#insn-MUL]
-=== MUL
+--
+
+[#insn-MUL%breakable]
+==== `MUL`
+
+[.instruction%unbreakable]
+--
 
 include::sailcomment:execute[clause="MUL(_, _, _)",indent=0]
 sail::encode[clause="MUL(_, _, _)"]
@@ -232,12 +308,17 @@ sail::decode[grep=Some\(MUL\(]
 sail::execute[clause="MUL(_, _, _)"]
 sail::assembly_syntax[type=mapping,left-clause="MUL(_, _, _)"]
 
+--
+
 include::sailcomment:section_logic[type=anchor,indent=0]
 
 include::sailcomment:logic[type=anchor,indent=0]
 
-[#insn-AND]
-=== AND
+[#insn-AND%breakable]
+==== `AND`
+
+[.instruction%unbreakable]
+--
 
 include::sailcomment:execute[clause="AND(_, _, _)",indent=0]
 sail::encode[clause="AND(_, _, _)"]
@@ -245,8 +326,13 @@ sail::decode[grep=Some\(AND\(]
 sail::execute[clause="AND(_, _, _)"]
 sail::assembly_syntax[type=mapping,left-clause="AND(_, _, _)"]
 
-[#insn-OR]
-=== OR
+--
+
+[#insn-OR%breakable]
+==== `OR`
+
+[.instruction%unbreakable]
+--
 
 include::sailcomment:execute[clause="OR(_, _, _)",indent=0]
 sail::encode[clause="OR(_, _, _)"]
@@ -254,8 +340,13 @@ sail::decode[grep=Some\(OR\(]
 sail::execute[clause="OR(_, _, _)"]
 sail::assembly_syntax[type=mapping,left-clause="OR(_, _, _)"]
 
-[#insn-XOR]
-=== XOR
+--
+
+[#insn-XOR%breakable]
+==== `XOR`
+
+[.instruction%unbreakable]
+--
 
 include::sailcomment:execute[clause="XOR(_, _, _)",indent=0]
 sail::encode[clause="XOR(_, _, _)"]
@@ -263,8 +354,13 @@ sail::decode[grep=Some\(XOR\(]
 sail::execute[clause="XOR(_, _, _)"]
 sail::assembly_syntax[type=mapping,left-clause="XOR(_, _, _)"]
 
-[#insn-NOT]
-=== NOT
+--
+
+[#insn-NOT%breakable]
+==== `NOT`
+
+[.instruction%unbreakable]
+--
 
 include::sailcomment:execute[clause="NOT(_, _)",indent=0]
 sail::encode[clause="NOT(_, _)"]
@@ -272,12 +368,17 @@ sail::decode[grep=Some\(NOT\(]
 sail::execute[clause="NOT(_, _)"]
 sail::assembly_syntax[type=mapping,left-clause="NOT(_, _)"]
 
+--
+
 include::sailcomment:section_shifts[type=anchor,indent=0]
 
 include::sailcomment:shifts[type=anchor,indent=0]
 
-[#insn-SHL]
-=== SHL
+[#insn-SHL%breakable]
+==== `SHL`
+
+[.instruction%unbreakable]
+--
 
 include::sailcomment:execute[clause="SHL(_, _)",indent=0]
 sail::encode[clause="SHL(_, _)"]
@@ -285,8 +386,13 @@ sail::decode[grep=Some\(SHL\(]
 sail::execute[clause="SHL(_, _)"]
 sail::assembly_syntax[type=mapping,left-clause="SHL(_, _)"]
 
-[#insn-SHR]
-=== SHR
+--
+
+[#insn-SHR%breakable]
+==== `SHR`
+
+[.instruction%unbreakable]
+--
 
 include::sailcomment:execute[clause="SHR(_, _)",indent=0]
 sail::encode[clause="SHR(_, _)"]
@@ -294,12 +400,17 @@ sail::decode[grep=Some\(SHR\(]
 sail::execute[clause="SHR(_, _)"]
 sail::assembly_syntax[type=mapping,left-clause="SHR(_, _)"]
 
+--
+
 include::sailcomment:section_comparison[type=anchor,indent=0]
 
 include::sailcomment:comparison[type=anchor,indent=0]
 
-[#insn-SLT]
-=== SLT
+[#insn-SLT%breakable]
+==== `SLT`
+
+[.instruction%unbreakable]
+--
 
 include::sailcomment:execute[clause="SLT(_, _, _)",indent=0]
 sail::encode[clause="SLT(_, _, _)"]
@@ -307,12 +418,17 @@ sail::decode[grep=Some\(SLT\(]
 sail::execute[clause="SLT(_, _, _)"]
 sail::assembly_syntax[type=mapping,left-clause="SLT(_, _, _)"]
 
+--
+
 include::sailcomment:section_control_flow[type=anchor,indent=0]
 
 include::sailcomment:control_flow[type=anchor,indent=0]
 
-[#insn-BZ]
-=== BZ
+[#insn-BZ%breakable]
+==== `BZ`
+
+[.instruction%unbreakable]
+--
 
 include::sailcomment:execute[clause="BZ(_, _)",indent=0]
 sail::encode[clause="BZ(_, _)"]
@@ -320,8 +436,13 @@ sail::decode[grep=Some\(BZ\(]
 sail::execute[clause="BZ(_, _)"]
 sail::assembly_syntax[type=mapping,left-clause="BZ(_, _)"]
 
-[#insn-BN]
-=== BN
+--
+
+[#insn-BN%breakable]
+==== `BN`
+
+[.instruction%unbreakable]
+--
 
 include::sailcomment:execute[clause="BN(_, _)",indent=0]
 sail::encode[clause="BN(_, _)"]
@@ -329,8 +450,13 @@ sail::decode[grep=Some\(BN\(]
 sail::execute[clause="BN(_, _)"]
 sail::assembly_syntax[type=mapping,left-clause="BN(_, _)"]
 
-[#insn-JMP]
-=== JMP
+--
+
+[#insn-JMP%breakable]
+==== `JMP`
+
+[.instruction%unbreakable]
+--
 
 include::sailcomment:execute[clause="JMP(_)",indent=0]
 sail::encode[clause="JMP(_)"]
@@ -338,8 +464,13 @@ sail::decode[grep=Some\(JMP\(]
 sail::execute[clause="JMP(_)"]
 sail::assembly_syntax[type=mapping,left-clause="JMP(_)"]
 
-[#insn-CALL]
-=== CALL
+--
+
+[#insn-CALL%breakable]
+==== `CALL`
+
+[.instruction%unbreakable]
+--
 
 include::sailcomment:execute[clause="CALL(_)",indent=0]
 sail::encode[clause="CALL(_)"]
@@ -347,8 +478,13 @@ sail::decode[grep=Some\(CALL\(]
 sail::execute[clause="CALL(_)"]
 sail::assembly_syntax[type=mapping,left-clause="CALL(_)"]
 
-[#insn-RET]
-=== RET
+--
+
+[#insn-RET%breakable]
+==== `RET`
+
+[.instruction%unbreakable]
+--
 
 include::sailcomment:execute[clause="RET()",indent=0]
 sail::encode[clause="RET()"]
@@ -356,12 +492,17 @@ sail::decode[grep=Some\(RET\(]
 sail::execute[clause="RET()"]
 sail::assembly_syntax[type=mapping,left-clause="RET()"]
 
+--
+
 include::sailcomment:section_stack[type=anchor,indent=0]
 
 include::sailcomment:stack[type=anchor,indent=0]
 
-[#insn-PUSH]
-=== PUSH
+[#insn-PUSH%breakable]
+==== `PUSH`
+
+[.instruction%unbreakable]
+--
 
 include::sailcomment:execute[clause="PUSH(_)",indent=0]
 sail::encode[clause="PUSH(_)"]
@@ -369,14 +510,21 @@ sail::decode[grep=Some\(PUSH\(]
 sail::execute[clause="PUSH(_)"]
 sail::assembly_syntax[type=mapping,left-clause="PUSH(_)"]
 
-[#insn-POP]
-=== POP
+--
+
+[#insn-POP%breakable]
+==== `POP`
+
+[.instruction%unbreakable]
+--
 
 include::sailcomment:execute[clause="POP(_)",indent=0]
 sail::encode[clause="POP(_)"]
 sail::decode[grep=Some\(POP\(]
 sail::execute[clause="POP(_)"]
 sail::assembly_syntax[type=mapping,left-clause="POP(_)"]
+
+--
 
 include::sailcomment:section_execution[type=anchor,indent=0]
 

@@ -12,7 +12,8 @@ $include <dec_bits.sail>
 == Assembly syntax */
 $anchor section_assembly_syntax
 
-/*! `assembly` prints an instruction in the syntax of the TARA Studio assembler. Registers print as
+/*!
+`assembly` prints an instruction in the syntax of the TARA Studio assembler. Registers print as
 R0 to R7. The immediates of `LIL`, `LIH`, `SHL` and `SHR` print as unsigned decimal numbers; the
 immediate of `ADDI` and all offsets print signed. A memory operand prints as `off(base)`. Branch and
 jump targets print as raw signed instruction offsets, so assembling the text gives back the
@@ -23,13 +24,16 @@ $anchor syntax
 
 overload operator ^ = {concat_str}
 
-/*! A register name, shared with the assembly mapping. */
+/*!
+A register name, shared with the assembly mapping. */
 mapping reg_name : regidx <-> string = { r <-> "R" ^ dec_bits_3(r) }
 
-/*! Unsigned decimal operands. */
+/*!
+Unsigned decimal operands. */
 mapping unsigned_dec_8 : bits(8) <-> string = { bits <-> dec_bits_8(bits) }
 
-/*! Internal decimal printers used by the assembly mapping and its generated documentation tables.
+/*!
+Internal decimal printers used by the assembly mapping and its generated documentation tables.
 The reverse clauses never match: these helpers do not parse assembly. Explicit reverse clauses
 avoid empty matches in Sail 0.20.3's OCaml output for forward-only mappings.
  */
@@ -46,7 +50,8 @@ mapping signed_dec_11 : bits(11) <-> string = {
   backwards _ if false => 0b00000000000
 }
 
-/*! Prints an instruction as assembly source. The mapping is the single source for syntax;
+/*!
+Prints an instruction as assembly source. The mapping is the single source for syntax;
 `assembly` keeps the function API used by the simulators.
  */
 val assembly_syntax : instruction <-> string

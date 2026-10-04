@@ -122,12 +122,12 @@ def render_format_table(metadata: Metadata, names: dict[FormatKey, str]) -> str:
     )
     header = Row(
         cells=(
-            Cell(content=(Text(value="Format"),)),
+            Cell(content=(Text(value="Format"),), alignment=CellAlignment.CENTERED),
             *(
-                Cell(content=(Text(value=str(bit)),))
+                Cell(content=(Text(value=str(bit)),), alignment=CellAlignment.CENTERED)
                 for bit in range(metadata.word_width - 1, -1, -1)
             ),
-            Cell(content=(Text(value="Instructions"),)),
+            Cell(content=(Text(value="Instructions"),), alignment=CellAlignment.CENTERED),
         )
     )
     rows = [header]
@@ -148,12 +148,12 @@ def render_format_table(metadata: Metadata, names: dict[FormatKey, str]) -> str:
             label = "0" * width if field_name == "padding" else field_name
             cells.append(
                 Cell(
-                    content=(Text(value=label),),
+                    content=(Code(value=label),),
                     colspan=width,
                     alignment=CellAlignment.CENTERED,
                 )
             )
-        cells.append(Cell(content=(Text(value=", ".join(item.constructor for item in members)),)))
+        cells.append(Cell(content=(Code(value=", ".join(item.constructor for item in members)),)))
         rows.append(Row(cells=tuple(cells)))
 
     return Table(columns=columns, rows=tuple(rows)).to_asciidoc()
@@ -183,7 +183,7 @@ def render_opcode_table(metadata: Metadata, names: dict[FormatKey, str]) -> str:
     rows = [
         Row(
             cells=tuple(
-                Cell(content=(Text(value=value),))
+                Cell(content=(Text(value=value),), alignment=CellAlignment.CENTERED)
                 for value in ("Opcode", "Hex", "Bits", "Mnemonic", "Syntax", "Format")
             )
         )
