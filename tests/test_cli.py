@@ -1,75 +1,76 @@
-"""The emulators' command line: options, image formats, errors and exit status."""
+"""The emulators' command line: options, image formats, errors and exit statuses."""
 
+import itertools
 from pathlib import Path
 
 import pytest
 
-from helpers.assertions import assert_rejected
-from helpers.programs import ProgramImage
-from tara import reference
-from tara.emulator import Emulator, Subcommand
+from helpers.programs import Program
+from tara.emulator import Emulator, RunOptions, Subcommand
 from tara.image import Image
-from tara.isa import MEMORY_BYTES
-from tara.keys import KeySchedule
-from tara.transcript import Status
+from tara.isa import ILLEGAL, MEMORY_BYTES, REGISTERS, WORD_BYTES
+from tara.keys import Keys, KeySchedule
+from tara.reference import Reference
+from tara.transcript import Status, TraceLine
 
+RUN = Subcommand.RUN
 # The registers keys.tara loads from the input port, after 2, 3 and 4 retirements.
 INPUT_READS = (1, 3, 4)
-SPIN_STEP = "0000 b7ff " + "0000 " * 8 + "JMP -1"
+# spin.tara jumps to itself.
+SPIN = TraceLine(pc=0, word=0xB7FF, registers=(0,) * REGISTERS, assembly="JMP -1")
 
 
 @pytest.mark.parametrize("keys", ["21", "0x15"])
-def test_keys_hold_the_input_lines(emulator: Emulator, program: ProgramImage, keys: str) -> None:
-    transcript = emulator.run("--keys", keys, program("keys")).transcript
+def test_keys_hold_the_input_lines(emulator: Emulator, program: Program, keys: str) -> None:
+    transcript = emulator.invoke(RUN, "--keys", keys, program("keys")).transcript
 
-    assert [transcript.registers[index] for index in INPUT_READS] == [0x15, 0x15, 0x15]
+    assert [transcript.registers[index] for index in INPUT_READS] == [0x15] * 3
 
 
 def test_key_script_changes_the_input_lines(
-    emulator: Emulator, program: ProgramImage, tmp_path: Path
+    emulator: Emulator, program: Program, tmp_path: Path
 ) -> None:
     script = tmp_path / "keys.script"
     script.write_text("; STEP KEYS\n3 2 ; from the second read\n\n4 0x4\n")
 
-    transcript = emulator.run("--keys", "1", "--key-script", script, program("keys")).transcript
+    run = emulator.invoke(RUN, "--keys", "1", "--key-script", script, program("keys"))
 
-    assert [transcript.registers[index] for index in INPUT_READS] == [1, 2, 4]
+    assert [run.transcript.registers[index] for index in INPUT_READS] == [1, 2, 4]
 
 
-def test_framebuffer_shows_the_pixels_set(emulator: Emulator, program: ProgramImage) -> None:
-    transcript = emulator.run("--framebuffer", program("pixels")).transcript
+def test_framebuffer_shows_the_pixels_set(emulator: Emulator, program: Program) -> None:
+    transcript = emulator.invoke(RUN, "--framebuffer", program("pixels")).transcript
 
     assert transcript.pixels == {(0, 0), (63, 63)}
 
 
 @pytest.mark.parametrize("option", ["-n", "--max-steps"])
-def test_step_limit_ends_the_run(emulator: Emulator, program: ProgramImage, option: str) -> None:
-    run = emulator.run(option, "10", program("spin"))
+def test_step_limit_ends_the_run(emulator: Emulator, program: Program, option: str) -> None:
+    transcript = emulator.invoke(RUN, option, "10", program("spin")).transcript
 
-    assert (run.status, run.transcript.status, run.transcript.steps) == (3, Status.LIMIT, 10)
+    assert (transcript.status, transcript.steps) == (Status.LIMIT, 10)
 
 
 @pytest.mark.parametrize("option", ["-t", "--trace"])
-def test_trace_prints_a_line_per_step(
-    emulator: Emulator, program: ProgramImage, option: str
-) -> None:
-    transcript = emulator.run(option, "-n", "3", program("spin")).transcript
+def test_trace_prints_a_line_per_step(emulator: Emulator, program: Program, option: str) -> None:
+    transcript = emulator.invoke(RUN, option, "-n", "3", program("spin")).transcript
 
-    assert [step.render() for step in transcript.trace] == [SPIN_STEP] * 3
+    assert transcript.trace == (SPIN,) * 3
 
 
-def test_illegal_opcode_ends_the_run(emulator: Emulator, program: ProgramImage) -> None:
-    run = emulator.run("-t", program("illegal"))
-    transcript = run.transcript
+def test_illegal_opcode_ends_the_run(emulator: Emulator, program: Program) -> None:
+    transcript = emulator.invoke(RUN, "-t", program("illegal")).transcript
     last = transcript.trace[-1]
 
-    assert (run.status, transcript.status, transcript.steps) == (4, Status.ILLEGAL, 3)
-    assert (last.pc, last.word, last.assembly, transcript.pc) == (0x0006, 0xD800, "illegal", 8)
+    assert (transcript.status, transcript.steps, transcript.pc) == (Status.ILLEGAL, 3, 8)
+    assert (last.pc, last.word, last.assembly) == (0x0006, 0xD800, ILLEGAL)
 
 
-def test_loads_hex_images(emulator: Emulator, program: ProgramImage, tmp_path: Path) -> None:
+def test_loads_hex_images(
+    emulator: Emulator, program: Program, disassembly: tuple[str, ...], tmp_path: Path
+) -> None:
     memory = Image(program("keys")).read()
-    words = [int.from_bytes(memory[index : index + 2]) for index in range(0, len(memory), 2)]
+    words = [int.from_bytes(word) for word in itertools.batched(memory, WORD_BYTES, strict=True)]
     image = tmp_path / "keys.hex"
     image.write_text(
         "; 1 to 4 hex digits a word, any case, any spacing\n\n"
@@ -77,10 +78,10 @@ def test_loads_hex_images(emulator: Emulator, program: ProgramImage, tmp_path: P
         + " ".join(f"{word:x}" for word in words[-2:])
         + "\n"
     )
+    options = RunOptions(keys=KeySchedule(initial=Keys(9)))
 
-    transcript = emulator.run("--keys", "9", image).transcript
-
-    assert transcript == reference.run(memory, keys=KeySchedule(initial=9))
+    expected = Reference(memory).run(options, disassembly=disassembly)
+    assert emulator.run(image, options).transcript == expected
 
 
 @pytest.mark.parametrize(
@@ -92,46 +93,33 @@ def test_loads_hex_images(emulator: Emulator, program: ProgramImage, tmp_path: P
         pytest.param(["-n", "-1"], id="negative-step-limit"),
         pytest.param(["-n", "many"], id="step-limit-not-a-number"),
         pytest.param(["--hz", "2000"], id="play-option"),
-    ],
-)
-def test_run_rejects_bad_options(
-    emulator: Emulator, program: ProgramImage, options: list[str]
-) -> None:
-    assert_rejected(emulator.run(*options, program("keys")))
-
-
-@pytest.mark.parametrize(
-    "options",
-    [
         pytest.param(["-t", "--trace"], id="trace-aliases"),
         pytest.param(["--trace", "-t"], id="trace-reversed"),
-        pytest.param(["-t", "-t"], id="trace-same-alias"),
+        pytest.param(["-t", "-t"], id="trace-twice"),
         pytest.param(["-n", "10", "--max-steps", "20"], id="step-limit-aliases"),
         pytest.param(["--max-steps", "10", "-n", "20"], id="step-limit-reversed"),
         pytest.param(["-n", "10", "--max-steps", "10"], id="step-limit-same-value"),
-        pytest.param(["--keys", "1", "--keys", "2"], id="keys"),
-        pytest.param(["--key-script", "first", "--key-script", "second"], id="key-script"),
-        pytest.param(["--framebuffer", "--framebuffer"], id="framebuffer"),
+        pytest.param(["--keys", "1", "--keys", "2"], id="keys-twice"),
+        pytest.param(["--key-script", "first", "--key-script", "second"], id="key-script-twice"),
+        pytest.param(["--framebuffer", "--framebuffer"], id="framebuffer-twice"),
     ],
 )
-def test_run_rejects_repeated_options(
-    emulator: Emulator, program: ProgramImage, options: list[str]
-) -> None:
-    assert_rejected(emulator.run(*options, program("keys")))
+def test_run_rejects_bad_options(emulator: Emulator, program: Program, options: list[str]) -> None:
+    assert emulator.invoke(RUN, *options, program("keys")).rejected
 
 
 @pytest.mark.parametrize(
     "options",
     [
+        pytest.param([], id="no-terminal"),
+        pytest.param(["--hz", "-5"], id="negative-rate"),
         pytest.param(["-n", "10", "--max-steps", "20"], id="step-limit-aliases"),
         pytest.param(["--max-steps", "10", "-n", "20"], id="step-limit-reversed"),
-        pytest.param(["--hz", "100", "--hz", "200"], id="rate"),
+        pytest.param(["--hz", "100", "--hz", "200"], id="rate-twice"),
     ],
 )
-def test_play_rejects_repeated_options(
-    emulator: Emulator, program: ProgramImage, options: list[str]
-) -> None:
-    assert_rejected(emulator.invoke(Subcommand.PLAY, *options, program("spin")))
+def test_play_rejects_bad_options(emulator: Emulator, program: Program, options: list[str]) -> None:
+    assert emulator.invoke(Subcommand.PLAY, *options, program("spin")).rejected
 
 
 @pytest.mark.parametrize(
@@ -140,39 +128,24 @@ def test_play_rejects_repeated_options(
         pytest.param([], id="no-subcommand"),
         pytest.param(["frobnicate"], id="unknown-subcommand"),
         pytest.param(["--trace"], id="option-without-subcommand"),
+        *(
+            pytest.param([name], id=name)
+            for name in ["r", "ru", "p", "pl", "d", "di", "dis", "disa"]
+        ),
+        *(pytest.param(["--help", name], id=f"help-{name}") for name in ["r", "pl", "dis"]),
+        pytest.param([Subcommand.DISASM, "image.bin"], id="disasm-argument"),
     ],
 )
 def test_rejects_bad_subcommands(emulator: Emulator, arguments: list[str]) -> None:
-    assert_rejected(emulator.invoke(*arguments))
+    assert emulator.invoke(*arguments).rejected
 
 
-@pytest.mark.parametrize("name", ["r", "ru", "p", "pl", "d", "di", "dis", "disa"])
-def test_rejects_abbreviated_subcommands(emulator: Emulator, name: str) -> None:
-    assert_rejected(emulator.invoke(name))
+@pytest.mark.parametrize("subcommand", Subcommand)
+def test_help_names_the_subcommand(emulator: Emulator, subcommand: Subcommand) -> None:
+    run = emulator.invoke("--help", subcommand)
 
-
-@pytest.mark.parametrize("arguments", [["--help", "r"], ["--help", "pl"], ["--help", "dis"]])
-def test_rejects_abbreviated_help_subcommands(emulator: Emulator, arguments: list[str]) -> None:
-    assert_rejected(emulator.invoke(*arguments))
-
-
-@pytest.mark.parametrize("name", ["run", "play", "disasm"])
-def test_help_accepts_exact_subcommand_names(emulator: Emulator, name: str) -> None:
-    result = emulator.invoke("--help", name)
-
-    assert (result.status, result.stderr) == (0, "")
-    assert f"{emulator.name} {name}" in result.stdout
-
-
-@pytest.mark.parametrize(
-    "options",
-    [
-        pytest.param(["--hz", "-5"], id="negative-rate"),
-        pytest.param([], id="no-terminal"),
-    ],
-)
-def test_play_rejects(emulator: Emulator, program: ProgramImage, options: list[str]) -> None:
-    assert_rejected(emulator.invoke(Subcommand.PLAY, *options, program("spin")))
+    assert (run.status, run.stderr) == (0, "")
+    assert f"{emulator.name} {subcommand}" in run.stdout
 
 
 @pytest.mark.parametrize(
@@ -188,12 +161,12 @@ def test_play_rejects(emulator: Emulator, program: ProgramImage, options: list[s
     ],
 )
 def test_rejects_bad_key_scripts(
-    emulator: Emulator, program: ProgramImage, tmp_path: Path, script: str
+    emulator: Emulator, program: Program, tmp_path: Path, script: str
 ) -> None:
     path = tmp_path / "keys.script"
     path.write_text(script)
 
-    assert_rejected(emulator.run("--key-script", path, program("keys")))
+    assert emulator.invoke(RUN, "--key-script", path, program("keys")).rejected
 
 
 @pytest.mark.parametrize(
@@ -210,16 +183,12 @@ def test_rejects_bad_images(emulator: Emulator, tmp_path: Path, name: str, conte
     image = tmp_path / name
     image.write_bytes(contents)
 
-    assert_rejected(emulator.run(image))
+    assert emulator.invoke(RUN, image).rejected
 
 
 def test_rejects_a_missing_image(emulator: Emulator, tmp_path: Path) -> None:
-    assert_rejected(emulator.run(tmp_path / "missing.bin"))
+    assert emulator.invoke(RUN, tmp_path / "missing.bin").rejected
 
 
 def test_requires_an_image(emulator: Emulator) -> None:
-    assert_rejected(emulator.run())
-
-
-def test_disasm_takes_no_arguments(emulator: Emulator, program: ProgramImage) -> None:
-    assert_rejected(emulator.invoke(Subcommand.DISASM, program("keys")))
+    assert emulator.invoke(RUN).rejected

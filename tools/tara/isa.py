@@ -1,4 +1,4 @@
-"""Facts about the TARA machine and instruction set, shared by the tools and the tests."""
+"""Facts about the TARA machine and instruction set."""
 
 from src.simulation.cpu import FMT, OP_NAME
 
@@ -13,10 +13,8 @@ FRAMEBUFFER = 0x600
 SCREEN_SIZE = 64
 OPCODE_SHIFT = 11
 ILLEGAL = "illegal"  # the disassembly of an unassigned opcode
-CALL = "CALL"
-RET = "RET"
 
-# The bits each instruction format leaves unused: decoding ignores them, assembling clears them.
+# The bits each of TARA Studio's instruction formats leaves unused.
 UNUSED_BITS = {"F0": 0x07FF, "F1": 0x0003, "F2": 0x001F, "F7": 0x00FF}
 
 
@@ -27,11 +25,7 @@ def mnemonic(word: int) -> str | None:
 
 
 def canonical(word: int) -> int:
-    """`word` with the bits its format leaves unused cleared: what assembling its disassembly
-    gives, by TARA Studio's format table."""
+    """`word`, which holds an assigned opcode, with the bits its format leaves unused cleared:
+    decoding ignores them, so assembling the word's disassembly gives this."""
 
-    name = mnemonic(word)
-    if name is None:
-        raise ValueError(f"{word:#06x}: unassigned opcode")
-
-    return word & ~UNUSED_BITS.get(FMT[name], 0)
+    return word & ~UNUSED_BITS.get(FMT[OP_NAME[word >> OPCODE_SHIFT]], 0)

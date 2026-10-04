@@ -4,7 +4,7 @@ import time
 
 import pytest
 
-from helpers.programs import ProgramImage
+from helpers.programs import Program
 from helpers.terminal import (
     AMBER,
     CSI,
@@ -27,7 +27,7 @@ from tara.keys import Keys
 
 
 def test_draws_on_the_alternate_screen_and_restores_the_terminal(
-    start: Start, program: ProgramImage
+    start: Start, program: Program
 ) -> None:
     session = start(RATE, "1000", program("spin"))
     session.wait_for(in_state(State.RUNNING))
@@ -43,7 +43,7 @@ def test_draws_on_the_alternate_screen_and_restores_the_terminal(
     assert session.restored()
 
 
-def test_ctrl_c_quits(start: Start, program: ProgramImage) -> None:
+def test_ctrl_c_quits(start: Start, program: Program) -> None:
     session = start(RATE, "1000", program("spin"))
     session.wait_for(in_state(State.RUNNING))
     session.send(CTRL_C)
@@ -66,9 +66,7 @@ def test_ctrl_c_quits(start: Start, program: ProgramImage) -> None:
         pytest.param(f"{SS3}C", Keys.RIGHT, id="right-application-mode"),
     ],
 )
-def test_keys_drive_the_input_lines(
-    start: Start, program: ProgramImage, key: str, keys: Keys
-) -> None:
+def test_keys_drive_the_input_lines(start: Start, program: Program, key: str, keys: Keys) -> None:
     session = start(RATE, "1000", program("spin"))
     session.wait_for(in_state(State.RUNNING))
     session.send(key)
@@ -79,7 +77,7 @@ def test_keys_drive_the_input_lines(
     assert session.finish() == 0
 
 
-def test_key_is_held_after_its_last_press(start: Start, program: ProgramImage) -> None:
+def test_key_is_held_after_its_last_press(start: Start, program: Program) -> None:
     session = start(RATE, "1000", program("spin"))
     session.wait_for(in_state(State.RUNNING))
     session.send("w")
@@ -92,7 +90,7 @@ def test_key_is_held_after_its_last_press(start: Start, program: ProgramImage) -
     assert session.finish() == 0
 
 
-def test_halted_program_stays_on_screen_until_quit(start: Start, program: ProgramImage) -> None:
+def test_halted_program_stays_on_screen_until_quit(start: Start, program: Program) -> None:
     session = start(RATE, "0", program("pixels"))
     halted = session.wait_for(in_state(State.HALTED))
     time.sleep(0.3)
@@ -114,7 +112,7 @@ def test_halted_program_stays_on_screen_until_quit(start: Start, program: Progra
 )
 def test_exit_status_follows_the_end_of_the_run(
     start: Start,
-    program: ProgramImage,
+    program: Program,
     name: str,
     options: list[str],
     state: State,
@@ -135,7 +133,7 @@ def test_exit_status_follows_the_end_of_the_run(
         pytest.param(["--keys", "1"], id="keys"),
     ],
 )
-def test_rejects_batch_options(start: Start, program: ProgramImage, options: list[str]) -> None:
+def test_rejects_batch_options(start: Start, program: Program, options: list[str]) -> None:
     session = start(*options, program("spin"))
 
     assert session.finish() == 1

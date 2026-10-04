@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 from hypothesis import settings
 
-from helpers.programs import PROGRAMS_DIRECTORY, ProgramImage
+from helpers.programs import PROGRAMS_DIRECTORY, Program
 from helpers.terminal import Session, Start
 from tara.asm import assemble_file
 from tara.emulator import Emulator
@@ -24,10 +24,12 @@ settings.register_profile("dev", max_examples=50, deadline=None)
 settings.register_profile("ci", parent=settings.get_profile("dev"), derandomize=True, database=None)
 settings.load_profile("dev")
 
+EMULATOR_OPTION = "--emulator"
+
 
 def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption(
-        "--emulator",
+        EMULATOR_OPTION,
         action="append",
         default=[],
         type=Path,
@@ -36,20 +38,23 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     )
 
 
+def configured_emulators(config: pytest.Config) -> list[Emulator]:
+    paths: list[Path] = config.getoption(EMULATOR_OPTION) or []
+    return [Emulator(path) for path in paths]
+
+
 def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
     if "emulator" in metafunc.fixturenames:
-        paths = metafunc.config.getoption("emulator") or list[Path]()
-        emulators = [Emulator(Path(path)) for path in paths]
-        metafunc.parametrize(
-            "emulator", emulators, ids=[emulator.name for emulator in emulators], scope="session"
-        )
+        emulators = configured_emulators(metafunc.config)
+        names = [emulator.name for emulator in emulators]
+        metafunc.parametrize("emulator", emulators, ids=names, scope="session")
 
 
 def pytest_assertrepr_compare(op: str, left: object, right: object) -> list[str] | None:
     if op == "==" and isinstance(left, Transcript) and isinstance(right, Transcript):
         diff = difflib.unified_diff(
-            left.lines(memory_rows=True),
-            right.lines(memory_rows=True),
+            left.diffable_lines(),
+            right.diffable_lines(),
             fromfile="emulator",
             tofile="reference",
             lineterm="",
@@ -60,8 +65,15 @@ def pytest_assertrepr_compare(op: str, left: object, right: object) -> list[str]
 
 
 @pytest.fixture(scope="session")
+def emulators(pytestconfig: pytest.Config) -> list[Emulator]:
+    """Every emulator under test, for tests that compare them."""
+
+    return configured_emulators(pytestconfig)
+
+
+@pytest.fixture(scope="session")
 def assemble(tmp_path_factory: pytest.TempPathFactory) -> Callable[[Path], Path]:
-    """Assembles a .tara source into a .bin image, once per session."""
+    """Assembles a .tara source into a .bin image, once a session."""
 
     directory = tmp_path_factory.mktemp("images")
 
@@ -72,6 +84,13 @@ def assemble(tmp_path_factory: pytest.TempPathFactory) -> Callable[[Path], Path]
         return image.path
 
     return assemble
+
+
+@pytest.fixture(scope="session")
+def program(assemble: Callable[[Path], Path]) -> Program:
+    """The image of a program in tests/programs, by name."""
+
+    return lambda name: assemble(PROGRAMS_DIRECTORY / f"{name}.tara")
 
 
 @pytest.fixture(scope="session")
@@ -89,16 +108,9 @@ def scratch(tmp_path_factory: pytest.TempPathFactory) -> Path:
     return tmp_path_factory.mktemp("scratch")
 
 
-@pytest.fixture(scope="session")
-def program(assemble: Callable[[Path], Path]) -> ProgramImage:
-    """The image of a program in tests/programs, by name."""
-
-    return lambda name: assemble(PROGRAMS_DIRECTORY / f"{name}.tara")
-
-
 @pytest.fixture
 def start(emulator: Emulator) -> Iterator[Start]:
-    """Starts interactive sessions of the emulator, and cleans up after them."""
+    """Starts interactive sessions of the emulator, and closes them after the test."""
 
     sessions: list[Session] = []
 

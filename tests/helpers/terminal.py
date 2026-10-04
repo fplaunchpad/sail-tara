@@ -1,4 +1,4 @@
-"""An emulator in interactive mode on a pseudo-terminal, and what its screen shows."""
+"""An emulator playing a program on a pseudo-terminal, and what its screen shows."""
 
 import contextlib
 import os
@@ -12,6 +12,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from enum import StrEnum, auto
 from pathlib import Path
+from typing import Protocol, Self
 
 from tara.emulator import Emulator, Subcommand
 from tara.keys import Keys
@@ -26,7 +27,7 @@ LEAVE_ALTERNATE_SCREEN = "\x1b[?1049l"
 HIDE_CURSOR = "\x1b[?25l"
 SHOW_CURSOR = "\x1b[?25h"
 AMBER = "38;2;255;176;0"
-UPPER_HALF_BLOCK = "\u2580"
+UPPER_HALF_BLOCK = "▀"
 CONTROL_SEQUENCE = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]")
 # The status line spells the held input lines in Keys order, UP to QUIT, '-' for a released one.
 KEY_LETTERS = "UDLRQ"
@@ -61,14 +62,14 @@ class Status:
     keys: Keys
 
     @classmethod
-    def parse(cls, match: re.Match[str]) -> Status:
+    def parse(cls, match: re.Match[str]) -> Self:
         state, pc, steps, *lines = match.groups()
         held = sum(1 << index for index, line in enumerate(lines) if line != RELEASED)
         return cls(state=State(state), pc=int(pc, 16), steps=int(steps), keys=Keys(held))
 
 
 class Session:
-    """An emulator in interactive mode on a pseudo-terminal, as a person would run it."""
+    """An emulator playing a program on a pseudo-terminal, as a person would run it."""
 
     def __init__(self, emulator: Emulator, *arguments: str | Path) -> None:
         self.master, self.terminal = pty.openpty()
@@ -147,8 +148,10 @@ class Session:
         os.close(self.terminal)
 
 
-# The `start` fixture: starts a session with the given arguments after `play`.
-type Start = Callable[..., Session]
+class Start(Protocol):
+    """The `start` fixture: starts a session with `arguments` after `play`."""
+
+    def __call__(self, *arguments: str | Path) -> Session: ...
 
 
 def in_state(state: State) -> Callable[[Status], bool]:

@@ -1,4 +1,4 @@
-"""Assemble TARA source with the TARA Studio assembler into a loadable image."""
+"""tara-asm: assemble TARA source with TARA Studio's assembler into a loadable image."""
 
 from dataclasses import dataclass
 from pathlib import Path
@@ -29,9 +29,9 @@ class ImageType(click.ParamType):
             self.fail(str(error), param, ctx)
 
 
-@dataclass(eq=False)
+@dataclass(eq=False, kw_only=True)
 class AssemblyFailed(click.ClickException):
-    """The assembler rejected `source`; `errors` keeps its diagnostics."""
+    """The assembler rejected `source`."""
 
     source: Path
     errors: tuple[AssemblerError, ...]
@@ -40,9 +40,9 @@ class AssemblyFailed(click.ClickException):
         super().__init__("\n".join(f"{self.source}: {error}" for error in self.errors))
 
 
-@dataclass(eq=False)
+@dataclass(eq=False, kw_only=True)
 class ImageTooLarge(click.ClickException):
-    """The assembled program does not fit in TARA memory."""
+    """The program in `source` does not fit in memory."""
 
     source: Path
     size: int
@@ -52,21 +52,17 @@ class ImageTooLarge(click.ClickException):
 
 
 def assemble_file(source: Path) -> list[int]:
-    """Assemble `source` and return its words in address order from 0."""
+    """The words of the program in `source`, from address 0."""
 
-    placed, _listing, errors, _labels = assemble(source.read_text(encoding="utf-8"))
+    placed, _listing, errors, _labels = assemble(source.read_text())
     if errors:
-        raise AssemblyFailed(source, tuple(errors))
+        raise AssemblyFailed(source=source, errors=tuple(errors))
 
-    size = len(placed) * WORD_BYTES
-    if size > MEMORY_BYTES:
-        raise ImageTooLarge(source, size)
+    words = [word for _address, word in placed]
+    if (size := len(words) * WORD_BYTES) > MEMORY_BYTES:
+        raise ImageTooLarge(source=source, size=size)
 
-    for index, (address, _word) in enumerate(placed):
-        if address != index * WORD_BYTES:
-            raise AssertionError(f"assembler placed word {index} at {address:#06x}")
-
-    return [word for _address, word in placed]
+    return words
 
 
 @click.command()
@@ -78,7 +74,7 @@ def assemble_file(source: Path) -> list[int]:
     help="Output image: .bin (bytes) or .hex (a word per line). Default: SOURCE.bin.",
 )
 def main(source: Path, output: Image | None) -> None:
-    """Assemble SOURCE with the TARA Studio assembler into a loadable image."""
+    """Assemble SOURCE with TARA Studio's assembler into a loadable image."""
 
     image = output or Image(source.with_suffix(ImageFormat.BIN))
     image.write(assemble_file(source))

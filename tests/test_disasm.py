@@ -1,8 +1,7 @@
-"""The model's disassembler, through disasm, against TARA Studio's assembler and opcode
+"""The model's disassembler, through `disasm`, against TARA Studio's assembler and opcode
 table."""
 
 from itertools import batched
-from pathlib import Path
 
 import pytest
 from src.assembler.asm import assemble
@@ -12,13 +11,6 @@ from tara.isa import ILLEGAL, MEMORY_BYTES, WORD_BYTES, WORDS, canonical, mnemon
 
 # Assemble at most a memory's worth of instructions at a time.
 BATCH = MEMORY_BYTES // WORD_BYTES
-
-
-def test_lists_every_word_in_order(emulator: Emulator) -> None:
-    run = emulator.disasm()
-
-    assert run.status == 0
-    assert [line[:5] for line in run.stdout.splitlines()] == [f"{w:04x} " for w in range(WORDS)]
 
 
 def test_unassigned_opcodes_disassemble_as_illegal(disassembly: tuple[str, ...]) -> None:
@@ -38,12 +30,11 @@ def test_disassembly_assembles_to_the_word(disassembly: tuple[str, ...]) -> None
         assert [word for _address, word in placed] == [canonical(word) for word in words]
 
 
-def test_c_and_ocaml_disassembly_match(pytestconfig: pytest.Config) -> None:
-    emulator_arguments: list[str] = pytestconfig.getoption("--emulator") or []
-    by_name = {Path(argument).name: Path(argument) for argument in emulator_arguments}
-    c = by_name.get("tara-c")
-    ocaml = by_name.get("tara-ocaml")
-    if c is None or ocaml is None:
-        pytest.skip("the C/OCaml parity check needs both emulators")
+def test_emulators_disassemble_alike(emulators: list[Emulator]) -> None:
+    if len(emulators) < 2:
+        pytest.skip("needs two emulators")
 
-    assert Emulator(c).disassembly() == Emulator(ocaml).disassembly()
+    disassemblies = [emulator.disassembly() for emulator in emulators]
+    differing = [word for word in range(WORDS) if len({texts[word] for texts in disassemblies}) > 1]
+
+    assert differing == []

@@ -1,4 +1,5 @@
-"""What a batch run of an emulator prints: trace lines, the final state, the framebuffer."""
+"""What `run` prints: a line per step with --trace, the final state, and the framebuffer with
+--framebuffer."""
 
 import re
 from collections.abc import Iterator
@@ -8,37 +9,44 @@ from typing import Self
 
 from tara.isa import MEMORY_BYTES, REGISTERS, SCREEN_SIZE
 
-HEX16 = "[0-9a-f]{4}"
-TRACE_LINE = re.compile(rf"({HEX16}) ({HEX16})((?: {HEX16}){{{REGISTERS}}}) (.+)")
-STATUS_LINE = re.compile(r"status (halted|limit|illegal)")
-STEPS_LINE = re.compile(r"steps (0|[1-9][0-9]*)")
-PC_LINE = re.compile(rf"pc 0x({HEX16})")
-REGISTER_LINE = re.compile(rf"r([0-7]) 0x({HEX16})")
-MEMORY_LINE = re.compile(rf"mem ((?:[0-9a-f]{{2}}){{{MEMORY_BYTES}}})")
-FRAMEBUFFER_LINE = re.compile(rf"fb ([#.]{{{SCREEN_SIZE}}})")
 SET_PIXEL = "#"
+CLEAR_PIXEL = "."
 MEMORY_ROW_BYTES = 16
 
 
 class Status(StrEnum):
-    """Why a run ended, as the status line spells it."""
+    """How a run ended, as the status line spells it."""
 
     HALTED = auto()
     LIMIT = auto()
     ILLEGAL = auto()
 
+    @property
+    def exit_status(self) -> int:
+        """The emulators' exit status for a run that ends this way."""
 
-# The emulators' exit status for each way a run ends.
+        return EXIT_STATUSES[self]
+
+
 EXIT_STATUSES = {Status.HALTED: 0, Status.LIMIT: 3, Status.ILLEGAL: 4}
+
+HEX16 = "[0-9a-f]{4}"
+TRACE_LINE = re.compile(rf"({HEX16}) ({HEX16})((?: {HEX16}){{{REGISTERS}}}) (.+)")
+STATUS_LINE = re.compile(rf"status ({'|'.join(Status)})")
+STEPS_LINE = re.compile(r"steps (0|[1-9][0-9]*)")
+PC_LINE = re.compile(rf"pc 0x({HEX16})")
+REGISTER_LINE = re.compile(rf"r([0-7]) 0x({HEX16})")
+MEMORY_LINE = re.compile(rf"mem ((?:[0-9a-f]{{2}}){{{MEMORY_BYTES}}})")
+FRAMEBUFFER_LINE = re.compile(rf"fb ([{SET_PIXEL}{CLEAR_PIXEL}]{{{SCREEN_SIZE}}})")
 
 
 class TranscriptError(ValueError):
-    """Output that does not follow the emulators' output format."""
+    """Output that does not follow the output format."""
 
 
 @dataclass(frozen=True, kw_only=True)
 class TraceLine:
-    """One step: its PC and instruction word, the registers after it, and its assembly."""
+    """One step: its PC and instruction word, the registers after it, and its disassembly."""
 
     pc: int
     word: int
@@ -47,7 +55,7 @@ class TraceLine:
 
     @classmethod
     def parse(cls, line: str) -> Self | None:
-        """The trace line `line` spells, or None if it is not one."""
+        """The step `line` spells, or None if it is not a trace line."""
 
         match = TRACE_LINE.fullmatch(line)
         if match is None:
@@ -61,15 +69,14 @@ class TraceLine:
             assembly=assembly,
         )
 
-    def render(self) -> str:
+    def __str__(self) -> str:
         registers = " ".join(f"{register:04x}" for register in self.registers)
         return f"{self.pc:04x} {self.word:04x} {registers} {self.assembly}"
 
 
 @dataclass(frozen=True, kw_only=True)
 class Transcript:
-    """Everything a batch run prints, parsed: the trace lines (with -t), the final state, and the
-    framebuffer rows (with --framebuffer), top row (y = 63) first."""
+    """Everything `run` prints; `framebuffer` holds its rows, top row (y = 63) first."""
 
     trace: tuple[TraceLine, ...]
     status: Status
@@ -81,12 +88,9 @@ class Transcript:
 
     @classmethod
     def parse(cls, text: str) -> Self:
-        """Parse an emulator's standard output, which must follow the format exactly."""
+        """The transcript `text` spells, which must follow the output format exactly."""
 
-        if not text.endswith("\n"):
-            raise TranscriptError("the output does not end with a newline")
-
-        lines = Lines(text.removesuffix("\n").split("\n"))
+        lines = Lines(text)
         trace = tuple(lines.take_trace())
         status = Status(lines.expect(STATUS_LINE).group(1))
         steps = int(lines.expect(STEPS_LINE).group(1))
@@ -105,34 +109,34 @@ class Transcript:
             framebuffer=framebuffer,
         )
 
-    def render(self) -> str:
-        """The output this transcript stands for."""
-
+    def __str__(self) -> str:
         return "".join(f"{line}\n" for line in self.lines())
 
-    def lines(self, *, memory_rows: bool = False) -> list[str]:
-        """The output lines; with `memory_rows`, the memory line split into rows of 16 bytes
-        with their addresses, so that a diff of two transcripts points at the bytes."""
+    def lines(self) -> list[str]:
+        return self.lines_with_memory([f"mem {self.memory.hex()}"])
 
-        lines = [step.render() for step in self.trace]
-        lines += [f"status {self.status}", f"steps {self.steps}", f"pc 0x{self.pc:04x}"]
-        lines += [f"r{index} 0x{value:04x}" for index, value in enumerate(self.registers)]
-        if memory_rows:
-            lines += [
-                f"mem 0x{address:03x} {self.memory[address : address + MEMORY_ROW_BYTES].hex(' ')}"
-                for address in range(0, len(self.memory), MEMORY_ROW_BYTES)
+    def diffable_lines(self) -> list[str]:
+        """The lines with the memory in rows of 16 bytes, each with its address, so that a diff
+        of two transcripts points at the bytes that differ."""
+
+        rows = range(0, len(self.memory), MEMORY_ROW_BYTES)
+        return self.lines_with_memory(
+            [
+                f"mem 0x{row:03x} {self.memory[row : row + MEMORY_ROW_BYTES].hex(' ')}"
+                for row in rows
             ]
-        else:
-            lines.append(f"mem {self.memory.hex()}")
+        )
 
-        lines += [f"fb {row}" for row in self.framebuffer]
-        return lines
-
-    @property
-    def exit_status(self) -> int:
-        """The emulators' exit status for this run."""
-
-        return EXIT_STATUSES[self.status]
+    def lines_with_memory(self, memory: list[str]) -> list[str]:
+        return [
+            *map(str, self.trace),
+            f"status {self.status}",
+            f"steps {self.steps}",
+            f"pc 0x{self.pc:04x}",
+            *(f"r{index} 0x{value:04x}" for index, value in enumerate(self.registers)),
+            *memory,
+            *(f"fb {row}" for row in self.framebuffer),
+        ]
 
     @property
     def pixels(self) -> frozenset[tuple[int, int]]:
@@ -147,10 +151,13 @@ class Transcript:
 
 
 class Lines:
-    """Output lines, consumed front to back by the parser."""
+    """The lines of an output, consumed front to back."""
 
-    def __init__(self, lines: list[str]) -> None:
-        self.lines = lines
+    def __init__(self, text: str) -> None:
+        if not text.endswith("\n"):
+            raise TranscriptError("the output does not end with a newline")
+
+        self.lines = text.removesuffix("\n").split("\n")
         self.index = 0
 
     def peek(self) -> str | None:

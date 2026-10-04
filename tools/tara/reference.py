@@ -1,8 +1,8 @@
 """The reference model: TARA Studio's CPU, corrected to follow the RTL description.
 
-TARA Studio's emulator (taracpu 1.2.2) is an implementation of TARA independent of the Sail
-model. Where it departs from the RTL description, `Reference` overrides it; each override is one
-of the discrepancies the README lists. The emulators must print exactly what `run` returns.
+TARA Studio's emulator (taracpu 1.2.2) implements TARA independently of the Sail model. Where it
+departs from the RTL description, `Reference` overrides it; each override is one of the
+discrepancies the README lists.
 """
 
 from collections.abc import Sequence
@@ -12,23 +12,22 @@ from typing import override
 
 from src.simulation.cpu import TaraCPU
 
+from tara.assembly import Bare, Jump
+from tara.emulator import RunOptions
 from tara.isa import (
     ADDRESS_MASK,
-    CALL,
     FRAMEBUFFER,
     INPUT_PORT,
     LINK_REGISTER,
-    RET,
     SCREEN_SIZE,
     WORD_BYTES,
     mnemonic,
 )
-from tara.keys import KeySchedule
-from tara.transcript import SET_PIXEL, Status, TraceLine, Transcript
+from tara.transcript import CLEAR_PIXEL, SET_PIXEL, Status, TraceLine, Transcript
 
-DEFAULT_MAX_STEPS = 1_000_000
 PIXELS_PER_BYTE = 8
-CLEAR_PIXEL = "."
+ROW_BYTES = SCREEN_SIZE // PIXELS_PER_BYTE
+PIXELS = str.maketrans("01", CLEAR_PIXEL + SET_PIXEL)
 
 
 class Step(Enum):
@@ -38,7 +37,7 @@ class Step(Enum):
     ILLEGAL = auto()
 
 
-@dataclass(eq=False)
+@dataclass(eq=False, kw_only=True)
 class StudioFault(Exception):
     """TARA Studio's CPU reported an error, which the corrections should make impossible."""
 
@@ -78,7 +77,7 @@ class Reference(TaraCPU):
         """Correction: word accesses ignore address bit 0."""
 
         even = addr & ADDRESS_MASK & ~1
-        self.mem[even : even + WORD_BYTES] = (val & 0xFFFF).to_bytes(WORD_BYTES, "big")
+        self.mem[even : even + WORD_BYTES] = (val & 0xFFFF).to_bytes(WORD_BYTES)
 
     def advance(self) -> Step:
         """Fetch, decode and execute one instruction with the current input lines."""
@@ -100,77 +99,60 @@ class Reference(TaraCPU):
         if self.error is not None:
             raise StudioFault(pc=pc, message=self.error)
 
-        if name != RET:
+        if name != Bare.Mnemonic.RET:
             self.pc = (self.pc + odd) & ADDRESS_MASK
 
-        if name == CALL:
+        if name == Jump.Mnemonic.CALL:
             # Correction: the link is the masked PC + 2, like every PC value; Studio links 0x800
             # for a CALL at 0x7FE.
             self.reg[LINK_REGISTER] = (pc + WORD_BYTES) & ADDRESS_MASK
 
         return Step.RETIRED
 
-    def pixel(self, x: int, y: int) -> bool:
-        """Pixel (x, y) of the framebuffer; y = 0 is the bottom row."""
-
-        byte = self.mem[FRAMEBUFFER + y * SCREEN_SIZE // PIXELS_PER_BYTE + x // PIXELS_PER_BYTE]
-        return bool(byte >> (PIXELS_PER_BYTE - 1 - x % PIXELS_PER_BYTE) & 1)
-
+    @property
     def framebuffer(self) -> tuple[str, ...]:
-        """The framebuffer rows as the emulators print them, top row (y = 63) first."""
+        """The framebuffer rows as `run --framebuffer` prints them, top row (y = 63) first; the
+        most significant bit of a byte is its leftmost pixel."""
 
+        rows = (FRAMEBUFFER + y * ROW_BYTES for y in reversed(range(SCREEN_SIZE)))
         return tuple(
-            "".join(SET_PIXEL if self.pixel(x, y) else CLEAR_PIXEL for x in range(SCREEN_SIZE))
-            for y in reversed(range(SCREEN_SIZE))
+            "".join(
+                f"{byte:0{PIXELS_PER_BYTE}b}" for byte in self.mem[row : row + ROW_BYTES]
+            ).translate(PIXELS)
+            for row in rows
         )
 
+    def run(self, options: RunOptions, *, disassembly: Sequence[str]) -> Transcript:
+        """What `run` prints for this program with `options`. `disassembly` is the text of every
+        word as the emulator under test's `disasm` prints it: the trace takes its assembly from
+        there, since the model's syntax is not re-implemented here."""
 
-def run(
-    memory: bytes,
-    *,
-    keys: KeySchedule | None = None,
-    max_steps: int | None = DEFAULT_MAX_STEPS,
-    disassembly: Sequence[str] | None = None,
-    framebuffer: bool = False,
-) -> Transcript:
-    """Run a program from power-on until it halts, `max_steps` instructions retire (None: no
-    limit) or it fetches an unassigned opcode; what an emulator prints for that run.
+        trace: list[TraceLine] = []
+        retired = 0
+        status = Status.HALTED
+        while not self.halted:
+            if retired == options.max_steps:
+                status = Status.LIMIT
+                break
 
-    With `disassembly`, the text of every word as the emulator's `disasm` prints it, the
-    transcript has a trace line per step: the model's assembly syntax is not re-implemented here.
-    """
-
-    schedule = keys or KeySchedule()
-    machine = Reference(memory)
-    steps: list[TraceLine] = []
-    retired = 0
-    status = Status.HALTED
-    while not machine.halted:
-        if retired == max_steps:
-            status = Status.LIMIT
-            break
-
-        machine.keys = schedule.at(retired)
-        pc, word = machine.pc, machine.read_word(machine.pc)
-        result = machine.advance()
-        if disassembly is not None:
-            step = TraceLine(
-                pc=pc, word=word, registers=tuple(machine.reg), assembly=disassembly[word]
+            self.keys = int(options.keys.at(retired))  # Studio computes with what it reads
+            pc, word = self.pc, self.read_word(self.pc)
+            step = self.advance()
+            trace.append(
+                TraceLine(pc=pc, word=word, registers=tuple(self.reg), assembly=disassembly[word])
             )
-            steps.append(step)
+            if step is Step.ILLEGAL:
+                status = Status.ILLEGAL
+                break
 
-        if result is Step.ILLEGAL:
-            status = Status.ILLEGAL
-            break
+            retired += 1
 
-        retired += 1
-
-    return Transcript(
-        trace=tuple(steps),
-        status=status,
-        steps=retired,
-        pc=machine.pc,
-        registers=tuple(machine.reg),
-        memory=bytes(machine.mem),
-        framebuffer=machine.framebuffer() if framebuffer else (),
-    )
+        return Transcript(
+            trace=tuple(trace) if options.trace else (),
+            status=status,
+            steps=retired,
+            pc=self.pc,
+            registers=tuple(self.reg),
+            memory=bytes(self.mem),
+            framebuffer=self.framebuffer if options.framebuffer else (),
+        )
