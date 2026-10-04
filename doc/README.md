@@ -13,6 +13,7 @@ just test -k doc    # the specification's tests
 
 - `styles.css` and `theme.yml` style the HTML and the PDF, with the fonts from `nix/doc-fonts.nix`.
 - `sections.rb` numbers the sections and aligns the numbers in the table of contents.
+- `table_widths.rb` makes the PDF measure a table cell at the table's font size, so a table sized to its contents (autowidth) is as wide as its text.
 - `sail_config.json` sets the width of the listings.
 
 ## What the generated parts assume
@@ -32,7 +33,7 @@ The generator:
 
 - The opcode table lists every value of a single leading opcode field when such a field tells the instructions apart and no encoding is guarded; otherwise the table lists each instruction's encoding, with a condition column if any is guarded.
 - A format is a layout of field names and widths; unnamed fixed bits have a blank label and ignored bits `-`. Formats are numbered in the order of their first encodings.
-- The format table has a column per run of bits between field boundaries, headed by its first and last bit.
+- The format table has a column per run of bits between field boundaries, headed by its first and last bit. The opcode and encoding tables are sized to their contents.
 - An instruction's mnemonic is the first word of its syntax, and a constructor's heading is at level 4 (`--section-level`), under the headings of the anchors before it.
 
 By hand:

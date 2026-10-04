@@ -33,7 +33,8 @@ bundle: documentation-sources
 # Place the AsciiDoc layout and its styles beside the bundle.
 [private]
 specification: bundle
-    cp doc/main.adoc doc/styles.css doc/theme.yml doc/cover.svg doc/sections.rb "{{ out }}/"
+    cp doc/main.adoc doc/styles.css doc/theme.yml doc/cover.svg doc/sections.rb \
+        doc/table_widths.rb "{{ out }}/"
 
 # Derive the instruction metadata from the model's encdec and assembly mappings and execute.
 [private]
@@ -59,7 +60,8 @@ fonts: font-directory
 # Render the PDF, build/doc/tara.pdf; a warning is an error.
 [default]
 build: specification sections fonts
-    asciidoctor-pdf -r asciidoctor-sail -r "{{ out }}/sections.rb" --failure-level WARN \
+    asciidoctor-pdf -r asciidoctor-sail -r "{{ out }}/sections.rb" \
+        -r "{{ out }}/table_widths.rb" --failure-level WARN \
         -a pdf-theme="{{ out }}/theme.yml" -a pdf-fontsdir="{{ out }}/fonts" \
         -o "{{ out }}/tara.pdf" "{{ out }}/main.adoc"
 
