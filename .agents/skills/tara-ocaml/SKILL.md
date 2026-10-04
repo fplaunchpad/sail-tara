@@ -15,6 +15,7 @@ Apply these conventions to hand-written OCaml in this repository, including the 
 - Prefer types that express valid states over repeated run-time checks. Use named constants for fixed values and spellings.
 - Keep conversions in the type's owning module, such as `Keys.Line.of_key` and `Keys.Line.of_arrow`. Use a dedicated formatting operation such as `Hex.word` for a hex value.
 - Annotate record construction and destructuring explicitly, for example `({ image; max_steps; hz } : Options.t)`. Do not use module-qualified record syntax such as `Options.{ image; max_steps; hz }`.
+- Prefer annotated record patterns or local values to long module-qualified field projections. Match a potentially empty list explicitly instead of using `List.hd_exn` to obtain a field.
 
 ## Libraries, strings, and error handling
 

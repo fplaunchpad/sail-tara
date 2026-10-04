@@ -35,6 +35,8 @@ rules from that skill do not apply here.
   for values that are the names themselves, derive from `tara.assembly.Named`,
   which overrides `_generate_next_value_`. Keep per-member data in a table
   beside the enum.
+- Keep explicit `StrEnum` values for fixed AsciiDoc symbols, such as
+  `CENTERED = "^m"`; use those wire values directly instead of adding a marker property.
 - Make invalid combinations unrepresentable with types instead of checking them at
   run time: each instruction format of `tara.assembly` has its own `Mnemonic`.
 - Pass arguments by keyword when a call takes several, and declare records with
