@@ -31,8 +31,8 @@ just c                     # build build/c/tara-c; likewise ocaml, rocq, lean, l
 just lean smoke            # run the Fibonacci program on the generated Lean model
 just lem smoke             # the same on the OCaml extraction of the generated Lem
 just c run prog.tara -t    # assemble a program and run it; likewise ocaml
+just c play prog.tara      # assemble a program and play it in the terminal
 tara-asm prog.tara         # assemble to prog.bin; -o prog.hex for hex words
-build/c/tara-c -i prog.bin # play a program in the terminal (--help lists every option)
 just format                # format every language
 just lint                  # check the formatting, Python lint and types
 just ci                    # nix flake check
@@ -40,19 +40,18 @@ just ci                    # nix flake check
 
 ### The emulators
 
-`tara-c` and `tara-ocaml` take a program image (`.bin` bytes, or `.hex` words) and the same options:
+`tara-c` and `tara-ocaml` have the same three subcommands. Each takes a program image: `.bin` bytes, or `.hex` words.
 
-- `-t`, `--trace`: print a line per step: its PC, its instruction word, the registers after it and its disassembly.
-- `-n N`, `--max-steps N`: stop after N instructions (default 1000000; 0 for no limit).
-- `--keys K`: hold the input lines at K (0 to 31) for the whole run.
-- `--key-script FILE`: change the input lines as the run goes on, with `STEP KEYS` lines.
-- `--fb`: print the framebuffer after the final state.
-- `--disasm-all`: print the disassembly of every 16-bit word.
-- `-i`, `--interactive`: run in the terminal at `--hz` instructions a second (default 2000). 
-  The arrow keys or WASD drive the input lines, Q drives QUIT, and Esc quits.
+- `run [OPTION...] IMAGE` runs a program to its end and prints its final state (`status`, `steps`, `pc`, `r0` to `r7`, `mem`). Its options:
+  - `-t`, `--trace`: print a line per step first: its PC, its instruction word, the registers after it and its disassembly.
+  - `-n N`, `--max-steps N`: stop after N instructions (default 1000000; 0 for no limit).
+  - `--keys K`: hold the input lines at K (0 to 31) for the whole run.
+  - `--key-script FILE`: change the input lines as the run goes on, with `STEP KEYS` lines.
+  - `--framebuffer`: print the framebuffer after the final state.
+- `play [OPTION...] IMAGE` plays a program in the terminal: the arrow keys or WASD drive the input lines, Q drives QUIT, and Esc quits. Its options are `-n N` (no limit by default) and `--hz N`, instructions a second (default 2000; 0 for as fast as possible).
+- `disasm` prints the disassembly of every 16-bit word.
 
-A batch run ends by printing the final state (`status`, `steps`, `pc`, `r0` to `r7`, `mem`). 
-The exit status says how the run ended:
+`--help`, on its own or after a subcommand, lists the options. The exit status says how a run ended:
 
 - 0: the CPU halted.
 - 1: an error, such as a bad option or a bad image.

@@ -13,10 +13,9 @@ from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
 
-from tara.emulator import Emulator
+from tara.emulator import Emulator, Subcommand
 from tara.keys import Keys
 
-INTERACTIVE = "-i"
 RATE = "--hz"
 ESCAPE = "\x1b"
 CTRL_C = "\x03"
@@ -70,7 +69,7 @@ class Session:
         self.master, self.terminal = pty.openpty()
         self.settings = termios.tcgetattr(self.terminal)
         self.process = subprocess.Popen(
-            [emulator.path, INTERACTIVE, *arguments],
+            [emulator.path, Subcommand.PLAY, *arguments],
             stdin=self.terminal,
             stdout=self.terminal,
             stderr=self.terminal,
@@ -143,7 +142,7 @@ class Session:
         os.close(self.terminal)
 
 
-# The `start` fixture: starts a session with the given arguments after -i.
+# The `start` fixture: starts a session with the given arguments after `play`.
 type Start = Callable[..., Session]
 
 

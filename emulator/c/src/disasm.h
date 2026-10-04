@@ -1,4 +1,4 @@
-/* --disasm-all: the assembly text of every instruction word. */
+/* disasm: the assembly text of every instruction word. */
 #ifndef TARA_DISASM_H
 #define TARA_DISASM_H
 

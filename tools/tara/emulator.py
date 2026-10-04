@@ -1,14 +1,18 @@
-"""Running an emulator executable that follows the shared command line."""
+"""Running an emulator executable that follows the shared command line: the subcommands
+`run` (a program to its end), `play` (in the terminal) and `disasm` (every word)."""
 
 import subprocess
 from dataclasses import dataclass
+from enum import StrEnum
 from pathlib import Path
 
 from tara.isa import WORDS
 from tara.transcript import Transcript, TranscriptError
 
 TIMEOUT_SECONDS = 300
-DISASSEMBLE_ALL = "--disasm-all"
+
+# The emulators' subcommands.
+Subcommand = StrEnum("Subcommand", "RUN PLAY DISASM")
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -39,8 +43,8 @@ class Emulator:
     def name(self) -> str:
         return self.path.name
 
-    def run(self, *arguments: str | Path) -> Run:
-        """Run with `arguments` and no input, and wait for it to exit."""
+    def invoke(self, *arguments: str | Path) -> Run:
+        """Start the emulator with `arguments` and no input, and wait for it to exit."""
 
         completed = subprocess.run(
             [self.path, *arguments],
@@ -52,18 +56,26 @@ class Emulator:
         )
         return Run(status=completed.returncode, stdout=completed.stdout, stderr=completed.stderr)
 
-    def disassembly(self) -> tuple[str, ...]:
-        """The assembly text of every word, as `--disasm-all` prints it, indexed by word."""
+    def run(self, *arguments: str | Path) -> Run:
+        """`run` a program with `arguments`: the options, then the image."""
 
-        run = self.run(DISASSEMBLE_ALL)
+        return self.invoke(Subcommand.RUN, *arguments)
+
+    def disasm(self) -> Run:
+        """`disasm`: the assembly text of every word."""
+
+        return self.invoke(Subcommand.DISASM)
+
+    def disassembly(self) -> tuple[str, ...]:
+        """The assembly text of every word, as `disasm` prints it, indexed by word."""
+
+        run = self.disasm()
         if run.status != 0:
-            raise TranscriptError(
-                f"{DISASSEMBLE_ALL} exited with status {run.status}: {run.stderr}"
-            )
+            raise TranscriptError(f"disasm exited with status {run.status}: {run.stderr}")
 
         lines = run.stdout.splitlines()
         if len(lines) != WORDS:
-            raise TranscriptError(f"{DISASSEMBLE_ALL} printed {len(lines)} lines, not {WORDS}")
+            raise TranscriptError(f"disasm printed {len(lines)} lines, not {WORDS}")
 
         texts: list[str] = []
         for word, line in enumerate(lines):

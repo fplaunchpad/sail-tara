@@ -1,4 +1,4 @@
-/* Interactive mode (-i): play the program in the terminal.
+/* play: the program in the terminal.
  *
  * The screen is the framebuffer (see display.h) above a status line:
  *
@@ -18,6 +18,6 @@
 /* Returns the exit status: 0 if the player quit a run that was running or halted, 3 or 4 if it
  * had reached its step limit or fetched an illegal opcode, and 1 for an error, which is
  * reported before the terminal is touched or after it is restored. */
-int run_interactive(const struct options *options);
+int run_interactive(const struct play_options *options);
 
 #endif

@@ -133,7 +133,7 @@ def run(
     """Run a program from power-on until it halts, `max_steps` instructions retire (None: no
     limit) or it fetches an unassigned opcode; what an emulator prints for that run.
 
-    With `disassembly`, the text of every word as the emulator's --disasm-all prints it, the
+    With `disassembly`, the text of every word as the emulator's `disasm` prints it, the
     transcript has a trace line per step: the model's assembly syntax is not re-implemented here.
     """
 

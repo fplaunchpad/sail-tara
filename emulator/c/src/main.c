@@ -1,8 +1,8 @@
 /* TARA emulator: the C build of the Sail model.
  *
- * Run a program image from address 0 and print the final state (batch mode), play it in the
- * terminal (-i), or print the disassembly of every word (--disasm-all). Run `tara-c --help` for
- * the command line.
+ * Run a program image from address 0 and print the final state (tara-c run), play it in the
+ * terminal (tara-c play), or print the disassembly of every word (tara-c disasm). Run
+ * `tara-c --help` for the command line.
  *
  * Exit status: 0 halted, 1 error (usage, image, key script, terminal), 3 step limit, 4 illegal
  * opcode. An error prints a message on stderr and nothing on stdout.
@@ -21,32 +21,32 @@
 #include "options.h"
 #include "run.h"
 
-static int run_mode(const struct options *options) {
-  switch (options->mode) {
-  case MODE_BATCH:
-    return run_batch(options);
-  case MODE_INTERACTIVE:
-    return run_interactive(options);
-  case MODE_DISASM:
+/* Run the subcommand, and return the exit status. */
+static int run_subcommand(const struct command *command) {
+  switch (command->subcommand) {
+  case SUBCOMMAND_RUN:
+    return run_batch(&command->run);
+  case SUBCOMMAND_PLAY:
+    return run_interactive(&command->play);
+  case SUBCOMMAND_DISASM:
     return disassemble_all();
   }
   return EXIT_ERROR;
 }
 
 int main(int argc, char *argv[]) {
-  struct options options;
-  switch (parse_options(argc, argv, &options)) {
-  case OPTIONS_OK:
+  struct command command;
+  switch (parse_command_line(argc, argv, &command)) {
+  case PARSE_OK:
     break;
-  case OPTIONS_HELP:
-    print_usage(stdout);
+  case PARSE_HELP:
     return EXIT_SUCCESS;
-  case OPTIONS_ERROR:
+  case PARSE_ERROR:
     return EXIT_ERROR;
   }
 
   start_machine();
-  int status = run_mode(&options);
+  int status = run_subcommand(&command);
   stop_machine();
   return status;
 }

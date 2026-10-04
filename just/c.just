@@ -13,9 +13,13 @@ configure:
 build: configure
     cmake --build "{{ build }}/c"
 
-# Assemble a TARA program and run it: just c run PROGRAM.tara [OPTION...]
+# Assemble a TARA program and run it to its end: just c run PROGRAM.tara [OPTION...]
 run program *options: build (assemble program)
-    "{{ build }}/c/tara-c" "${@:2}" "{{ build }}/programs/$(basename "$1" .tara).bin"
+    "{{ build }}/c/tara-c" run "${@:2}" "{{ build }}/programs/$(basename "$1" .tara).bin"
+
+# Assemble a TARA program and play it in the terminal: just c play PROGRAM.tara [OPTION...]
+play program *options: build (assemble program)
+    "{{ build }}/c/tara-c" play "${@:2}" "{{ build }}/programs/$(basename "$1" .tara).bin"
 
 # Format the C sources in place.
 format:

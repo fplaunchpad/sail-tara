@@ -62,7 +62,7 @@ class TraceLine:
 @dataclass(frozen=True, kw_only=True)
 class Transcript:
     """Everything a batch run prints, parsed: the trace lines (with -t), the final state, and the
-    framebuffer rows (with --fb), top row (y = 63) first."""
+    framebuffer rows (with --framebuffer), top row (y = 63) first."""
 
     trace: tuple[TraceLine, ...]
     status: Status

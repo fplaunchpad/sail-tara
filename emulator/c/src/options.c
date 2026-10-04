@@ -4,6 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "keys.h"
 #include "number.h"
@@ -13,171 +14,201 @@
 #define DEFAULT_HZ 2000
 
 static const char USAGE[] =
-    "usage: " PROGRAM_NAME " [OPTION...] IMAGE\n"
-    "       " PROGRAM_NAME " --disasm-all\n"
+    "usage: " PROGRAM_NAME " run [OPTION...] IMAGE\n"
+    "       " PROGRAM_NAME " play [OPTION...] IMAGE\n"
+    "       " PROGRAM_NAME " disasm\n"
     "\n"
-    "Run a TARA program on the C build of the Sail model and print the final state. IMAGE is\n"
-    "loaded at address 0: a .bin file of raw bytes, or a .hex file of 16-bit words in hex.\n"
+    "Run TARA programs on the C build of the Sail model. IMAGE is loaded at address 0: a .bin\n"
+    "file of raw bytes, or a .hex file of 16-bit words in hex.\n"
     "\n"
-    "  -t, --trace         print a line per step: PC, word, registers after it, assembly\n"
-    "  -n, --max-steps N   stop after N retirements (default 1000000; 0: no limit)\n"
-    "      --keys K        input lines 0-31, decimal or 0x hex (default 0)\n"
-    "      --key-script F  change the input lines during the run, \"STEP KEYS\" per line\n"
-    "      --fb            print the framebuffer after the final state\n"
-    "      --disasm-all    print the assembly of every 16-bit word; takes no IMAGE\n"
-    "  -i, --interactive   play in the terminal (no step limit unless -n is given)\n"
-    "      --hz N          interactive instructions per second (default 2000; 0: as fast as\n"
-    "                      possible)\n"
-    "  -h, --help          print this text\n"
+    "  run     run a program to its end and print what happened\n"
+    "  play    play a program in the terminal\n"
+    "  disasm  print the assembly of every 16-bit word\n"
     "\n"
-    "Exit status: 0 halted, 1 error, 3 step limit, 4 illegal opcode.\n"
-    "Interactive: the arrow keys or w, a, s, d and q drive the input lines; Esc or Ctrl-C quits.\n";
+    "'" PROGRAM_NAME " SUBCOMMAND --help' lists the options of a subcommand.\n"
+    "Exit status: 0 halted, 1 error, 3 step limit, 4 illegal opcode.\n";
+
+static const char RUN_USAGE[] =
+    "usage: " PROGRAM_NAME " run [OPTION...] IMAGE\n"
+    "\n"
+    "Run the program to its end, then print its status, its steps and the final state.\n"
+    "\n"
+    "  -t, --trace            print a line per step: PC, word, registers after it, assembly\n"
+    "  -n, --max-steps N      stop after N retirements (default 1000000; 0: no limit)\n"
+    "      --keys K           input lines 0-31, decimal or 0x hex (default 0)\n"
+    "      --key-script FILE  change the input lines during the run, \"STEP KEYS\" per line\n"
+    "      --framebuffer      print the framebuffer after the final state\n"
+    "  -h, --help             print this text\n";
+
+static const char PLAY_USAGE[] =
+    "usage: " PROGRAM_NAME " play [OPTION...] IMAGE\n"
+    "\n"
+    "Play the program in the terminal. The arrow keys or w, a, s, d and q drive the input lines;\n"
+    "Esc or Ctrl-C quits.\n"
+    "\n"
+    "  -n, --max-steps N  stop after N retirements (default: no limit)\n"
+    "      --hz N         instructions per second (default 2000; 0: as fast as possible)\n"
+    "  -h, --help         print this text\n";
+
+static const char DISASM_USAGE[] =
+    "usage: " PROGRAM_NAME " disasm\n"
+    "\n"
+    "Print the assembly of every 16-bit word, 0000 to ffff, one \"WWWW TEXT\" line each.\n"
+    "\n"
+    "  -h, --help  print this text\n";
 
 /* The options that have no short form. */
-enum { OPT_KEYS = 256, OPT_KEY_SCRIPT, OPT_FB, OPT_DISASM_ALL, OPT_HZ };
+enum { OPT_KEYS = 256, OPT_KEY_SCRIPT, OPT_FRAMEBUFFER, OPT_HZ };
 
-static const char SHORT_OPTIONS[] = "tn:ih";
-
-static const struct option LONG_OPTIONS[] = {
+static const struct option RUN_OPTIONS[] = {
     {"trace", no_argument, NULL, 't'},
     {"max-steps", required_argument, NULL, 'n'},
     {"keys", required_argument, NULL, OPT_KEYS},
     {"key-script", required_argument, NULL, OPT_KEY_SCRIPT},
-    {"fb", no_argument, NULL, OPT_FB},
-    {"disasm-all", no_argument, NULL, OPT_DISASM_ALL},
-    {"interactive", no_argument, NULL, 'i'},
+    {"framebuffer", no_argument, NULL, OPT_FRAMEBUFFER},
+    {"help", no_argument, NULL, 'h'},
+    {NULL, 0, NULL, 0},
+};
+
+static const struct option PLAY_OPTIONS[] = {
+    {"max-steps", required_argument, NULL, 'n'},
     {"hz", required_argument, NULL, OPT_HZ},
     {"help", no_argument, NULL, 'h'},
     {NULL, 0, NULL, 0},
 };
 
-/* Which options were given, for the checks that need more than their values. */
-struct given {
-  bool max_steps, keys, interactive, disasm_all;
-  bool others; /* an option other than --disasm-all */
+static const struct option DISASM_OPTIONS[] = {
+    {"help", no_argument, NULL, 'h'},
+    {NULL, 0, NULL, 0},
 };
 
-/* Apply an option getopt_long found. Reports a bad value. */
-static bool apply(struct options *options, struct given *given, int option, const char *argument) {
+/* A subcommand's name, its help, and the options and operands it takes. */
+struct syntax {
+  const char *name;
+  enum subcommand subcommand;
+  const char *usage;
+  const char *short_options;
+  const struct option *long_options;
+  int operands; /* 1: IMAGE; 0: none */
+};
+
+static const struct syntax SUBCOMMANDS[] = {
+    {"run", SUBCOMMAND_RUN, RUN_USAGE, "tn:h", RUN_OPTIONS, 1},
+    {"play", SUBCOMMAND_PLAY, PLAY_USAGE, "n:h", PLAY_OPTIONS, 1},
+    {"disasm", SUBCOMMAND_DISASM, DISASM_USAGE, "h", DISASM_OPTIONS, 0},
+};
+
+static const struct syntax *find_subcommand(const char *name) {
+  for (size_t i = 0; i < sizeof SUBCOMMANDS / sizeof *SUBCOMMANDS; ++i) {
+    if (strcmp(SUBCOMMANDS[i].name, name) == 0) {
+      return &SUBCOMMANDS[i];
+    }
+  }
+  return NULL;
+}
+
+static bool parse_count(const char *option, const char *argument, uint64_t *count) {
+  if (!parse_decimal(argument, UINT64_MAX, count)) {
+    return report_error("%s: '%s' is not a count (decimal digits)", option, argument);
+  }
+  return true;
+}
+
+/* Apply an option that getopt_long found; the subcommand's table admits only its own. Reports a
+ * bad value. */
+static bool apply(struct command *command, int option, const char *argument) {
   switch (option) {
   case 't':
-    options->trace = true;
+    command->run.trace = true;
     return true;
   case 'n':
-    given->max_steps = true;
-    if (!parse_decimal(argument, UINT64_MAX, &options->max_steps)) {
-      return report_error("--max-steps: '%s' is not a count (decimal digits)", argument);
+    if (command->subcommand == SUBCOMMAND_PLAY) {
+      return parse_count("--max-steps", argument, &command->play.max_steps);
     }
-    return true;
+    return parse_count("--max-steps", argument, &command->run.max_steps);
   case OPT_KEYS:
-    given->keys = true;
-    if (!parse_keys(argument, &options->keys)) {
+    if (!parse_keys(argument, &command->run.keys)) {
       return report_error("--keys: '%s' is not input lines (0-%u, decimal or 0x hex)", argument,
                           KEYS_MAX);
     }
     return true;
   case OPT_KEY_SCRIPT:
-    options->key_script = argument;
+    command->run.key_script = argument;
     return true;
-  case OPT_FB:
-    options->framebuffer = true;
-    return true;
-  case OPT_DISASM_ALL:
-    given->disasm_all = true;
-    return true;
-  case 'i':
-    given->interactive = true;
+  case OPT_FRAMEBUFFER:
+    command->run.framebuffer = true;
     return true;
   case OPT_HZ:
-    if (!parse_decimal(argument, UINT64_MAX, &options->hz)) {
-      return report_error("--hz: '%s' is not a rate (decimal digits)", argument);
-    }
-    return true;
+    return parse_count("--hz", argument, &command->play.hz);
   default:
     return report_error("option %d is not handled", option);
   }
 }
 
-/* Interactive mode plays a program: it prints no trace, framebuffer or final state, the input
- * lines come from the player, and it runs without a step limit unless -n gives one. */
-static bool check_interactive(struct options *options, const struct given *given) {
-  const struct {
-    const char *name;
-    bool given;
-  } batch_only[] = {
-      {"--trace", options->trace},
-      {"--fb", options->framebuffer},
-      {"--keys", given->keys},
-      {"--key-script", options->key_script != NULL},
-  };
-  for (size_t i = 0; i < sizeof batch_only / sizeof *batch_only; ++i) {
-    if (batch_only[i].given) {
-      return report_error("%s cannot be used with --interactive", batch_only[i].name);
-    }
+/* The operands after the options: IMAGE, or none. */
+static bool take_operands(struct command *command, const struct syntax *syntax, int count,
+                          char *const operand[]) {
+  if (count > syntax->operands) {
+    return report_error("%s: unexpected argument '%s'", syntax->name, operand[syntax->operands]);
+  }
+  if (count < syntax->operands) {
+    return report_error("%s: missing IMAGE", syntax->name);
   }
 
-  if (!given->max_steps) {
-    options->max_steps = 0;
+  if (command->subcommand == SUBCOMMAND_RUN) {
+    command->run.image = operand[0];
+  } else if (command->subcommand == SUBCOMMAND_PLAY) {
+    command->play.image = operand[0];
   }
   return true;
 }
 
-/* Check what getopt_long cannot: the options that do not go together, and the operands. */
-static bool check(struct options *options, const struct given *given, int operands,
-                  char *const operand[]) {
-  if (given->disasm_all) {
-    if (given->others) {
-      return report_error("--disasm-all cannot be combined with other options");
-    }
-    if (operands > 0) {
-      return report_error("--disasm-all takes no IMAGE");
-    }
-    options->mode = MODE_DISASM;
-    return true;
-  }
-
-  if (operands == 0) {
-    return report_error("missing IMAGE");
-  }
-  if (operands > 1) {
-    return report_error("unexpected argument '%s'", operand[1]);
-  }
-  options->image = operand[0];
-  if (!given->interactive) {
-    return true;
-  }
-  options->mode = MODE_INTERACTIVE;
-  return check_interactive(options, given);
+static enum parse_result fail(const char *help) {
+  fprintf(stderr, "Try '%s --help' for more information.\n", help);
+  return PARSE_ERROR;
 }
 
-static enum options_result fail(void) {
-  fputs("Try '" PROGRAM_NAME " --help' for more information.\n", stderr);
-  return OPTIONS_ERROR;
-}
+enum parse_result parse_command_line(int argc, char *argv[], struct command *command) {
+  *command = (struct command){
+      .run = {.max_steps = DEFAULT_MAX_STEPS},
+      .play = {.max_steps = 0, .hz = DEFAULT_HZ},
+  };
+  if (argc < 2) {
+    report_error("missing subcommand: run, play or disasm");
+    return fail(PROGRAM_NAME);
+  }
+  if (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-h") == 0) {
+    fputs(USAGE, stdout);
+    return PARSE_HELP;
+  }
 
-enum options_result parse_options(int argc, char *argv[], struct options *options) {
-  *options = (struct options){.mode = MODE_BATCH, .max_steps = DEFAULT_MAX_STEPS, .hz = DEFAULT_HZ};
-  struct given given = {0};
+  const struct syntax *syntax = find_subcommand(argv[1]);
+  if (!syntax) {
+    report_error("'%s' is not a subcommand: run, play or disasm", argv[1]);
+    return fail(PROGRAM_NAME);
+  }
+  command->subcommand = syntax->subcommand;
 
+  /* The subcommand's arguments follow its name, which getopt_long takes for the program's name
+   * in its own messages. */
   static char program_name[] = PROGRAM_NAME;
-  argv[0] = program_name; /* getopt_long names the program in its own messages */
+  argv[1] = program_name;
+  int count = argc - 1;
+  char **arguments = argv + 1;
   /* getopt_long keeps global state, so it is not thread safe; options are parsed once, first. */
   // NOLINTNEXTLINE(concurrency-mt-unsafe)
-  for (int option; (option = getopt_long(argc, argv, SHORT_OPTIONS, LONG_OPTIONS, NULL)) != -1;) {
+  for (int option; (option = getopt_long(count, arguments, syntax->short_options,
+                                         syntax->long_options, NULL)) != -1;) {
     if (option == 'h') {
-      return OPTIONS_HELP;
+      fputs(syntax->usage, stdout);
+      return PARSE_HELP;
     }
-    if (option == '?' || !apply(options, &given, option, optarg)) {
-      return fail();
-    }
-    if (option != OPT_DISASM_ALL) {
-      given.others = true;
+    if (option == '?' || !apply(command, option, optarg)) {
+      return fail(PROGRAM_NAME);
     }
   }
-  if (!check(options, &given, argc - optind, argv + optind)) {
-    return fail();
+  if (!take_operands(command, syntax, count - optind, arguments + optind)) {
+    return fail(PROGRAM_NAME);
   }
-  return OPTIONS_OK;
+  return PARSE_OK;
 }
-
-void print_usage(FILE *out) { fputs(USAGE, out); }

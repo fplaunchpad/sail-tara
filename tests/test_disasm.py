@@ -1,4 +1,4 @@
-"""The model's disassembler, through --disasm-all, against TARA Studio's assembler and opcode
+"""The model's disassembler, through disasm, against TARA Studio's assembler and opcode
 table."""
 
 from itertools import batched
@@ -13,7 +13,7 @@ BATCH = MEMORY_BYTES // WORD_BYTES
 
 
 def test_lists_every_word_in_order(emulator: Emulator) -> None:
-    run = emulator.run("--disasm-all")
+    run = emulator.disasm()
 
     assert run.status == 0
     assert [line[:5] for line in run.stdout.splitlines()] == [f"{w:04x} " for w in range(WORDS)]

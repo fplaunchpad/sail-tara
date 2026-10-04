@@ -41,7 +41,7 @@ enum wait_result { WAIT_ELAPSED, WAIT_QUIT, WAIT_LOST };
 /* Why the play ended: the player quit, or the terminal failed. */
 enum play_end { PLAY_QUIT, PLAY_WRITE_FAILED, PLAY_TERMINAL_LOST };
 
-static void init_player(struct player *player, const struct options *options) {
+static void init_player(struct player *player, const struct play_options *options) {
   start_run(&player->run, options->max_steps);
   init_input(&player->input);
   reset_display(&player->display);
@@ -172,9 +172,9 @@ static enum play_end play(struct player *player) {
   }
 }
 
-int run_interactive(const struct options *options) {
+int run_interactive(const struct play_options *options) {
   if (!terminal_attached()) {
-    report_error("--interactive needs a terminal on standard input and output");
+    report_error("play needs a terminal on standard input and output");
     return EXIT_ERROR;
   }
   if (!load_program(options->image) || !open_terminal()) {

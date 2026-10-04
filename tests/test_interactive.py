@@ -131,7 +131,7 @@ def test_exit_status_follows_the_end_of_the_run(
     "options",
     [
         pytest.param(["-t"], id="trace"),
-        pytest.param(["--fb"], id="framebuffer"),
+        pytest.param(["--framebuffer"], id="framebuffer"),
         pytest.param(["--keys", "1"], id="keys"),
     ],
 )

@@ -45,13 +45,13 @@ static void print_result(const struct run *run, bool framebuffer) {
 }
 
 /* Load the key script, if any, and the image: everything that can fail before the run. */
-static bool load_inputs(const struct options *options, struct key_script *script) {
+static bool load_inputs(const struct run_options *options, struct key_script *script) {
   init_key_script(script, options->keys);
   return (!options->key_script || load_key_script(script, options->key_script)) &&
          load_program(options->image);
 }
 
-int run_batch(const struct options *options) {
+int run_batch(const struct run_options *options) {
   struct key_script script;
   if (!load_inputs(options, &script)) {
     free_key_script(&script);

@@ -7,7 +7,7 @@ import pytest
 from helpers.assertions import assert_rejected
 from helpers.programs import ProgramImage
 from tara import reference
-from tara.emulator import Emulator
+from tara.emulator import Emulator, Subcommand
 from tara.image import Image
 from tara.isa import MEMORY_BYTES
 from tara.keys import KeySchedule
@@ -37,7 +37,7 @@ def test_key_script_changes_the_input_lines(
 
 
 def test_framebuffer_shows_the_pixels_set(emulator: Emulator, program: ProgramImage) -> None:
-    transcript = emulator.run("--fb", program("pixels")).transcript
+    transcript = emulator.run("--framebuffer", program("pixels")).transcript
 
     assert transcript.pixels == {(0, 0), (63, 63)}
 
@@ -91,12 +91,36 @@ def test_loads_hex_images(emulator: Emulator, program: ProgramImage, tmp_path: P
         pytest.param(["--keys", "seven"], id="keys-not-a-number"),
         pytest.param(["-n", "-1"], id="negative-step-limit"),
         pytest.param(["-n", "many"], id="step-limit-not-a-number"),
-        pytest.param(["--hz", "-5"], id="negative-rate"),
-        pytest.param(["--interactive"], id="interactive-without-a-terminal"),
+        pytest.param(["--hz", "2000"], id="play-option"),
     ],
 )
-def test_rejects_bad_options(emulator: Emulator, program: ProgramImage, options: list[str]) -> None:
+def test_run_rejects_bad_options(
+    emulator: Emulator, program: ProgramImage, options: list[str]
+) -> None:
     assert_rejected(emulator.run(*options, program("keys")))
+
+
+@pytest.mark.parametrize(
+    "arguments",
+    [
+        pytest.param([], id="no-subcommand"),
+        pytest.param(["frobnicate"], id="unknown-subcommand"),
+        pytest.param(["--trace"], id="option-without-subcommand"),
+    ],
+)
+def test_rejects_bad_subcommands(emulator: Emulator, arguments: list[str]) -> None:
+    assert_rejected(emulator.invoke(*arguments))
+
+
+@pytest.mark.parametrize(
+    "options",
+    [
+        pytest.param(["--hz", "-5"], id="negative-rate"),
+        pytest.param([], id="no-terminal"),
+    ],
+)
+def test_play_rejects(emulator: Emulator, program: ProgramImage, options: list[str]) -> None:
+    assert_rejected(emulator.invoke(Subcommand.PLAY, *options, program("spin")))
 
 
 @pytest.mark.parametrize(
@@ -145,5 +169,5 @@ def test_requires_an_image(emulator: Emulator) -> None:
     assert_rejected(emulator.run())
 
 
-def test_disassembly_takes_no_image(emulator: Emulator, program: ProgramImage) -> None:
-    assert_rejected(emulator.run("--disasm-all", program("keys")))
+def test_disasm_takes_no_arguments(emulator: Emulator, program: ProgramImage) -> None:
+    assert_rejected(emulator.invoke(Subcommand.DISASM, program("keys")))
