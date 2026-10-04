@@ -6,6 +6,7 @@
   word_field
   encoding
   syntax
+  notation
   execution
   clause
   outline

@@ -33,6 +33,7 @@ end
 
 let id_string = Ast_util.string_of_id
 let fail_at location message = raise (Reporting.err_general location message)
+let pat_location (P_aux (_, (location, _))) = location
 let mpat_location (MP_aux (_, (location, _))) = location
 let exp_location (E_aux (_, (location, _))) = location
 
@@ -64,6 +65,25 @@ let source_span first last =
 ;;
 
 let source_text location = source_span location location
+
+let source_between first last =
+  match range first, range last with
+  | Some (_, (finish : Sail_file.position)), Some ((start : Sail_file.position), _)
+    when finish.pos_cnum <= start.pos_cnum ->
+    Some
+      (String.sub
+         (Sail_file.contents finish.pos_fname)
+         ~pos:finish.pos_cnum
+         ~len:(start.pos_cnum - finish.pos_cnum))
+  | _ -> None
+;;
+
+let same_start first second =
+  match range first, range second with
+  | Some ((first : Sail_file.position), _), Some ((second : Sail_file.position), _) ->
+    String.equal (file_of first) (file_of second) && first.pos_cnum = second.pos_cnum
+  | _ -> false
+;;
 
 let rec unwrap_pat (P_aux (aux, _) as pattern : tannot pat) =
   match aux with

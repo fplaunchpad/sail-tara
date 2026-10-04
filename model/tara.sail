@@ -40,7 +40,9 @@ $anchor section_instruction_formats
 === Opcodes
 
 Opcodes 27 to 31 are unassigned: no clause of `encdec` matches their words, and `step` reports them
-as `Illegal`.
+as `Illegal`. The execution column summarises each instruction's `execute` clause: `R[r]` is
+register `r`, `M[a](7:0)` and `M[a](15:0)` are the byte and the word at address `a`, `sext` and
+`zext` extend with the sign and with zeros, `++` concatenates, and PC is the next PC.
  */
 $anchor section_opcodes
 

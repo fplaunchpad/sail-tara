@@ -52,6 +52,7 @@ end
 
 val id_string : id -> string
 val fail_at : Parse_ast.l -> string -> 'a
+val pat_location : tannot pat -> Parse_ast.l
 val mpat_location : tannot mpat -> Parse_ast.l
 val exp_location : tannot exp -> Parse_ast.l
 
@@ -63,6 +64,12 @@ val source_file : Parse_ast.l -> string
 val source_text : Parse_ast.l -> string
 
 val source_span : Parse_ast.l -> Parse_ast.l -> string
+
+(** The text between the end of one location and the start of a later one. *)
+val source_between : Parse_ast.l -> Parse_ast.l -> string option
+
+(** Whether two locations start at the same place. *)
+val same_start : Parse_ast.l -> Parse_ast.l -> bool
 
 (** A pattern without its type annotations and bindings of the whole. *)
 val unwrap_pat : tannot pat -> tannot pat

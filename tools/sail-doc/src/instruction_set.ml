@@ -54,6 +54,7 @@ let read ~ast ~env ~encdec ~assembly ~execute =
       not (List.exists encodings ~f:(fun encoding -> String.equal encoding.constructor constructor))
     then Sail_ast.fail_at location [%string "%{encdec} has no clause for %{constructor}"]);
   let functions = Sail_ast.function_clauses ast in
+  let notation = Notation.read ast in
   let instructions =
     List.map encodings ~f:(fun encoding ->
       let required name = function
@@ -67,7 +68,7 @@ let read ~ast ~env ~encdec ~assembly ~execute =
        ; syntax = Syntax.read ~env ~mappings ~assembly encoding |> required assembly
        ; fields = encoding.fields
        ; condition = encoding.condition
-       ; execution = Execution.read ~env ~functions ~execute encoding |> required execute
+       ; execution = Execution.read ~env ~notation ~functions ~execute encoding |> required execute
        }
        : Instruction.t))
   in

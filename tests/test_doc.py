@@ -83,8 +83,10 @@ def test_opcode_table_shows_what_each_instruction_does(specification: Specificat
     execution = {row[1].split()[0]: row[2] for row in rows if row[0].isdecimal()}
 
     assert execution["NOP"] == ""
-    assert execution["ADD"] == "X(rd) = X(rs1) + X(rs2)"
-    assert execution["PUSH"] == "X(sp) = X(sp) - 0x0002 write_word(X(sp), X(rs))"
+    assert execution["ADD"] == "R[rd] = R[rs1] + R[rs2]"
+    assert execution["MUL"] == "R[rd] = (R[rs1] * R[rs2])(15:0)"
+    assert execution["BZ"] == "if (R[rs] == 0) PC = PC + 2 + 2 * sext(off)"
+    assert execution["PUSH"] == "R[sp] = R[sp] - 2 M[R[sp]](15:0) = R[rs]"
 
 
 @needs_plugin
@@ -330,22 +332,14 @@ def test_follows_the_source_order_of_anchors_and_constructors(tmp_path: Path) ->
 
 
 @needs_plugin
-def test_reads_the_execution_and_condition_of_each_instruction(tmp_path: Path) -> None:
+def test_writes_the_execution_in_the_model_s_notation(tmp_path: Path) -> None:
     instruction_set = InstructionSet.read(install(tmp_path, "riscish").output / METADATA)
 
     assert [(i.mnemonic, i.execution, i.condition) for i in instruction_set.instructions] == [
-        ("add", ("set_X(rd, X(rs1) + X(rs2))",), None),
-        ("sub", ("set_X(rd, X(rs1) - X(rs2))",), None),
-        (
-            "lw",
-            ("let address = X(rs1) + sail_sign_extend(imm, 32)", "set_X(rd, load(address))"),
-            None,
-        ),
-        (
-            "slli",
-            ("set_X(rd, sail_shiftleft(X(rs1), unsigned(shamt)))",),
-            "shamt[5] == bitzero",
-        ),
+        ("add", ("x[rd] = x[rs1] + x[rs2]",), None),
+        ("sub", ("x[rd] = x[rs1] - x[rs2]",), None),
+        ("lw", ("address = x[rs1] + sext(imm)", "x[rd] = M[address](31:0)"), None),
+        ("slli", ("x[rd] = x[rs1] << shamt",), "shamt[5] == bitzero"),
     ]
 
 

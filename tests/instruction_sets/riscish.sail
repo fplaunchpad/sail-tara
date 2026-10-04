@@ -18,8 +18,11 @@ type funct7 = bits(7)
 
 enum rop = {RISCV_ADD, RISCV_SUB}
 
+$[notation "x[{0}]"]
 val X : regidx -> word
+$[notation "x[{0}] = {1}"]
 val set_X : (regidx, word) -> unit
+$[notation "M[{0}](31:0)"]
 val load : word -> word
 
 scattered union instruction

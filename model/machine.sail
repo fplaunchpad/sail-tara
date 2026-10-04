@@ -97,16 +97,19 @@ register KEYS : bits(5)
 Not architectural state: the address of the next instruction, which `execute` may change before
 the drivers write it to PC.
  */
+$[notation PC]
 register nextPC : word
 
 /*!
 Reads register `r`. `X` stands for `rX` and `wX`: `X(r)` reads a register and `X(r) = v` writes
 one.
  */
+$[notation "R[{0}]"]
 function rX(r : regidx) -> word = GPR[unsigned(r)]
 
 /*!
 Writes `value` to register `r`. */
+$[notation "R[{0}] = {1}"]
 function wX(r : regidx, value : word) -> unit = {
     GPR[unsigned(r)] = value
 }
@@ -125,6 +128,7 @@ let sp : regidx = 0b111
 Keeps the low 11 bits of a PC value, as the RTL says: `PC 16-bit, +2 per fetch, masked to 0x7FF`.
 Every write of PC but reset's goes through it.
  */
+$[notation "{0}"]
 function pc_mask(value : word) -> word = 0b00000 @ value[10 .. 0]
 
 /*!
@@ -135,6 +139,7 @@ let input_port : address = 0b10111111111
 Reads a byte. Only the low 11 bits of the address count, so addresses wrap at 2048: `0xFFFF` reads
 the byte at `0x7FF`. The input port reads as the input lines, zero-extended.
  */
+$[notation "M[{0}](7:0)"]
 function read_byte(addr : word) -> byte = {
     let a : address = addr[10 .. 0];
     if a == input_port then {
@@ -148,6 +153,7 @@ function read_byte(addr : word) -> byte = {
 Writes a byte at the low 11 bits of the address. A store to the input port writes the memory
 behind it, which no read returns.
  */
+$[notation "M[{0}](7:0) = {1}"]
 function write_byte(addr : word, value : byte) -> unit = {
     MEM[unsigned(addr[10 .. 0])] = value
 }
@@ -159,11 +165,13 @@ memory is at `0x7FE`. A word read is two byte reads, so a read that covers the i
 input lines as its low byte; the RTL does not say, and the model assumes so. Instruction fetch is a
 word read.
  */
+$[notation "M[{0}](15:0)"]
 function read_word(addr : word) -> word =
     read_byte(addr[15 .. 1] @ 0b0) @ read_byte(addr[15 .. 1] @ 0b1)
 
 /*!
 Writes a word, high byte first, ignoring bit 0 of the address as `read_word` does. */
+$[notation "M[{0}](15:0) = {1}"]
 function write_word(addr : word, value : word) -> unit = {
     write_byte(addr[15 .. 1] @ 0b0, value[15 .. 8]);
     write_byte(addr[15 .. 1] @ 0b1, value[7 .. 0])
