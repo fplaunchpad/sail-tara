@@ -1,9 +1,9 @@
-# Hand-written, stdlib-only Python commands built on the TARA Studio modules.
+# Hand-written Python commands built on the TARA Studio modules.
 {
   lib,
   stdenvNoCC,
   makeWrapper,
-  python,
+  pythonRuntime,
   taracpu,
 }:
 
@@ -26,7 +26,7 @@ stdenvNoCC.mkDerivation {
     mkdir -p "$out/lib/tara-tools" "$out/bin"
     cp -r tara "$out/lib/tara-tools/"
     for command in ${lib.escapeShellArgs commands}; do
-      makeWrapper ${lib.getExe python} "$out/bin/tara-$command" \
+      makeWrapper ${pythonRuntime.interpreter} "$out/bin/tara-$command" \
         --add-flags "-m tara.$command" \
         --prefix PYTHONPATH : "$out/lib/tara-tools:${taracpu}/share/taracpu"
     done

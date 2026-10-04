@@ -1,12 +1,12 @@
 """Assemble TARA source with the TARA Studio assembler into a loadable image."""
 
-import argparse
-import sys
 from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
+from typing import override
 
+import click
 from src.assembler.asm import AssemblerError, assemble
 
 MEMORY_BYTES = 2048
@@ -19,12 +19,6 @@ class ImageFormat(StrEnum):
     BIN = ".bin"
     HEX = ".hex"
 
-    @classmethod
-    def of(cls, path: Path) -> ImageFormat:
-        """Return the format selected by `path`'s suffix."""
-
-        return cls(path.suffix)
-
     def render(self, words: Sequence[int]) -> bytes:
         """Encode instruction words, loaded from address 0, in this format."""
 
@@ -35,20 +29,67 @@ class ImageFormat(StrEnum):
                 return "".join(f"{word:04x}\n" for word in words).encode()
 
 
+@dataclass(frozen=True)
+class Image:
+    """A loadable image file, encoded as its suffix says."""
+
+    path: Path
+
+    def __post_init__(self) -> None:
+        if self.path.suffix not in ImageFormat:
+            formats = " or ".join(ImageFormat)
+            raise ValueError(f"{self.path}: expected a {formats} file")
+
+    @property
+    def format(self) -> ImageFormat:
+        """The encoding selected by the file suffix."""
+
+        return ImageFormat(self.path.suffix)
+
+    def write(self, words: Sequence[int]) -> None:
+        """Write instruction words, loaded from address 0, to this file."""
+
+        self.path.write_bytes(self.format.render(words))
+
+
+class ImageType(click.ParamType):
+    """Converts a command-line path to an `Image`."""
+
+    name = "image"
+
+    @override
+    def convert(
+        self, value: Image | str, param: click.Parameter | None, ctx: click.Context | None
+    ) -> Image:
+        if isinstance(value, Image):
+            return value
+
+        try:
+            return Image(Path(value))
+        except ValueError as error:
+            self.fail(str(error), param, ctx)
+
+
 @dataclass(eq=False)
-class AssemblyFailed(Exception):
+class AssemblyFailed(click.ClickException):
     """The assembler rejected `source`; `errors` keeps its diagnostics."""
 
     source: Path
     errors: tuple[AssemblerError, ...]
 
+    def __post_init__(self) -> None:
+        super().__init__("\n".join(f"{self.source}: {error}" for error in self.errors))
+
 
 @dataclass(eq=False)
-class ImageTooLarge(Exception):
+class ImageTooLarge(click.ClickException):
     """The assembled program does not fit in TARA memory."""
 
     source: Path
     size: int
+
+    def __post_init__(self) -> None:
+        super().__init__(f"{self.source}: {self.size} bytes exceed the {MEMORY_BYTES}-byte memory")
 
 
 def assemble_file(source: Path) -> list[int]:
@@ -69,44 +110,20 @@ def assemble_file(source: Path) -> list[int]:
     return [word for _address, word in placed]
 
 
-def image_path(value: str) -> Path:
-    """Validate an output path whose suffix names a supported image format."""
+@click.command()
+@click.argument("source", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.option(
+    "-o",
+    "--output",
+    type=ImageType(),
+    help="Output image: .bin (bytes) or .hex (a word per line). Default: SOURCE.bin.",
+)
+def main(source: Path, output: Image | None) -> None:
+    """Assemble SOURCE with the TARA Studio assembler into a loadable image."""
 
-    path = Path(value)
-    try:
-        ImageFormat.of(path)
-    except ValueError:
-        formats = ", ".join(ImageFormat)
-        raise argparse.ArgumentTypeError(f"{value}: expected one of {formats}") from None
-
-    return path
-
-
-def main(argv: Sequence[str] | None = None) -> int:
-    """Run the `tara-asm` command."""
-
-    parser = argparse.ArgumentParser(prog="tara-asm", description=__doc__)
-    parser.add_argument("source", type=Path, help="TARA assembly (.tara/.asm)")
-    parser.add_argument(
-        "-o", "--output", type=image_path, help="output image (.bin or .hex; default: SOURCE.bin)"
-    )
-    arguments = parser.parse_args(argv)
-    source: Path = arguments.source
-    output: Path = arguments.output or source.with_suffix(ImageFormat.BIN)
-
-    try:
-        words = assemble_file(source)
-    except AssemblyFailed as failure:
-        for error in failure.errors:
-            print(f"{failure.source}: {error}", file=sys.stderr)
-        return 1
-    except ImageTooLarge as failure:
-        print(f"{failure.source}: {failure.size} bytes exceed {MEMORY_BYTES}", file=sys.stderr)
-        return 1
-
-    output.write_bytes(ImageFormat.of(output).render(words))
-    return 0
+    image = output or Image(source.with_suffix(ImageFormat.BIN))
+    image.write(assemble_file(source))
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main(prog_name="tara-asm")

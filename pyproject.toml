@@ -3,7 +3,7 @@ name = "tara-tools"
 version = "0.1.0"
 description = "Reference-simulator wrappers and differential tests for the TARA Sail model"
 requires-python = ">=3.15.0rc2"
-dependencies = []
+dependencies = ["click==8.3.3"]
 
 [dependency-groups]
 dev = [

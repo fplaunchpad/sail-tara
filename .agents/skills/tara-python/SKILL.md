@@ -76,13 +76,35 @@ rules from that skill do not apply here.
   context before raising it.
   Preserve actual external diagnostics in clearly named fields.
 
+## Command-line interfaces
+
+Adapted from the CLI rules of `canard-python`.
+
+- Write commands with Click. Keep a command to typed conversion, diagnostics,
+  and rendering; module functions own the work.
+- Use native `click.argument` and `click.option` decorators,
+  `click.Path(path_type=Path)` for paths, and `click.Choice` for short closed
+  option sets.
+- Convert richer values with a `click.ParamType` subclass whose `convert`
+  returns the validated domain type and reports problems with `self.fail`. The
+  domain type validates the same invariant in its constructor.
+- Shared option bundles may use a generic `ParamSpec`/type-parameter decorator
+  with stacked Click decorators and `functools.wraps`; forward `*args` and
+  `**kwargs` unchanged and preserve the callback signature. Avoid manual
+  decorator loops and nested `option(function)` composition.
+- Report expected failures as `click.ClickException` subclasses: non-frozen
+  `@dataclass(eq=False)` records with typed fields that build their message in
+  `__post_init__`. Do not print diagnostics and return exit codes by hand.
+
 ## Tooling
 
 - Use `just python lint`, `just python format --check`, and
   `just python typecheck` inside the committed Nix environment. Apply
   formatting with `just python format`; do not use pip or `ruff format`.
-- Runtime code is standard-library only, so Nix sandbox builds and checks can
-  run it without uv or network access. Development tools (Ruff, Black,
-  Pyright) are locked in `uv.lock`; sync them with `just python sync`.
+- Runtime dependencies are the `[project] dependencies` of `pyproject.toml`
+  (currently Click), pinned with `==` to the releases nixpkgs provides. Nix
+  builds take them from nixpkgs and refuse to evaluate if a pin drifts, so
+  sandboxed builds need neither uv nor network access; uv locks the same
+  releases for development with Ruff, Black and Pyright (`just python sync`).
 - Pyright runs in strict mode. Untyped third-party modules get hand-written
   stubs under `typings/` instead of casts or `type: ignore` comments.
