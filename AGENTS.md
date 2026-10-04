@@ -12,7 +12,7 @@ The global `python`, `just`, `ocaml` and `cpp` skills hold the language rules. T
 ## Python
 
 - Runtime dependencies (`[project] dependencies`) and test dependencies (`[tool.tara] test-dependencies`) in `pyproject.toml` are pinned to the releases nixpkgs provides; the Nix build refuses to evaluate when a pin drifts. uv locks the same releases for Ruff, Black and Pyright.
-- Check with `just python lint`, `just python format --check` and `just python typecheck`; apply formatting with `just python format`.
+- `just python lint` runs Ruff, Black's check and Pyright; `just python format` applies Black.
 - TARA Studio's modules are untyped; their stubs live in `typings/`.
 - Enums whose values are their names derive from `tara.assembly.Named`.
 

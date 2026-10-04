@@ -20,13 +20,23 @@ format:
 
 # Check that the Sail sources are formatted.
 [private]
+[script("bash", "-euo", "pipefail")]
 format-check:
-    status=0; for file in {{ sources }}; do sail --sail-config {{ config }} --fmt --fmt-emit stdout "$file" | diff -u --label "$file" --label "$file (formatted)" "$file" - || status=1; done; exit "$status"
+    status=0
+    for file in {{ sources }}; do
+        sail --sail-config {{ config }} --fmt --fmt-emit stdout "$file" \
+            | diff -u --label "$file" --label "$file (formatted)" "$file" - || status=1
+    done
+    exit "$status"
 
 # Check that no Sail line is longer than the formatter's line width.
 [private]
+[script("bash", "-euo", "pipefail")]
 width-check:
-    LC_ALL=C awk -v width={{ width }} 'length > width { print FILENAME ":" FNR ": " length " columns"; status = 1 } END { exit status }' {{ sources }}
+    LC_ALL=C awk -v width={{ width }} '
+        length > width { print FILENAME ":" FNR ": " length " columns"; status = 1 }
+        END { exit status }
+    ' {{ sources }}
 
 # Check the formatting and line width of the Sail sources.
 lint: format-check width-check
