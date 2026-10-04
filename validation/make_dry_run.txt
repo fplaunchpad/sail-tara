@@ -1,0 +1,14 @@
+command -v "sail" >/dev/null 2>&1 || { \
+  echo 'ERROR: Sail compiler not found. No Sail validation was performed.' >&2; \
+  exit 127; \
+}
+sail --just-check tara.sail
+sail --just-check tests/test_tara.sail
+mkdir -p build
+sail -c -O tests/test_tara.sail -o build/tara_tests
+test -n "" && test -f "/sail.h" || { \
+  echo 'ERROR: set SAIL_LIB_DIR to the matching Sail C runtime directory containing sail.h.' >&2; \
+  exit 2; \
+}
+cc -O2 -I"" build/tara_tests.c ""/*.c -lgmp -lz -o build/tara_tests
+./build/tara_tests

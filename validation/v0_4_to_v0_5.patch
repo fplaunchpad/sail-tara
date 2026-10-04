@@ -1,0 +1,702 @@
+--- a/tara.sail
++++ b/tara.sail
+@@ -1,11 +1,14 @@
+-/* TARA instruction semantics -- proposal v0.4.
+- * Read this file first. Each instruction has its operands, encoding payload,
+- * and execution clause together. Support: machine.sail, encoding.sail, step.sail.
++/* TARA instruction-retirement semantics, v0.5.
+  *
+- * Public execution entries: run_instruction(env, insn), step(env),
+- * step_with(env, table). The scattered execute clauses are their shared worker:
+- * they assume a running CPU, fixed Platform, clear data events and nextPC=PC+2.
+- * No reset values are assumed. See README.md for initialization and status.
++ * Read this file first. Each instruction gives its operands, encoding payload,
++ * and execution. rd is a destination; rs/rs1/rs2 are sources. X reads/writes a
++ * writable 16-bit register. signed interprets two's complement; @ joins bits.
++ * Arithmetic wraps at the destination width. Memory offsets count bytes.
++ *
++ * Entry points: run_instruction(env, insn) for a decoded instruction; step(env)
++ * for live-memory fetch/decode/execute. execute is their internal clause worker:
++ * PC remains the old PC, and nextPC holds the proposed successor until commit.
++ * PROFILE.md records the unresolved hardware choices; README.md records status.
+  */
+ $ifndef _ISA_SPEC
+ $define _ISA_SPEC
+@@ -19,158 +22,252 @@
+ val execute : instruction -> unit
+ scattered function execute
+ 
+-/* No operation and halt. */
++/* No operation and halt. HLT still retires and advances PC. */
+ 
+ union clause instruction = NOP : unit
+-mapping clause encdec_fields = NOP()                  <-> (M_NOP, 0b00000000000)
+-function clause execute NOP() = ()
++mapping clause encdec_fields =
++  NOP() <-> (M_NOP, 0b00000000000)
++
++function clause execute NOP() = {
++  ()
++}
+ 
+ union clause instruction = HLT : unit
+-mapping clause encdec_fields = HLT()                  <-> (M_HLT, 0b00000000000)
+-function clause execute HLT() = { HALTED = true }
+-
+-/* Register moves and byte immediates. */
++mapping clause encdec_fields =
++  HLT() <-> (M_HLT, 0b00000000000)
++
++function clause execute HLT() = {
++  HALTED = true
++}
++
++/* Register moves and byte immediates.
++ * LIL clears the upper byte; LIH changes only the upper byte. */
+ 
+ union clause instruction = MOV : (regidx, regidx)
+-mapping clause encdec_fields = MOV(d, src)            <-> (M_MOV, d @ src @ 0b00000)
+-function clause execute MOV(d, src) = { X(d) = X(src) }
++mapping clause encdec_fields =
++  MOV(rd, rs) <-> (M_MOV, rd @ rs @ 0b00000)
++
++function clause execute MOV(rd, rs) = {
++  X(rd) = X(rs)
++}
+ 
+ union clause instruction = LIL : (regidx, bits(8))
+-mapping clause encdec_fields = LIL(d, imm)            <-> (M_LIL, d @ imm)
+-function clause execute LIL(d, imm) = { X(d) = 0x00 @ imm }
++mapping clause encdec_fields =
++  LIL(rd, imm) <-> (M_LIL, rd @ imm)
++
++function clause execute LIL(rd, imm) = {
++  X(rd) = 0x00 @ imm
++}
+ 
+ union clause instruction = LIH : (regidx, bits(8))
+-mapping clause encdec_fields = LIH(d, imm)            <-> (M_LIH, d @ imm)
+-function clause execute LIH(d, imm) = { X(d) = imm @ X(d)[7..0] }
++mapping clause encdec_fields =
++  LIH(rd, imm) <-> (M_LIH, rd @ imm)
++
++function clause execute LIH(rd, imm) = {
++  X(rd) = imm @ X(rd)[7..0]
++}
+ 
+ /* Data memory: (data register, base register, signed BYTE offset). */
+ 
+ union clause instruction = LDW : (regidx, regidx, bits(5))
+-mapping clause encdec_fields = LDW(data, base, off)   <-> (M_LDW, data @ base @ off)
+-function clause execute LDW(d, base, off) = {
+-  let addr : word = X(base) + signed(off);
+-  X(d) = load_word(addr)
++mapping clause encdec_fields =
++  LDW(rd, base, off) <-> (M_LDW, rd @ base @ off)
++
++function clause execute LDW(rd, base, off) = {
++  let addr : word = X(base) + signed(off);
++  X(rd) = load_word(addr)
+ }
+ 
+ union clause instruction = STW : (regidx, regidx, bits(5))
+-mapping clause encdec_fields = STW(data, base, off)   <-> (M_STW, data @ base @ off)
+-function clause execute STW(src, base, off) = {
+-  let addr : word = X(base) + signed(off);
+-  store_word(addr, X(src))
++mapping clause encdec_fields =
++  STW(rs, base, off) <-> (M_STW, rs @ base @ off)
++
++function clause execute STW(rs, base, off) = {
++  let addr : word = X(base) + signed(off);
++  store_word(addr, X(rs))
+ }
+ 
+ union clause instruction = LDB : (regidx, regidx, bits(5))
+-mapping clause encdec_fields = LDB(data, base, off)   <-> (M_LDB, data @ base @ off)
+-function clause execute LDB(d, base, off) = {
+-  let addr : word = X(base) + signed(off);
+-  X(d) = 0x00 @ load_byte(addr)
++mapping clause encdec_fields =
++  LDB(rd, base, off) <-> (M_LDB, rd @ base @ off)
++
++function clause execute LDB(rd, base, off) = {
++  let addr : word = X(base) + signed(off);
++  X(rd) = 0x00 @ load_byte(addr)
+ }
+ 
+ union clause instruction = STB : (regidx, regidx, bits(5))
+-mapping clause encdec_fields = STB(data, base, off)   <-> (M_STB, data @ base @ off)
+-function clause execute STB(src, base, off) = {
+-  let addr : word = X(base) + signed(off);
+-  store_byte(addr, X(src)[7..0])
++mapping clause encdec_fields =
++  STB(rs, base, off) <-> (M_STB, rs @ base @ off)
++
++function clause execute STB(rs, base, off) = {
++  let addr : word = X(base) + signed(off);
++  store_byte(addr, X(rs)[7..0])
+ }
+ 
+ /* Arithmetic: 16-bit results; ADDI has a signed immediate. */
+ 
+ union clause instruction = ADD : (regidx, regidx, regidx)
+-mapping clause encdec_fields = ADD(d, a, b)           <-> (M_ADD, d @ a @ b @ 0b00)
+-function clause execute ADD(d, a, b) = { X(d) = X(a) + X(b) }
++mapping clause encdec_fields =
++  ADD(rd, rs1, rs2) <-> (M_ADD, rd @ rs1 @ rs2 @ 0b00)
++
++function clause execute ADD(rd, rs1, rs2) = {
++  X(rd) = X(rs1) + X(rs2)
++}
+ 
+ union clause instruction = SUB : (regidx, regidx, regidx)
+-mapping clause encdec_fields = SUB(d, a, b)           <-> (M_SUB, d @ a @ b @ 0b00)
+-function clause execute SUB(d, a, b) = { X(d) = X(a) - X(b) }
++mapping clause encdec_fields =
++  SUB(rd, rs1, rs2) <-> (M_SUB, rd @ rs1 @ rs2 @ 0b00)
++
++function clause execute SUB(rd, rs1, rs2) = {
++  X(rd) = X(rs1) - X(rs2)
++}
+ 
+ union clause instruction = ADDI : (regidx, bits(8))
+-mapping clause encdec_fields = ADDI(d, imm)           <-> (M_ADDI, d @ imm)
+-function clause execute ADDI(d, imm) = { X(d) = X(d) + signed(imm) }
++mapping clause encdec_fields =
++  ADDI(rd, imm) <-> (M_ADDI, rd @ imm)
++
++function clause execute ADDI(rd, imm) = {
++  X(rd) = X(rd) + signed(imm)
++}
+ 
+ union clause instruction = MUL : (regidx, regidx, regidx)
+-mapping clause encdec_fields = MUL(d, a, b)           <-> (M_MUL, d @ a @ b @ 0b00)
+-function clause execute MUL(d, a, b) = { X(d) = mul_low(X(a), X(b)) }
+-
+-/* Bitwise operations and logical shifts. */
++mapping clause encdec_fields =
++  MUL(rd, rs1, rs2) <-> (M_MUL, rd @ rs1 @ rs2 @ 0b00)
++
++function clause execute MUL(rd, rs1, rs2) = {
++  let product = unsigned(X(rs1)) * unsigned(X(rs2));
++  X(rd) = get_slice_int(16, product, 0)  /* Keep the low 16 product bits. */
++}
++
++/* Bitwise operations and logical shifts.
++ * Use the full unsigned 8-bit count. Counts >=16 produce zero; do not mask. */
+ 
+ union clause instruction = AND : (regidx, regidx, regidx)
+-mapping clause encdec_fields = AND(d, a, b)           <-> (M_AND, d @ a @ b @ 0b00)
+-function clause execute AND(d, a, b) = { X(d) = X(a) & X(b) }
++mapping clause encdec_fields =
++  AND(rd, rs1, rs2) <-> (M_AND, rd @ rs1 @ rs2 @ 0b00)
++
++function clause execute AND(rd, rs1, rs2) = {
++  X(rd) = X(rs1) & X(rs2)
++}
+ 
+ union clause instruction = OR : (regidx, regidx, regidx)
+-mapping clause encdec_fields = OR(d, a, b)            <-> (M_OR, d @ a @ b @ 0b00)
+-function clause execute OR(d, a, b) = { X(d) = X(a) | X(b) }
++mapping clause encdec_fields =
++  OR(rd, rs1, rs2) <-> (M_OR, rd @ rs1 @ rs2 @ 0b00)
++
++function clause execute OR(rd, rs1, rs2) = {
++  X(rd) = X(rs1) | X(rs2)
++}
+ 
+ union clause instruction = XOR : (regidx, regidx, regidx)
+-mapping clause encdec_fields = XOR(d, a, b)           <-> (M_XOR, d @ a @ b @ 0b00)
+-function clause execute XOR(d, a, b) = { X(d) = X(a) ^ X(b) }
++mapping clause encdec_fields =
++  XOR(rd, rs1, rs2) <-> (M_XOR, rd @ rs1 @ rs2 @ 0b00)
++
++function clause execute XOR(rd, rs1, rs2) = {
++  X(rd) = X(rs1) ^ X(rs2)
++}
+ 
+ union clause instruction = NOT : (regidx, regidx)
+-mapping clause encdec_fields = NOT(d, src)            <-> (M_NOT, d @ src @ 0b00000)
+-function clause execute NOT(d, src) = { X(d) = not_vec(X(src)) }
++mapping clause encdec_fields =
++  NOT(rd, rs) <-> (M_NOT, rd @ rs @ 0b00000)
++
++function clause execute NOT(rd, rs) = {
++  X(rd) = not_vec(X(rs))
++}
+ 
+ union clause instruction = SHL : (regidx, bits(8))
+-mapping clause encdec_fields = SHL(d, imm)            <-> (M_SHL, d @ imm)
+-function clause execute SHL(d, imm) = { X(d) = shift_left(X(d), imm) }
++mapping clause encdec_fields =
++  SHL(rd, shamt) <-> (M_SHL, rd @ shamt)
++
++function clause execute SHL(rd, shamt) = {
++  let amount = unsigned(shamt);
++  X(rd) = if amount >= 16 then 0x0000 else sail_shiftleft(X(rd), amount)
++}
+ 
+ union clause instruction = SHR : (regidx, bits(8))
+-mapping clause encdec_fields = SHR(d, imm)            <-> (M_SHR, d @ imm)
+-function clause execute SHR(d, imm) = { X(d) = shift_right(X(d), imm) }
++mapping clause encdec_fields =
++  SHR(rd, shamt) <-> (M_SHR, rd @ shamt)
++
++function clause execute SHR(rd, shamt) = {
++  let amount = unsigned(shamt);
++  X(rd) = if amount >= 16 then 0x0000 else sail_shiftright(X(rd), amount)
++}
+ 
+ /* Signed comparison. */
+ 
+ union clause instruction = SLT : (regidx, regidx, regidx)
+-mapping clause encdec_fields = SLT(d, a, b)           <-> (M_SLT, d @ a @ b @ 0b00)
+-function clause execute SLT(d, a, b) = {
+-  X(d) = if signed(X(a)) < signed(X(b)) then 0x0001 else 0x0000
+-}
+-
+-/* Control flow: nextPC starts at old PC+2; offsets count instructions. */
++mapping clause encdec_fields =
++  SLT(rd, rs1, rs2) <-> (M_SLT, rd @ rs1 @ rs2 @ 0b00)
++
++function clause execute SLT(rd, rs1, rs2) = {
++  X(rd) = if signed(X(rs1)) < signed(X(rs2)) then 0x0001 else 0x0000
++}
++
++/* Control flow. PC is the current instruction address until retirement.
++ * A relative target is PC + 2 + 2*signed(off); offsets count instructions. */
+ 
+ union clause instruction = BZ : (regidx, bits(8))
+-mapping clause encdec_fields = BZ(test, off)          <-> (M_BZ, test @ off)
+-function clause execute BZ(test, off) = {
+-  if X(test) == 0x0000 then nextPC = nextPC + 2 * signed(off)
++mapping clause encdec_fields =
++  BZ(rs, off) <-> (M_BZ, rs @ off)
++
++function clause execute BZ(rs, off) = {
++  if X(rs) == 0x0000 then nextPC = PC + 0x0002 + 2 * signed(off)
+ }
+ 
+ union clause instruction = BN : (regidx, bits(8))
+-mapping clause encdec_fields = BN(test, off)          <-> (M_BN, test @ off)
+-function clause execute BN(test, off) = {
+-  if signed(X(test)) < 0 then nextPC = nextPC + 2 * signed(off)
++mapping clause encdec_fields =
++  BN(rs, off) <-> (M_BN, rs @ off)
++
++function clause execute BN(rs, off) = {
++  if signed(X(rs)) < 0 then nextPC = PC + 0x0002 + 2 * signed(off)
+ }
+ 
+ union clause instruction = JMP : bits(11)
+-mapping clause encdec_fields = JMP(off)               <-> (M_JMP, off)
+-function clause execute JMP(off) = { nextPC = nextPC + 2 * signed(off) }
++mapping clause encdec_fields =
++  JMP(off) <-> (M_JMP, off)
++
++function clause execute JMP(off) = {
++  nextPC = PC + 0x0002 + 2 * signed(off)
++}
+ 
+ union clause instruction = CALL : bits(11)
+-mapping clause encdec_fields = CALL(off)              <-> (M_CALL, off)
++mapping clause encdec_fields =
++  CALL(off) <-> (M_CALL, off)
++
+ function clause execute CALL(off) = {
+-  X(lr) = nextPC;
+-  nextPC = nextPC + 2 * signed(off)
++  X(lr) = PC + 0x0002;
++  nextPC = PC + 0x0002 + 2 * signed(off)
+ }
+ 
+ union clause instruction = RET : unit
+-mapping clause encdec_fields = RET()                  <-> (M_RET, 0b00000000000)
+-function clause execute RET() = { nextPC = X(lr) }
++mapping clause encdec_fields =
++  RET() <-> (M_RET, 0b00000000000)
++
++function clause execute RET() = {
++  nextPC = X(lr)
++}
+ 
+ /* Stack operations: explicit R7 alias policy. */
+ 
+ union clause instruction = PUSH : regidx
+-mapping clause encdec_fields = PUSH(r)                <-> (M_PUSH, r @ 0x00)
+-function clause execute PUSH(src) = {
++mapping clause encdec_fields =
++  PUSH(rs) <-> (M_PUSH, rs @ 0x00)
++
++function clause execute PUSH(rs) = {
+   let addr : word = X(sp) - 0x0002;
+   /* PUSH R7 stores the decremented SP, not the old SP. */
+-  let value : word = if src == sp then addr else X(src);
++  let value : word = if rs == sp then addr else X(rs);
+   store_word(addr, value);  /* Check/store before changing SP: no rollback. */
+   X(sp) = addr
+ }
+ 
+ union clause instruction = POP : regidx
+-mapping clause encdec_fields = POP(r)                 <-> (M_POP, r @ 0x00)
+-function clause execute POP(d) = {
++mapping clause encdec_fields =
++  POP(rd) <-> (M_POP, rd @ 0x00)
++
++function clause execute POP(rd) = {
+   let value = load_word(X(sp));
+-  X(d) = value;
++  X(rd) = value;
+   X(sp) = X(sp) + 0x0002  /* POP R7 increments the value just loaded. */
+ }
+ 
+--- a/machine.sail
++++ b/machine.sail
+@@ -1,5 +1,7 @@
+-/* TARA reference profile. See PROFILE.md for the unresolved hardware choices.
+- * Sail 0.20.3 target; this revision has not been compiler-validated.
++/* Machine support: state, specification boundaries, and the byte bus.
++ * Instruction-specific arithmetic stays beside the instruction in tara.sail.
++ * The byte bus is total after word alignment is checked. This is essential to
++ * the unchanged-architecture boundary contract; exceptions do not roll back.
+  */
+ default Order dec
+ $include <prelude.sail>
+@@ -22,11 +24,9 @@
+ register MEM : memory
+ register HALTED : bool
+ 
+-val rX : regidx -> word
+-function rX(r) = GPR[unsigned(r)]
++function rX(r : regidx) -> word = GPR[unsigned(r)]
+ 
+-val wX : (regidx, word) -> unit
+-function wX(r, value) = { GPR[unsigned(r)] = value }
++function wX(r : regidx, value : word) -> unit = { GPR[unsigned(r)] = value }
+ 
+ overload X = {rX, wX}
+ 
+@@ -64,23 +64,9 @@
+   NeedsSpecification : issue
+ }
+ 
+-val check_word_alignment : word -> unit
+-function check_word_alignment(addr) = {
++function check_word_alignment(addr : word) -> unit = {
+   if addr[0] == bitone then throw(SpecificationBoundary(OddWordAccess(addr)))
+ }
+-
+-/* Architectural arithmetic choices. The guards make the large-shift policy
+- * explicit. Multiplication uses Sail integers, then keeps the low 16 bits. */
+-val shift_left : (word, bits(8)) -> word
+-function shift_left(x, k) =
+-  if unsigned(k) >= 16 then 0x0000 else sail_shiftleft(x, unsigned(k))
+-
+-val shift_right : (word, bits(8)) -> word
+-function shift_right(x, k) =
+-  if unsigned(k) >= 16 then 0x0000 else sail_shiftright(x, unsigned(k))
+-
+-val mul_low : (word, word) -> word
+-function mul_low(x, y) = get_slice_int(16, unsigned(x) * unsigned(y), 0)
+ 
+ /* Platform inputs and observations are model bookkeeping, not CPU registers.
+  * Platform is fixed for one instruction attempt. Events retain the previous
+@@ -101,15 +87,26 @@
+ register Platform : environment
+ register Events : events
+ 
+-/* Internal byte bus: total at every logical address; low 11 bits select RAM.
+- * The slot parameter only locates an observation, never changes CPU behavior. */
+-val bus_read_byte : (word, range(0, 3)) -> byte
+-function bus_read_byte(addr, slot) = {
++/* Name access roles at call sites; flatten them only for the public trace.
++ * Fetch bytes occupy slots 0,1; data bytes occupy slots 2,3. */
++enum access_kind = { Fetch, Data }
++type byte_index = range(0, 1)
++
++function event_slot(kind : access_kind, index : byte_index) -> range(0, 3) =
++  match kind { Fetch => index, Data => 2 + index }
++
++let keyboard_address = 1535
++let framebuffer_start = 1536
++
++/* Internal byte bus. Low 11 address bits select physical memory.
++ * Each byte access fills exactly one observation slot, including None. */
++function bus_read_byte(addr : word, kind : access_kind, index : byte_index) -> byte = {
+   let p : physical_address = addr[10..0];
++  let slot = event_slot(kind, index);
+   Events[slot] = None();
+   match Platform {
+     KeyboardFramebuffer(keys) =>
+-      if unsigned(p) == 1535 then {
++      if unsigned(p) == keyboard_address then {
+         let value : byte = 0b000 @ keys;
+         Events[slot] = Some(InputRead(p, value));
+         value
+@@ -118,17 +115,18 @@
+   }
+ }
+ 
+-val bus_write_byte : (word, byte, range(0, 3)) -> unit
+-function bus_write_byte(addr, value, slot) = {
++function bus_write_byte(addr : word, value : byte,
++                        kind : access_kind, index : byte_index) -> unit = {
+   let p : physical_address = addr[10..0];
++  let slot = event_slot(kind, index);
+   Events[slot] = None();
+   match Platform {
+     KeyboardFramebuffer(_) =>
+-      if unsigned(p) == 1535 then {
++      if unsigned(p) == keyboard_address then {
+         Events[slot] = Some(InputWriteIgnored(p, value))
+       } else {
+         MEM[unsigned(p)] = value;
+-        if unsigned(p) >= 1536 then
++        if unsigned(p) >= framebuffer_start then
+           Events[slot] = Some(FramebufferWrite(p, value))
+       },
+     PlainRAM() => { MEM[unsigned(p)] = value }
+@@ -137,35 +135,29 @@
+ 
+ /* Big-endian word bus. Callers check alignment before making either access.
+  * Separate lets make the high-byte / low-byte observation order explicit. */
+-val bus_read_word : (word, range(0, 2)) -> word
+-function bus_read_word(addr, slot) = {
+-  let hi = bus_read_byte(addr, slot);
+-  let lo = bus_read_byte(addr + 0x0001, slot + 1);
++function bus_read_word(addr : word, kind : access_kind) -> word = {
++  let hi = bus_read_byte(addr, kind, 0);
++  let lo = bus_read_byte(addr + 0x0001, kind, 1);
+   hi @ lo
+ }
+ 
+-val bus_write_word : (word, word, range(0, 2)) -> unit
+-function bus_write_word(addr, value, slot) = {
+-  bus_write_byte(addr, value[15..8], slot);
+-  bus_write_byte(addr + 0x0001, value[7..0], slot + 1)
++function bus_write_word(addr : word, value : word, kind : access_kind) -> unit = {
++  bus_write_byte(addr, value[15..8], kind, 0);
++  bus_write_byte(addr + 0x0001, value[7..0], kind, 1)
+ }
+ 
+ /* Instruction-facing data access. Odd words fail before any data observation
+  * or architectural write; the underlying byte bus has no later failures. */
+-val load_byte : word -> byte
+-function load_byte(addr) = bus_read_byte(addr, 2)
++function load_byte(addr : word) -> byte = bus_read_byte(addr, Data, 0)
+ 
+-val store_byte : (word, byte) -> unit
+-function store_byte(addr, value) = bus_write_byte(addr, value, 2)
++function store_byte(addr : word, value : byte) -> unit = bus_write_byte(addr, value, Data, 0)
+ 
+-val load_word : word -> word
+-function load_word(addr) = {
++function load_word(addr : word) -> word = {
+   check_word_alignment(addr);
+-  bus_read_word(addr, 2)
++  bus_read_word(addr, Data)
+ }
+ 
+-val store_word : (word, word) -> unit
+-function store_word(addr, value) = {
++function store_word(addr : word, value : word) -> unit = {
+   check_word_alignment(addr);
+-  bus_write_word(addr, value, 2)
++  bus_write_word(addr, value, Data)
+ }
+--- a/encoding.sail
++++ b/encoding.sail
+@@ -4,8 +4,7 @@
+  */
+ type opcode_table = vector(32, option(mnemonic))
+ 
+-val opcodes_valid : opcode_table -> bool
+-function opcodes_valid(table) = {
++function opcodes_valid(table : opcode_table) -> bool = {
+   foreach (i from 0 to 31) {
+     foreach (j from 0 to 31) {
+       if i < j then match (table[i], table[j]) {
+@@ -17,14 +16,12 @@
+   true
+ }
+ 
+-val check_opcodes : opcode_table -> unit
+-function check_opcodes(table) = {
++function check_opcodes(table : opcode_table) -> unit = {
+   if not_bool(opcodes_valid(table)) then
+     throw(SpecificationBoundary(NoninjectiveOpcodeMap()))
+ }
+ 
+-val find_opcode : (opcode_table, mnemonic) -> option(opcode)
+-function find_opcode(table, mnemonic) = {
++function find_opcode(table : opcode_table, mnemonic : mnemonic) -> option(opcode) = {
+   foreach (j from 0 to 31) {
+     match table[j] {
+       Some(m) => if m == mnemonic then return Some(get_slice_int(5, j, 0)),
+@@ -34,8 +31,7 @@
+   None()
+ }
+ 
+-val encode_with : (opcode_table, instruction) -> word
+-function encode_with(table, insn) = {
++function encode_with(table : opcode_table, insn : instruction) -> word = {
+   check_opcodes(table);
+   let (mnemonic, payload) = encdec_fields(insn);
+   match find_opcode(table, mnemonic) {
+@@ -46,8 +42,7 @@
+ 
+ /* The partial mapping is matched, not called unchecked in reverse. Nonzero
+  * padding is therefore a reported model boundary, never a mapping failure. */
+-val decode_with : (opcode_table, word) -> instruction
+-function decode_with(table, raw) = {
++function decode_with(table : opcode_table, raw : word) -> instruction = {
+   check_opcodes(table);
+   match table[unsigned(raw[15..11])] {
+     Some(mnemonic) => match (mnemonic, raw[10..0]) {
+@@ -60,8 +55,7 @@
+ 
+ /* Only these seven assignments are evidenced by the hardware manual's
+  * Fibonacci words. No remaining opcode is guessed from an enum ordinal. */
+-val evidenced_opcodes : unit -> opcode_table
+-function evidenced_opcodes() = {
++function evidenced_opcodes() -> opcode_table = {
+   var table : opcode_table = vector_init(32, None());
+   table[1] = Some(M_HLT);
+   table[2] = Some(M_MOV);
+@@ -73,8 +67,6 @@
+   table
+ }
+ 
+-val encode : instruction -> word
+-function encode(insn) = encode_with(evidenced_opcodes(), insn)
++function encode(insn : instruction) -> word = encode_with(evidenced_opcodes(), insn)
+ 
+-val decode : word -> instruction
+-function decode(raw) = decode_with(evidenced_opcodes(), raw)
++function decode(raw : word) -> instruction = decode_with(evidenced_opcodes(), raw)
+--- a/step.sail
++++ b/step.sail
+@@ -2,8 +2,7 @@
+  * Only GPR, PC, MEM and HALTED are architectural. Events, Platform and nextPC
+  * are driver bookkeeping, excluded from the unchanged-architecture contract.
+  */
+-val begin_attempt : environment -> unit
+-function begin_attempt(env) = {
++function begin_attempt(env : environment) -> unit = {
+   Platform = env;
+   Events = vector_init(4, None())
+ }
+@@ -11,8 +10,7 @@
+ /* Internal worker, called only after the halted check. On a boundary, execute
+  * has not written architectural state. Sail exceptions provide NO rollback.
+  * A successful HLT still reaches the PC assignment below and retires once. */
+-val retire : instruction -> outcome
+-function retire(insn) = {
++function retire(insn : instruction) -> outcome = {
+   nextPC = PC + 0x0002;
+   execute(insn);
+   PC = nextPC;
+@@ -20,8 +18,7 @@
+ }
+ 
+ /* Decoded instructions have no fetch and do not require an aligned PC. */
+-val run_instruction : (environment, instruction) -> outcome
+-function run_instruction(env, insn) = {
++function run_instruction(env : environment, insn : instruction) -> outcome = {
+   begin_attempt(env);
+   if HALTED then return Stopped();
+   try { retire(insn) } catch {
+@@ -32,14 +29,13 @@
+ /* Fetch from LIVE unified memory. Keep fetch observations even if decode or
+  * data alignment reaches a boundary. Check the opcode table before fetching:
+  * an invalid table must not cause an input read at a memory-mapped PC. */
+-val step_with : (environment, opcode_table) -> outcome
+-function step_with(env, table) = {
++function step_with(env : environment, table : opcode_table) -> outcome = {
+   begin_attempt(env);
+   if HALTED then return Stopped();
+   if PC[0] == bitone then return NeedsSpecification(OddInstructionFetch(PC));
+   try {
+     check_opcodes(table);
+-    let raw = bus_read_word(PC, 0);
++    let raw = bus_read_word(PC, Fetch);
+     let insn = decode_with(table, raw);
+     retire(insn)
+   } catch {
+@@ -47,5 +43,4 @@
+   }
+ }
+ 
+-val step : environment -> outcome
+-function step(env) = step_with(env, evidenced_opcodes())
++function step(env : environment) -> outcome = step_with(env, evidenced_opcodes())
+--- a/tests/test_tara.sail
++++ b/tests/test_tara.sail
+@@ -145,9 +145,15 @@
+   assert(jmp_min.pc == 0x0802 & jmp_max.pc == 0x1800, "jump endpoint offsets")
+ }
+ 
++function assert_retired(result : outcome) -> unit = match result {
++  Retired() => (),
++  _ => assert(false, "expected retirement")
++}
++
+ val test_arithmetic_ranges : unit -> unit
+ function test_arithmetic_ranges() = {
+-  /* Every 8-bit shift count on 16 evenly spaced 16-bit values. */
++  install_state(zero_state());
++  /* All 256 shift counts on 16 evenly spaced words, through SHL/SHR. */
+   foreach (sample from 0 to 15) {
+     let x : word = get_slice_int(16, sample * 4369, 0);
+     foreach (amount from 0 to 255) {
+@@ -156,15 +162,21 @@
+         else get_slice_int(16, unsigned(x) * pow2(amount), 0);
+       let right : word = if amount >= 16 then 0x0000
+         else get_slice_int(16, tdiv_int(unsigned(x), pow2(amount)), 0);
+-      assert(shift_left(x, k) == left, "SHL profile");
+-      assert(shift_right(x, k) == right, "SHR profile")
++      X(0b000) = x;
++      assert_retired(run_instruction(PlainRAM(), SHL(0b000, k)));
++      assert(X(0b000) == left, "SHL profile");
++      X(0b000) = x;
++      assert_retired(run_instruction(PlainRAM(), SHR(0b000, k)));
++      assert(X(0b000) == right, "SHR profile")
+     }
+   };
+-  /* Every 16-bit x against one overflowing multiplication case. */
++  /* Every 16-bit x, through MUL, including destination/source aliasing. */
++  X(0b001) = 0xAAAB;
+   foreach (j from 0 to 65535) {
+-    let x : word = get_slice_int(16, j, 0);
++    X(0b000) = get_slice_int(16, j, 0);
+     let expected : word = get_slice_int(16, j * 43691, 0);
+-    assert(mul_low(x, 0xAAAB) == expected, "MUL low-half")
++    assert_retired(run_instruction(PlainRAM(), MUL(0b000, 0b000, 0b001)));
++    assert(X(0b000) == expected, "MUL low-half")
+   }
+ }
+ 
+@@ -454,6 +466,13 @@
+   expect_same_state(next_fetch.state, returned)
+ }
+ 
++function test_event_roles() -> unit = {
++  assert(event_slot(Fetch, 0) == 0);
++  assert(event_slot(Fetch, 1) == 1);
++  assert(event_slot(Data, 0) == 2);
++  assert(event_slot(Data, 1) == 3)
++}
++
+ val test_native_registers : unit -> unit
+ function test_native_registers() = {
+   let s = seed_state();
+@@ -502,6 +521,8 @@
+   print_endline("PASS: word-boundary atomicity and retained fetch observations");
+   test_attempt_precedence();
+   print_endline("PASS: attempt-boundary precedence and decoded entry");
++  test_event_roles();
++  print_endline("PASS: named fetch/data observation roles");
+   test_native_registers();
+   print_endline("PASS: native architectural state and scratch-state initialization")
+ }

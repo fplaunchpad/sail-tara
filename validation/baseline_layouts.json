@@ -1,0 +1,814 @@
+{
+  "provenance": "Frozen field expressions extracted from delivered v0.2 tara.sail; not hardware evidence.",
+  "source_sha256": "dacabfaedd7152373fd7e728130bf4df9ca93a08fdc1dc8df462a03e06c88162",
+  "instruction_order": [
+    "NOP",
+    "HLT",
+    "MOV",
+    "LIL",
+    "LIH",
+    "LDW",
+    "STW",
+    "LDB",
+    "STB",
+    "ADD",
+    "SUB",
+    "ADDI",
+    "MUL",
+    "AND",
+    "OR",
+    "XOR",
+    "NOT",
+    "SHL",
+    "SHR",
+    "SLT",
+    "BZ",
+    "BN",
+    "JMP",
+    "CALL",
+    "RET",
+    "PUSH",
+    "POP"
+  ],
+  "evidenced_opcodes": {
+    "HLT": 1,
+    "MOV": 2,
+    "LIL": 3,
+    "ADD": 9,
+    "ADDI": 11,
+    "BZ": 20,
+    "JMP": 22
+  },
+  "layouts": {
+    "NOP": {
+      "names": [],
+      "widths": [],
+      "parts": [
+        "op",
+        "0b00000000000"
+      ],
+      "slices": [],
+      "guard": [
+        10,
+        0,
+        0
+      ]
+    },
+    "HLT": {
+      "names": [],
+      "widths": [],
+      "parts": [
+        "op",
+        "0b00000000000"
+      ],
+      "slices": [],
+      "guard": [
+        10,
+        0,
+        0
+      ]
+    },
+    "MOV": {
+      "names": [
+        "d",
+        "src"
+      ],
+      "widths": [
+        3,
+        3
+      ],
+      "parts": [
+        "op",
+        "d",
+        "src",
+        "0b00000"
+      ],
+      "slices": [
+        [
+          10,
+          8
+        ],
+        [
+          7,
+          5
+        ]
+      ],
+      "guard": [
+        4,
+        0,
+        0
+      ]
+    },
+    "LIL": {
+      "names": [
+        "d",
+        "imm"
+      ],
+      "widths": [
+        3,
+        8
+      ],
+      "parts": [
+        "op",
+        "d",
+        "imm"
+      ],
+      "slices": [
+        [
+          10,
+          8
+        ],
+        [
+          7,
+          0
+        ]
+      ],
+      "guard": null
+    },
+    "LIH": {
+      "names": [
+        "d",
+        "imm"
+      ],
+      "widths": [
+        3,
+        8
+      ],
+      "parts": [
+        "op",
+        "d",
+        "imm"
+      ],
+      "slices": [
+        [
+          10,
+          8
+        ],
+        [
+          7,
+          0
+        ]
+      ],
+      "guard": null
+    },
+    "LDW": {
+      "names": [
+        "data",
+        "base",
+        "off"
+      ],
+      "widths": [
+        3,
+        3,
+        5
+      ],
+      "parts": [
+        "op",
+        "data",
+        "base",
+        "off"
+      ],
+      "slices": [
+        [
+          10,
+          8
+        ],
+        [
+          7,
+          5
+        ],
+        [
+          4,
+          0
+        ]
+      ],
+      "guard": null
+    },
+    "STW": {
+      "names": [
+        "data",
+        "base",
+        "off"
+      ],
+      "widths": [
+        3,
+        3,
+        5
+      ],
+      "parts": [
+        "op",
+        "data",
+        "base",
+        "off"
+      ],
+      "slices": [
+        [
+          10,
+          8
+        ],
+        [
+          7,
+          5
+        ],
+        [
+          4,
+          0
+        ]
+      ],
+      "guard": null
+    },
+    "LDB": {
+      "names": [
+        "data",
+        "base",
+        "off"
+      ],
+      "widths": [
+        3,
+        3,
+        5
+      ],
+      "parts": [
+        "op",
+        "data",
+        "base",
+        "off"
+      ],
+      "slices": [
+        [
+          10,
+          8
+        ],
+        [
+          7,
+          5
+        ],
+        [
+          4,
+          0
+        ]
+      ],
+      "guard": null
+    },
+    "STB": {
+      "names": [
+        "data",
+        "base",
+        "off"
+      ],
+      "widths": [
+        3,
+        3,
+        5
+      ],
+      "parts": [
+        "op",
+        "data",
+        "base",
+        "off"
+      ],
+      "slices": [
+        [
+          10,
+          8
+        ],
+        [
+          7,
+          5
+        ],
+        [
+          4,
+          0
+        ]
+      ],
+      "guard": null
+    },
+    "ADD": {
+      "names": [
+        "d",
+        "a",
+        "b"
+      ],
+      "widths": [
+        3,
+        3,
+        3
+      ],
+      "parts": [
+        "op",
+        "d",
+        "a",
+        "b",
+        "0b00"
+      ],
+      "slices": [
+        [
+          10,
+          8
+        ],
+        [
+          7,
+          5
+        ],
+        [
+          4,
+          2
+        ]
+      ],
+      "guard": [
+        1,
+        0,
+        0
+      ]
+    },
+    "SUB": {
+      "names": [
+        "d",
+        "a",
+        "b"
+      ],
+      "widths": [
+        3,
+        3,
+        3
+      ],
+      "parts": [
+        "op",
+        "d",
+        "a",
+        "b",
+        "0b00"
+      ],
+      "slices": [
+        [
+          10,
+          8
+        ],
+        [
+          7,
+          5
+        ],
+        [
+          4,
+          2
+        ]
+      ],
+      "guard": [
+        1,
+        0,
+        0
+      ]
+    },
+    "ADDI": {
+      "names": [
+        "d",
+        "imm"
+      ],
+      "widths": [
+        3,
+        8
+      ],
+      "parts": [
+        "op",
+        "d",
+        "imm"
+      ],
+      "slices": [
+        [
+          10,
+          8
+        ],
+        [
+          7,
+          0
+        ]
+      ],
+      "guard": null
+    },
+    "MUL": {
+      "names": [
+        "d",
+        "a",
+        "b"
+      ],
+      "widths": [
+        3,
+        3,
+        3
+      ],
+      "parts": [
+        "op",
+        "d",
+        "a",
+        "b",
+        "0b00"
+      ],
+      "slices": [
+        [
+          10,
+          8
+        ],
+        [
+          7,
+          5
+        ],
+        [
+          4,
+          2
+        ]
+      ],
+      "guard": [
+        1,
+        0,
+        0
+      ]
+    },
+    "AND": {
+      "names": [
+        "d",
+        "a",
+        "b"
+      ],
+      "widths": [
+        3,
+        3,
+        3
+      ],
+      "parts": [
+        "op",
+        "d",
+        "a",
+        "b",
+        "0b00"
+      ],
+      "slices": [
+        [
+          10,
+          8
+        ],
+        [
+          7,
+          5
+        ],
+        [
+          4,
+          2
+        ]
+      ],
+      "guard": [
+        1,
+        0,
+        0
+      ]
+    },
+    "OR": {
+      "names": [
+        "d",
+        "a",
+        "b"
+      ],
+      "widths": [
+        3,
+        3,
+        3
+      ],
+      "parts": [
+        "op",
+        "d",
+        "a",
+        "b",
+        "0b00"
+      ],
+      "slices": [
+        [
+          10,
+          8
+        ],
+        [
+          7,
+          5
+        ],
+        [
+          4,
+          2
+        ]
+      ],
+      "guard": [
+        1,
+        0,
+        0
+      ]
+    },
+    "XOR": {
+      "names": [
+        "d",
+        "a",
+        "b"
+      ],
+      "widths": [
+        3,
+        3,
+        3
+      ],
+      "parts": [
+        "op",
+        "d",
+        "a",
+        "b",
+        "0b00"
+      ],
+      "slices": [
+        [
+          10,
+          8
+        ],
+        [
+          7,
+          5
+        ],
+        [
+          4,
+          2
+        ]
+      ],
+      "guard": [
+        1,
+        0,
+        0
+      ]
+    },
+    "NOT": {
+      "names": [
+        "d",
+        "src"
+      ],
+      "widths": [
+        3,
+        3
+      ],
+      "parts": [
+        "op",
+        "d",
+        "src",
+        "0b00000"
+      ],
+      "slices": [
+        [
+          10,
+          8
+        ],
+        [
+          7,
+          5
+        ]
+      ],
+      "guard": [
+        4,
+        0,
+        0
+      ]
+    },
+    "SHL": {
+      "names": [
+        "d",
+        "imm"
+      ],
+      "widths": [
+        3,
+        8
+      ],
+      "parts": [
+        "op",
+        "d",
+        "imm"
+      ],
+      "slices": [
+        [
+          10,
+          8
+        ],
+        [
+          7,
+          0
+        ]
+      ],
+      "guard": null
+    },
+    "SHR": {
+      "names": [
+        "d",
+        "imm"
+      ],
+      "widths": [
+        3,
+        8
+      ],
+      "parts": [
+        "op",
+        "d",
+        "imm"
+      ],
+      "slices": [
+        [
+          10,
+          8
+        ],
+        [
+          7,
+          0
+        ]
+      ],
+      "guard": null
+    },
+    "SLT": {
+      "names": [
+        "d",
+        "a",
+        "b"
+      ],
+      "widths": [
+        3,
+        3,
+        3
+      ],
+      "parts": [
+        "op",
+        "d",
+        "a",
+        "b",
+        "0b00"
+      ],
+      "slices": [
+        [
+          10,
+          8
+        ],
+        [
+          7,
+          5
+        ],
+        [
+          4,
+          2
+        ]
+      ],
+      "guard": [
+        1,
+        0,
+        0
+      ]
+    },
+    "BZ": {
+      "names": [
+        "test",
+        "off"
+      ],
+      "widths": [
+        3,
+        8
+      ],
+      "parts": [
+        "op",
+        "test",
+        "off"
+      ],
+      "slices": [
+        [
+          10,
+          8
+        ],
+        [
+          7,
+          0
+        ]
+      ],
+      "guard": null
+    },
+    "BN": {
+      "names": [
+        "test",
+        "off"
+      ],
+      "widths": [
+        3,
+        8
+      ],
+      "parts": [
+        "op",
+        "test",
+        "off"
+      ],
+      "slices": [
+        [
+          10,
+          8
+        ],
+        [
+          7,
+          0
+        ]
+      ],
+      "guard": null
+    },
+    "JMP": {
+      "names": [
+        "off"
+      ],
+      "widths": [
+        11
+      ],
+      "parts": [
+        "op",
+        "off"
+      ],
+      "slices": [
+        [
+          10,
+          0
+        ]
+      ],
+      "guard": null
+    },
+    "CALL": {
+      "names": [
+        "off"
+      ],
+      "widths": [
+        11
+      ],
+      "parts": [
+        "op",
+        "off"
+      ],
+      "slices": [
+        [
+          10,
+          0
+        ]
+      ],
+      "guard": null
+    },
+    "RET": {
+      "names": [],
+      "widths": [],
+      "parts": [
+        "op",
+        "0b00000000000"
+      ],
+      "slices": [],
+      "guard": [
+        10,
+        0,
+        0
+      ]
+    },
+    "PUSH": {
+      "names": [
+        "r"
+      ],
+      "widths": [
+        3
+      ],
+      "parts": [
+        "op",
+        "r",
+        "0x00"
+      ],
+      "slices": [
+        [
+          10,
+          8
+        ]
+      ],
+      "guard": [
+        7,
+        0,
+        0
+      ]
+    },
+    "POP": {
+      "names": [
+        "r"
+      ],
+      "widths": [
+        3
+      ],
+      "parts": [
+        "op",
+        "r",
+        "0x00"
+      ],
+      "slices": [
+        [
+          10,
+          8
+        ]
+      ],
+      "guard": [
+        7,
+        0,
+        0
+      ]
+    }
+  }
+}

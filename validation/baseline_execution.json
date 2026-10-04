@@ -1,0 +1,192 @@
+{
+  "provenance": "Execution-clause text extracted from delivered v0.4; not a hardware oracle.",
+  "bodies": {
+    "NOP": {
+      "args": [],
+      "body": "()"
+    },
+    "HLT": {
+      "args": [],
+      "body": "HALTED = true"
+    },
+    "MOV": {
+      "args": [
+        "d",
+        "src"
+      ],
+      "body": "X(d) = X(src)"
+    },
+    "LIL": {
+      "args": [
+        "d",
+        "imm"
+      ],
+      "body": "X(d) = 0x00 @ imm"
+    },
+    "LIH": {
+      "args": [
+        "d",
+        "imm"
+      ],
+      "body": "X(d) = imm @ X(d)[7..0]"
+    },
+    "LDW": {
+      "args": [
+        "d",
+        "base",
+        "off"
+      ],
+      "body": "let addr : word = X(base) + signed(off);\n  X(d) = load_word(addr)"
+    },
+    "STW": {
+      "args": [
+        "src",
+        "base",
+        "off"
+      ],
+      "body": "let addr : word = X(base) + signed(off);\n  store_word(addr, X(src))"
+    },
+    "LDB": {
+      "args": [
+        "d",
+        "base",
+        "off"
+      ],
+      "body": "let addr : word = X(base) + signed(off);\n  X(d) = 0x00 @ load_byte(addr)"
+    },
+    "STB": {
+      "args": [
+        "src",
+        "base",
+        "off"
+      ],
+      "body": "let addr : word = X(base) + signed(off);\n  store_byte(addr, X(src)[7..0])"
+    },
+    "ADD": {
+      "args": [
+        "d",
+        "a",
+        "b"
+      ],
+      "body": "X(d) = X(a) + X(b)"
+    },
+    "SUB": {
+      "args": [
+        "d",
+        "a",
+        "b"
+      ],
+      "body": "X(d) = X(a) - X(b)"
+    },
+    "ADDI": {
+      "args": [
+        "d",
+        "imm"
+      ],
+      "body": "X(d) = X(d) + signed(imm)"
+    },
+    "MUL": {
+      "args": [
+        "d",
+        "a",
+        "b"
+      ],
+      "body": "X(d) = mul_low(X(a), X(b))"
+    },
+    "AND": {
+      "args": [
+        "d",
+        "a",
+        "b"
+      ],
+      "body": "X(d) = X(a) & X(b)"
+    },
+    "OR": {
+      "args": [
+        "d",
+        "a",
+        "b"
+      ],
+      "body": "X(d) = X(a) | X(b)"
+    },
+    "XOR": {
+      "args": [
+        "d",
+        "a",
+        "b"
+      ],
+      "body": "X(d) = X(a) ^ X(b)"
+    },
+    "NOT": {
+      "args": [
+        "d",
+        "src"
+      ],
+      "body": "X(d) = not_vec(X(src))"
+    },
+    "SHL": {
+      "args": [
+        "d",
+        "imm"
+      ],
+      "body": "X(d) = shift_left(X(d), imm)"
+    },
+    "SHR": {
+      "args": [
+        "d",
+        "imm"
+      ],
+      "body": "X(d) = shift_right(X(d), imm)"
+    },
+    "SLT": {
+      "args": [
+        "d",
+        "a",
+        "b"
+      ],
+      "body": "X(d) = if signed(X(a)) < signed(X(b)) then 0x0001 else 0x0000"
+    },
+    "BZ": {
+      "args": [
+        "test",
+        "off"
+      ],
+      "body": "if X(test) == 0x0000 then nextPC = nextPC + 2 * signed(off)"
+    },
+    "BN": {
+      "args": [
+        "test",
+        "off"
+      ],
+      "body": "if signed(X(test)) < 0 then nextPC = nextPC + 2 * signed(off)"
+    },
+    "JMP": {
+      "args": [
+        "off"
+      ],
+      "body": "nextPC = nextPC + 2 * signed(off)"
+    },
+    "CALL": {
+      "args": [
+        "off"
+      ],
+      "body": "X(lr) = nextPC;\n  nextPC = nextPC + 2 * signed(off)"
+    },
+    "RET": {
+      "args": [],
+      "body": "nextPC = X(lr)"
+    },
+    "PUSH": {
+      "args": [
+        "src"
+      ],
+      "body": "let addr : word = X(sp) - 0x0002;\n  \n  let value : word = if src == sp then addr else X(src);\n  store_word(addr, value);  \n  X(sp) = addr"
+    },
+    "POP": {
+      "args": [
+        "d"
+      ],
+      "body": "let value = load_word(X(sp));\n  X(d) = value;\n  X(sp) = X(sp) + 0x0002"
+    }
+  }
+}
