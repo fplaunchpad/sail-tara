@@ -18,10 +18,13 @@ from tara.table import (
     Reference,
     Row,
     Table,
+    TableAlignment,
+    TableAttributes,
     Text,
 )
 
 type PositiveInt = Annotated[int, msgspec.Meta(gt=0)]
+type NonnegativeInt = Annotated[int, msgspec.Meta(ge=0)]
 type NonEmptyString = Annotated[str, msgspec.Meta(min_length=1)]
 
 
@@ -43,6 +46,8 @@ class Instruction(msgspec.Struct, frozen=True, kw_only=True):
     constructor: NonEmptyString
     opcode_bits: NonEmptyString
     syntax: NonEmptyString
+    source_file: NonEmptyString
+    operand_count: NonnegativeInt
     fields: NonEmptyFields
 
     def __post_init__(self) -> None:
@@ -51,8 +56,12 @@ class Instruction(msgspec.Struct, frozen=True, kw_only=True):
             or not self.constructor
             or type(self.syntax) is not str
             or not self.syntax
+            or type(self.source_file) is not str
+            or not self.source_file
         ):
-            raise ValueError("instruction constructor and syntax must not be empty")
+            raise ValueError("instruction constructor, syntax, and source file must not be empty")
+        if type(self.operand_count) is not int or self.operand_count < 0:
+            raise ValueError(f"{self.constructor}: operand_count must be a nonnegative integer")
         if type(self.opcode_bits) is not str or not self.opcode_bits:
             raise ValueError(f"{self.constructor}: opcode_bits must not be empty")
         if not all(bit in "01" for bit in self.opcode_bits):
@@ -116,7 +125,7 @@ def format_names(metadata: Metadata) -> dict[FormatKey, str]:
 
 def render_format_table(metadata: Metadata, names: dict[FormatKey, str]) -> str:
     columns = (
-        Column(width=2, alignment=Alignment.LEFT),
+        Column(width=2, alignment=Alignment.CENTERED),
         Column(repeat=metadata.word_width, alignment=Alignment.CENTERED),
         Column(width=5, alignment=Alignment.LEFT),
     )
@@ -156,7 +165,15 @@ def render_format_table(metadata: Metadata, names: dict[FormatKey, str]) -> str:
         cells.append(Cell(content=(Code(value=", ".join(item.constructor for item in members)),)))
         rows.append(Row(cells=tuple(cells)))
 
-    return Table(columns=columns, rows=tuple(rows)).to_asciidoc()
+    return (
+        Table(
+            columns=columns,
+            rows=tuple(rows),
+            attributes=TableAttributes(width=92, alignment=TableAlignment.CENTER),
+        )
+        .merge_adjacent_equal_cells()
+        .to_asciidoc()
+    )
 
 
 def render_opcode_table(metadata: Metadata, names: dict[FormatKey, str]) -> str:
@@ -173,12 +190,12 @@ def render_opcode_table(metadata: Metadata, names: dict[FormatKey, str]) -> str:
             gaps.append((opcode, opcode))
 
     columns = (
-        Column(alignment=Alignment.CENTERED),
-        Column(alignment=Alignment.CENTERED),
         Column(width=2, alignment=Alignment.CENTERED),
-        Column(width=2),
-        Column(width=4),
-        Column(alignment=Alignment.CENTERED),
+        Column(width=2, alignment=Alignment.CENTERED),
+        Column(width=4, alignment=Alignment.CENTERED),
+        Column(width=3),
+        Column(width=5),
+        Column(width=2, alignment=Alignment.CENTERED),
     )
     rows = [
         Row(
@@ -204,7 +221,8 @@ def render_opcode_table(metadata: Metadata, names: dict[FormatKey, str]) -> str:
                                     target=f"insn-{instruction.constructor}",
                                     content=(Code(value=instruction.constructor),),
                                 ),
-                            )
+                            ),
+                            alignment=CellAlignment.CENTERED,
                         ),
                         Cell(content=(Code(value=instruction.syntax),)),
                         Cell(
@@ -247,7 +265,11 @@ def render_opcode_table(metadata: Metadata, names: dict[FormatKey, str]) -> str:
             )
             gap_index += 1
 
-    return Table(columns=columns, rows=tuple(rows)).to_asciidoc()
+    return Table(
+        columns=columns,
+        rows=tuple(rows),
+        attributes=TableAttributes(width=72, alignment=TableAlignment.CENTER),
+    ).to_asciidoc()
 
 
 def render_tables(metadata: Metadata) -> tuple[str, str]:

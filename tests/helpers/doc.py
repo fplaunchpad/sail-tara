@@ -33,7 +33,7 @@ class Functions(msgspec.Struct, kw_only=True):
 
 
 class Mappings(msgspec.Struct, kw_only=True):
-    assembly_syntax: Mapping
+    assembly: Mapping
 
 
 class SourceBundle(msgspec.Struct, kw_only=True):
@@ -60,9 +60,13 @@ class InstructionListings(HTMLParser):
         self.tables: list[list[list[str]]] = []
         self.table_spans: list[list[list[int]]] = []
         self.current_table_spans: list[list[int]] | None = None
+        self.table_cell_alignments: list[list[list[tuple[str | None, str | None]]]] = []
+        self.current_table_cell_alignments: list[list[tuple[str | None, str | None]]] | None = None
+        self.current_row_cell_alignments: list[tuple[str | None, str | None]] | None = None
         self.table_header_alignments: list[list[str]] = []
         self.current_table_header_alignments: list[str] | None = None
         self.cell_alignment: str | None = None
+        self.cell_alignments: tuple[str | None, str | None] | None = None
         self.stylesheets: list[str] = []
         self.toc_instruction_links: set[str] = set()
         self.toc_instruction_code_links: set[str] = set()
@@ -113,24 +117,26 @@ class InstructionListings(HTMLParser):
         elif tag == "table":
             self.table = []
             self.current_table_spans = []
+            self.current_table_cell_alignments = []
             self.current_table_header_alignments = []
         elif tag == "tr" and self.table is not None:
             self.row = []
             self.row_spans = []
+            self.current_row_cell_alignments = []
         elif tag in {"th", "td"} and self.row is not None:
             self.cell = []
             colspan = attributes.get("colspan")
             self.cell_span = int(colspan) if colspan is not None else 1
-            if tag == "th":
-                classes = (attributes.get("class") or "").split()
-                self.cell_alignment = next(
-                    (
-                        name.removeprefix("halign-")
-                        for name in classes
-                        if name.startswith("halign-")
-                    ),
-                    None,
-                )
+            classes = (attributes.get("class") or "").split()
+            self.cell_alignment = next(
+                (name.removeprefix("halign-") for name in classes if name.startswith("halign-")),
+                None,
+            )
+            vertical_alignment = next(
+                (name.removeprefix("valign-") for name in classes if name.startswith("valign-")),
+                None,
+            )
+            self.cell_alignments = self.cell_alignment, vertical_alignment
 
     def handle_data(self, data: str) -> None:
         self.text.append(data)
@@ -158,9 +164,12 @@ class InstructionListings(HTMLParser):
             self.row.append("".join(self.cell))
             if self.row_spans is not None:
                 self.row_spans.append(self.cell_span)
+            if self.current_row_cell_alignments is not None and self.cell_alignments is not None:
+                self.current_row_cell_alignments.append(self.cell_alignments)
             if tag == "th" and self.current_table_header_alignments is not None:
                 self.current_table_header_alignments.append(self.cell_alignment or "")
             self.cell_alignment = None
+            self.cell_alignments = None
             self.cell = None
         elif (
             tag == "tr"
@@ -168,18 +177,25 @@ class InstructionListings(HTMLParser):
             and self.row is not None
             and self.row_spans is not None
             and self.current_table_spans is not None
+            and self.current_table_cell_alignments is not None
+            and self.current_row_cell_alignments is not None
         ):
             self.table.append(self.row)
             self.current_table_spans.append(self.row_spans)
+            self.current_table_cell_alignments.append(self.current_row_cell_alignments)
             self.row = None
             self.row_spans = None
+            self.current_row_cell_alignments = None
         elif tag == "table" and self.table is not None and self.current_table_spans is not None:
             self.tables.append(self.table)
             self.table_spans.append(self.current_table_spans)
+            if self.current_table_cell_alignments is not None:
+                self.table_cell_alignments.append(self.current_table_cell_alignments)
             if self.current_table_header_alignments is not None:
                 self.table_header_alignments.append(self.current_table_header_alignments)
             self.table = None
             self.current_table_spans = None
+            self.current_table_cell_alignments = None
             self.current_table_header_alignments = None
 
 
@@ -229,7 +245,7 @@ def read_instruction_sources(bundle_path: Path) -> dict[str, tuple[tuple[str, st
     decode = function_sources(bundle.functions.decode, decode=True)
     execute = function_sources(bundle.functions.execute)
     assembly: dict[str, str] = {}
-    for clause in bundle.mappings.assembly_syntax.mapping:
+    for clause in bundle.mappings.assembly.mapping:
         value = clause.left.get("id")
         if isinstance(value, str):
             if value in assembly:

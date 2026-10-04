@@ -14,10 +14,19 @@ class Alignment(StrEnum):
 
 
 class CellAlignment(StrEnum):
-    """Cell-level alignment overrides."""
+    """Cell horizontal and vertical alignment."""
+
+    MIDDLE = ".^"
+    CENTERED = "^.^"
+
+
+class TableAlignment(StrEnum):
+    """Horizontal alignment of a table on the page."""
 
     DEFAULT = ""
-    CENTERED = "^m"
+    CENTER = "center"
+    LEFT = "left"
+    RIGHT = "right"
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -84,16 +93,26 @@ type Inline = Text | Code | Anchor | Reference
 class Cell:
     content: tuple[Inline, ...]
     colspan: int = 1
-    alignment: CellAlignment = CellAlignment.DEFAULT
+    rowspan: int = 1
+    alignment: CellAlignment = CellAlignment.MIDDLE
 
     def __post_init__(self) -> None:
         if not self.content:
             raise ValueError("table cells must not be empty")
         if type(self.colspan) is not int or self.colspan < 1:
             raise ValueError("cell colspan must be a positive integer")
+        if type(self.rowspan) is not int or self.rowspan < 1:
+            raise ValueError("cell rowspan must be a positive integer")
 
     def to_asciidoc(self) -> str:
-        attributes = f"{self.colspan}+" if self.colspan > 1 else ""
+        if self.colspan > 1 and self.rowspan > 1:
+            attributes = f"{self.colspan}.{self.rowspan}+"
+        elif self.colspan > 1:
+            attributes = f"{self.colspan}+"
+        elif self.rowspan > 1:
+            attributes = f".{self.rowspan}+"
+        else:
+            attributes = ""
         attributes += self.alignment
         content = "".join(item.to_asciidoc() for item in self.content)
         return f"{attributes}|{content}"
@@ -103,19 +122,38 @@ class Cell:
 class Row:
     cells: tuple[Cell, ...]
 
-    def __post_init__(self) -> None:
-        if not self.cells:
-            raise ValueError("table rows must not be empty")
-
     def to_asciidoc(self) -> str:
         return " ".join(cell.to_asciidoc() for cell in self.cells)
+
+
+@dataclass(frozen=True, kw_only=True)
+class TableAttributes:
+    header: bool = True
+    width: int = 100
+    alignment: TableAlignment = TableAlignment.DEFAULT
+
+    def __post_init__(self) -> None:
+        if type(self.header) is not bool:
+            raise ValueError("table header must be a boolean")
+        if type(self.width) is not int or not 1 <= self.width <= 100:
+            raise ValueError("table width must be an integer from 1 to 100")
+
+    def to_asciidoc(self) -> str:
+        values: list[str] = []
+        if self.header:
+            values.append('options="header"')
+        if self.width != 100:
+            values.append(f'width="{self.width}%"')
+        if self.alignment != TableAlignment.DEFAULT:
+            values.append(f'role="{self.alignment}"')
+        return f", {','.join(values)}" if values else ""
 
 
 @dataclass(frozen=True, kw_only=True)
 class Table:
     columns: tuple[Column, ...]
     rows: tuple[Row, ...]
-    header: bool = True
+    attributes: TableAttributes = TableAttributes()
 
     def __post_init__(self) -> None:
         if not self.columns:
@@ -123,17 +161,108 @@ class Table:
         if not self.rows:
             raise ValueError("tables must have rows")
         column_count = sum(column.repeat for column in self.columns)
-        for row in self.rows:
-            cell_count = sum(cell.colspan for cell in row.cells)
-            if cell_count != column_count:
+        occupied_until = [0] * column_count
+        for row_index, row in enumerate(self.rows):
+            occupied = [end_row > row_index for end_row in occupied_until]
+            for cell in row.cells:
+                try:
+                    start_column = occupied.index(False)
+                except ValueError as error:
+                    raise ValueError(
+                        f"row {row_index + 1} has more cells than the table's {column_count} columns"
+                    ) from error
+
+                end_column = start_column + cell.colspan
+                if end_column > column_count:
+                    raise ValueError(
+                        f"row {row_index + 1} cell spans beyond the table's {column_count} columns"
+                    )
+                if any(occupied[start_column:end_column]):
+                    raise ValueError(f"row {row_index + 1} cell overlaps a preceding row span")
+
+                for column in range(start_column, end_column):
+                    occupied[column] = True
+                    occupied_until[column] = row_index + cell.rowspan
+
+            if not all(occupied):
+                covered_columns = sum(occupied)
                 raise ValueError(
-                    f"row spans {cell_count} columns; table has {column_count} columns"
+                    f"row {row_index + 1} covers {covered_columns} of {column_count} columns"
                 )
+
+        if any(end_row > len(self.rows) for end_row in occupied_until):
+            raise ValueError("cell rowspan extends beyond the table's final row")
+
+    def merge_adjacent_equal_cells(self) -> Table:
+        """Merge identical cells that occupy the same columns in adjacent rows."""
+
+        occupied_until = [0] * sum(column.repeat for column in self.columns)
+        positions: dict[tuple[int, int], tuple[int, int]] = {}
+        for row_index, row in enumerate(self.rows):
+            occupied = [end_row > row_index for end_row in occupied_until]
+            for cell_index, cell in enumerate(row.cells):
+                start_column = occupied.index(False)
+                end_column = start_column + cell.colspan
+                positions[row_index, cell_index] = (start_column, end_column)
+                for column in range(start_column, end_column):
+                    occupied[column] = True
+                    occupied_until[column] = row_index + cell.rowspan
+
+        merged: dict[tuple[int, int], Cell] = {}
+        removed: set[tuple[int, int]] = set()
+        first_merge_row = 1 if self.attributes.header else 0
+        for row_index in range(first_merge_row, len(self.rows)):
+            row = self.rows[row_index]
+            for cell_index, cell in enumerate(row.cells):
+                location = (row_index, cell_index)
+                if location in removed:
+                    continue
+
+                start_column, end_column = positions[location]
+                merged_rowspan = cell.rowspan
+                next_row = row_index + merged_rowspan
+                while next_row < len(self.rows):
+                    next_cell_index = next(
+                        (
+                            candidate_index
+                            for candidate_index, candidate in enumerate(self.rows[next_row].cells)
+                            if positions[next_row, candidate_index] == (start_column, end_column)
+                            and candidate.content == cell.content
+                            and candidate.alignment == cell.alignment
+                        ),
+                        None,
+                    )
+                    if next_cell_index is None:
+                        break
+
+                    next_cell = self.rows[next_row].cells[next_cell_index]
+                    removed.add((next_row, next_cell_index))
+                    merged_rowspan += next_cell.rowspan
+                    next_row += next_cell.rowspan
+
+                if merged_rowspan > cell.rowspan:
+                    merged[location] = Cell(
+                        content=cell.content,
+                        colspan=cell.colspan,
+                        rowspan=merged_rowspan,
+                        alignment=cell.alignment,
+                    )
+
+        rows = tuple(
+            Row(
+                cells=tuple(
+                    merged.get((row_index, cell_index), cell)
+                    for cell_index, cell in enumerate(row.cells)
+                    if (row_index, cell_index) not in removed
+                )
+            )
+            for row_index, row in enumerate(self.rows)
+        )
+        return Table(columns=self.columns, rows=rows, attributes=self.attributes)
 
     def to_asciidoc(self) -> str:
         columns = ",".join(column.to_asciidoc() for column in self.columns)
-        options = ', options="header"' if self.header else ""
-        rows = [f'[cols="{columns}"{options}]', "|==="]
+        rows = [f'[cols="{columns}"{self.attributes.to_asciidoc()}]', "|==="]
         rows.extend(row.to_asciidoc() for row in self.rows)
         rows.append("|===")
         return "\n".join(rows) + "\n"

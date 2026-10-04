@@ -23,6 +23,14 @@ let fail_at location message = raise (Reporting.err_general location message)
 let pat_location (P_aux (_, (location, _))) = location
 let mpat_location (MP_aux (_, (location, _))) = location
 
+let rec source_file = function
+  | Parse_ast.Range (position, _) ->
+    Sail_file.to_path position.pos_fname |> Sail_file.Path.to_string
+  | Parse_ast.Unique (_, location) | Parse_ast.Generated location -> source_file location
+  | Parse_ast.Hint (_, location, _) -> source_file location
+  | Parse_ast.Unknown -> fail_at Parse_ast.Unknown "instruction source location has no file"
+;;
+
 let rec unwrap_pat (P_aux (aux, _) as pattern : tannot pat) =
   match aux with
   | P_typ (_, nested) | P_var (nested, _) -> unwrap_pat nested

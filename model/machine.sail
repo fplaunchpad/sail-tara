@@ -7,12 +7,8 @@ default Order dec
 $include <prelude.sail>
 
 /*!
-= The TARA Instruction Set Architecture{document-title-suffix} */
+= The TARA Instruction Set Architecture */
 $anchor document_title
-
-/*!
-:document-subtitle: Reference specification, typeset from the Sail model */
-$anchor document_subtitle
 
 /*!
 TARA (Teaching Architecture for RISC Assembly) is the 16-bit teaching processor of the course
@@ -76,15 +72,15 @@ of them are kept, so PC wraps around at the end of the 2 KB memory; see `pc_mask
 register PC : word
 
 /*!
-The memory: 2048 bytes at the addresses 0x000 to 0x7FF, in which code, data, stack, the input
+The memory: 2048 bytes at the addresses `0x000` to `0x7FF`, in which code, data, stack, the input
 port and the framebuffer all live.
 
 - `0x000` to `0x5FE`: ordinary memory for program, data and stack, 1535 bytes.
 - `0x5FF`: the input port, see `read_byte`.
 - `0x600` to `0x7FF`: the framebuffer, 512 bytes, see `pixel`.
 
-The Studio manual suggests a conventional layout (code from 0x000, data from 0x400, a stack below
-0x5F0); the architecture enforces none of it.
+The Studio manual suggests a conventional layout (code from `0x000`, data from `0x400`,
+a stack below `0x5F0`); the architecture enforces none of it.
  */
 register MEM : memory
 
@@ -139,16 +135,16 @@ the model writes PC only through this function, and sets it to 0 on reset.
 function pc_mask(value : word) -> word = 0b00000 @ value[10 .. 0]
 
 /*!
-The address of the input port, the byte 0x5FF. The RTL says
+The address of the input port, the byte `0x5FF`. The RTL says
 `A byte read from 0x5FF returns {3'b000, QUIT, RIGHT, LEFT, DOWN, UP}`.
  */
 let input_port : address = 0b10111111111
 
 /*!
 The byte bus. The low 11 bits of the address select a byte of the 2 KB memory, so addresses wrap
-modulo 2048: an effective address computed as `0 - 1` selects byte 0x7FF, and 0xF802 selects byte
-0x002. A read of the input port returns the five input lines held in `KEYS`, zero-extended; any
-other address reads the memory.
+modulo 2048: an effective address computed as `0 - 1` selects byte `0x7FF`, and `0xF802` selects
+byte `0x002`. A read of the input port returns the five input lines held in `KEYS`, zero-extended;
+any other address reads the memory.
  */
 function read_byte(addr : word) -> byte = {
     let a : address = addr[10 .. 0];
@@ -172,7 +168,7 @@ function write_byte(addr : word, value : byte) -> unit = {
 The word bus. The RTL gives the rule `word index = addr >> 1, lane = addr[0]` and stores words
 big-endian: the word at address `2k` has its high byte in byte `2k` and its low byte in byte
 `2k + 1`. A word access ignores address bit 0, so an access to the odd address `2k + 1` is an access
-to the word at `2k`, and the last word of memory is the one at 0x7FE. A word access is two byte
+to the word at `2k`, and the last word of memory is the one at `0x7FE`. A word access is two byte
 accesses, so a read that covers the input port gets the input lines as its low byte: the model
 assumes this where the RTL is silent. Instruction fetch is a word read.
  */
@@ -187,7 +183,7 @@ function write_word(addr : word, value : word) -> unit = {
 }
 
 /*!
-The 64 by 64 framebuffer occupies 0x600 to 0x7FF: 512 bytes, one bit per pixel, eight pixels per
+The 64 by 64 framebuffer occupies `0x600` to `0x7FF`: 512 bytes, one bit per pixel, eight pixels per
 byte with the most significant bit on the left. Row 0 is the bottom of the display. The RTL gives
 the mapping `Pixel (x, y): byte = 0x0600 + y*8 + x/8, bit = 7 - (x mod 8)`. The model has no
 separate display state: `pixel` reads the memory and tells whether the pixel in column x and row y

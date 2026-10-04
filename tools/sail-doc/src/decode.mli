@@ -14,6 +14,7 @@ type t =
   ; argument_names : string list
   ; expected_bits : Expected_bit.t list
   ; location : Parse_ast.l
+  ; source_file : string
   }
 
 val extract : Type_check.Env.t -> Sail_ast.Function_clause.t list -> t list

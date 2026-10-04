@@ -94,6 +94,8 @@ let extract ~ast ~env ~constants ~decode_name ~encode_name ~assembly_name =
             [%string "missing assembly syntax for %{decoded.constructor}"]
       in
       ({ constructor = decoded.constructor
+       ; source_file = decoded.source_file
+       ; operand_count = List.length decoded.argument_names
        ; opcode_bits = decoded.opcode_bits
        ; syntax
        ; fields = decoded.fields

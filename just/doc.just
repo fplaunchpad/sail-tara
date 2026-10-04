@@ -5,33 +5,50 @@ set working-directory := ".."
 
 out := build / "doc"
 
-# Format the authored stylesheet and PDF theme.
+# Format the authored documentation configuration, stylesheet and PDF theme.
 format:
-    prettier --write doc/tara.css doc/tara-theme.yml
+    prettier --write doc/tara.css doc/tara-theme.yml doc/sail_config.json
 
-# Check the authored stylesheet and PDF theme formatting.
+# Check the authored documentation configuration, stylesheet and PDF theme formatting.
 lint:
-    prettier --check doc/tara.css doc/tara-theme.yml
+    prettier --check doc/tara.css doc/tara-theme.yml doc/sail_config.json
 
-# Bundle the model's source text and documentation comments for the Sail Asciidoctor plugin.
+# Format a build-only copy of the Sail sources to fit the documentation code panels.
 [private]
-bundle: (build-dir "doc")
-    sail --doc --doc-embed plain --doc-bundle tara.json -o "{{ out }}" model/syntax.sail
+[script("bash", "-euo", "pipefail")]
+documentation-sources: (build-dir "doc/model")
+    shopt -s globstar
+    for source in model/**/*.sail; do
+        destination="{{ out }}/$source"
+        mkdir -p "$(dirname "$destination")"
+        sail --sail-config doc/sail_config.json --fmt --fmt-emit stdout "$source" > "$destination"
+    done
+
+# Bundle the formatted source text and documentation comments for the Sail Asciidoctor plugin.
+[private]
+[working-directory: out]
+bundle: documentation-sources
+    sail --doc --doc-embed plain --doc-bundle tara.json -o . model/syntax.sail
 
 # Place the AsciiDoc layout beside the Sail bundle for standalone rendering.
 [private]
 specification: bundle
-    cp doc/tara.adoc doc/tara.css doc/tara-theme.yml doc/cover.svg "{{ out }}/"
+    cp doc/tara.adoc doc/tara.css doc/tara-theme.yml doc/cover.svg doc/sections.rb "{{ out }}/"
 
 # Derive table metadata from the typed codecs and native assembly mapping.
 [private]
 metadata: (build-dir "doc")
-    sail -plugin "$TARA_DOC_PLUGIN" --doc-tables --doc-tables-decode decode --doc-tables-encode encode --doc-tables-assembly assembly_syntax -o "{{ out }}/tables.json" model/syntax.sail
+    sail -plugin "$TARA_DOC_PLUGIN" --doc-tables --doc-tables-decode decode --doc-tables-encode encode --doc-tables-assembly assembly -o "{{ out }}/tables.json" model/syntax.sail
 
 # Render the opcode and format summary tables from normalized metadata.
 [private]
 tables: metadata
     PYTHONPATH="{{ justfile_directory() }}/tools" "$TARA_PYTHON" -m tara.doc_tables --metadata "{{ out }}/tables.json" --out "{{ out }}"
+
+# Generate the instruction groups and listing selectors from typed Sail metadata.
+[private]
+sections: bundle metadata
+    PYTHONPATH="{{ justfile_directory() }}/tools" "$TARA_PYTHON" -m tara.doc_sections --bundle "{{ out }}/tara.json" --metadata "{{ out }}/tables.json" --out "{{ out }}/instructions.adoc"
 
 # Prepare a writable font directory for repeated documentation builds.
 [private]
@@ -45,13 +62,13 @@ fonts: font-directory
 
 # Render the single AsciiDoc source to PDF; a warning is an error.
 [default]
-build: specification tables fonts
-    asciidoctor-pdf -r asciidoctor-sail --failure-level WARN -a pdf-theme="{{ out }}/tara-theme.yml" -a pdf-fontsdir="{{ out }}/fonts" -o "{{ out }}/tara.pdf" "{{ out }}/tara.adoc"
+build: specification tables sections fonts
+    asciidoctor-pdf -r asciidoctor-sail -r "{{ out }}/sections.rb" --failure-level WARN -a pdf-theme="{{ out }}/tara-theme.yml" -a pdf-fontsdir="{{ out }}/fonts" -o "{{ out }}/tara.pdf" "{{ out }}/tara.adoc"
 
 # Render the same source to HTML; a warning is an error.
 [private]
-render-html: specification tables fonts
-    asciidoctor -r asciidoctor-sail --failure-level WARN -a stylesheet=tara.css -o "{{ out }}/tara.html" "{{ out }}/tara.adoc"
+render-html: specification tables sections fonts
+    asciidoctor -r asciidoctor-sail -r "{{ out }}/sections.rb" --failure-level WARN -a stylesheet=tara.css -o "{{ out }}/tara.html" "{{ out }}/tara.adoc"
 
 # Format the generated HTML for a stable, readable offline document.
 html: render-html

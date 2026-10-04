@@ -53,14 +53,16 @@ function run_instruction(keys, insn) =
     }
 
 /*!
-The model of the processor: it runs the next instruction from memory. A halted CPU returns
-`Stopped`. Otherwise `step` latches the input lines in `KEYS`, fetches the word at PC with
-`read_word`, decodes it and retires the instruction. The fetch is an ordinary word read: it ignores
-bit 0 of PC, it sees the input port if it covers 0x5FF, and it sees the stores of earlier
-instructions, which is how self-modifying code works. An unassigned opcode, 27 to 31, advances PC to
-`pc_mask(PC + 2)`, as the fetch steps of the RTL do for every word, and returns `Illegal` with the
-word. The model does not halt the CPU there: what the hardware does next is not published, so the
-host decides.
+The model of the processor runs the next instruction from memory:
+
+- If the CPU is halted, `step` returns `Stopped` without changing state.
+- Otherwise, `step` latches the input lines in `KEYS`, fetches the word at PC with `read_word`,
+  decodes it and retires the instruction.
+- Fetch is an ordinary word read. It ignores bit 0 of PC, sees the input port if it covers `0x5FF`,
+  and sees stores made by earlier instructions, so self-modifying code works.
+- An unassigned opcode, 27 to 31, advances PC to `pc_mask(PC + 2)` and returns `Illegal` with the
+  fetched word. The model does not halt the CPU here: the hardware's next behavior is not published,
+  so the host decides what happens next.
  */
 val step : bits(5) -> retirement
 

@@ -12,13 +12,14 @@ import pytest
 from src.simulation.cpu import OP_NAME
 
 from helpers.doc import InstructionListings, normalize_document_text, read_instruction_sources
-from tara.doc_tables import Field, Instruction, Metadata, render_tables
-from tara.table import Cell, Code, Column, Row, Table, Text
+from tara.doc_tables import Field, Instruction, Metadata, format_names, render_tables
+from tara.table import Cell, Code, Column, Row, Table, TableAlignment, TableAttributes, Text
 
 ROOT = Path(__file__).parents[1]
 MODEL = ROOT / "model"
 TEMPLATE = ROOT / "doc/tara.adoc"
 STYLESHEET = ROOT / "doc/tara.css"
+FORMAT_CONFIG = ROOT / "doc/sail_config.json"
 PRETTIER_CONFIG = ROOT / ".prettierrc.json"
 ENTRY_POINT = "model/syntax.sail"
 SMALL_ISA_SOURCE = """\
@@ -54,18 +55,43 @@ mapping repeat_operand : bits(3) <-> string = {
   backwards _ if false => 0b000
 }
 
-val assembly_syntax : instruction <-> string
-scattered mapping assembly_syntax
-mapping clause assembly_syntax = Stop() <-> "STOP"
-mapping clause assembly_syntax = Tiny(second, first) <-> "TINY" ^ separator() ^ repeat_operand(first) ^ "/" ^ dec_bits_2(second)
-end assembly_syntax
+val assembly : instruction <-> string
+scattered mapping assembly
+mapping clause assembly = Stop() <-> "STOP"
+mapping clause assembly = Tiny(second, first) <-> "TINY" ^ separator() ^ repeat_operand(first) ^ "/" ^ dec_bits_2(second)
+end assembly
 
-val assembly : instruction -> string
-function assembly(insn) = assembly_syntax_forwards(insn)
 """
 
 
 def run_sail_documentation(directory: Path, plugin: Path) -> Path:
+    model_directory = directory / "model"
+    documentation_model = directory / "doc/model"
+    sources = sorted(model_directory.glob("*.sail")) + sorted(
+        (model_directory / "instructions").glob("*.sail")
+    )
+    for source in sources:
+        relative_source = source.relative_to(directory)
+        destination = documentation_model / relative_source.relative_to("model")
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        formatted = subprocess.run(
+            [
+                "sail",
+                "--sail-config",
+                str(FORMAT_CONFIG),
+                "--fmt",
+                "--fmt-emit",
+                "stdout",
+                str(relative_source),
+            ],
+            cwd=directory,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert formatted.returncode == 0, formatted.stdout + formatted.stderr
+        destination.write_text(formatted.stdout, encoding="utf-8")
+
     documentation = subprocess.run(
         [
             "sail",
@@ -76,7 +102,7 @@ def run_sail_documentation(directory: Path, plugin: Path) -> Path:
             "tara.json",
             "-o",
             "doc",
-            ENTRY_POINT,
+            "doc/" + ENTRY_POINT,
         ],
         cwd=directory,
         capture_output=True,
@@ -109,7 +135,7 @@ def run_sail_tables(
             "--doc-tables-encode",
             "encode",
             "--doc-tables-assembly",
-            "assembly_syntax",
+            "assembly",
             "-o",
             str(metadata),
             entry_point,
@@ -146,12 +172,34 @@ def render_native_document(directory: Path, metadata: Path) -> Path:
     )
     assert tables.returncode == 0, tables.stdout + tables.stderr
 
+    sections = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "tara.doc_sections",
+            "--bundle",
+            str(directory / "doc/tara.json"),
+            "--metadata",
+            str(metadata),
+            "--out",
+            str(directory / "doc/instructions.adoc"),
+        ],
+        cwd=directory,
+        env=environment,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert sections.returncode == 0, sections.stdout + sections.stderr
+
     html_path = directory / "doc/tara.html"
     render = subprocess.run(
         [
             "asciidoctor",
             "-r",
             "asciidoctor-sail",
+            "-r",
+            str(ROOT / "doc/sections.rb"),
             "--failure-level",
             "WARN",
             "-a",
@@ -226,6 +274,7 @@ def test_native_sail_docs_render_tables_and_all_instruction_sources(tmp_path: Pa
     rendered = InstructionListings()
     rendered.feed(html_path.read_text(encoding="utf-8"))
     rendered_text = normalize_document_text("".join(rendered.text))
+    assert "sail::" not in rendered_text
     assert "Native bundle title marker" in rendered_text
     assert "Native machine section marker" in rendered_text
     assert "Native instruction comment marker" in rendered_text
@@ -234,6 +283,8 @@ def test_native_sail_docs_render_tables_and_all_instruction_sources(tmp_path: Pa
     assert "<code>pc_mask</code>" in html_path.read_text(encoding="utf-8")
     assert all("The program counter" not in block for block in rendered.preformatted)
     assert len(metadata.instructions) == len(OP_NAME) == 27
+    assert all(Path(item.source_file).suffix == ".sail" for item in metadata.instructions)
+    assert f'rowspan="{len(format_names(metadata))}"' in html_path.read_text(encoding="utf-8")
     assert {int(item.opcode_bits, 2): item.constructor for item in metadata.instructions} == OP_NAME
     assert set(rendered.listings) == {item.constructor for item in metadata.instructions}
     expected_instruction_links = {item.constructor for item in metadata.instructions}
@@ -246,6 +297,8 @@ def test_native_sail_docs_render_tables_and_all_instruction_sources(tmp_path: Pa
 
     for instruction in metadata.instructions:
         listings, comment = sources[instruction.constructor]
+        assert all(source.startswith("function clause ") for source in listings[:3])
+        assert listings[3].startswith("mapping clause assembly ")
         actual = tuple(
             normalize_document_text(line) for line in rendered.listings[instruction.constructor]
         )
@@ -272,6 +325,7 @@ def test_native_sail_docs_render_tables_and_all_instruction_sources(tmp_path: Pa
     )
     opcode_table_index = rendered.tables.index(opcode_table)
     assert rendered.table_header_alignments[opcode_table_index] == ["center"] * len(opcode_table[0])
+    assert rendered.table_cell_alignments[opcode_table_index][1][3] == ("center", "middle")
     format_table_index = next(
         index
         for index, table in enumerate(rendered.tables)
@@ -279,6 +333,13 @@ def test_native_sail_docs_render_tables_and_all_instruction_sources(tmp_path: Pa
     )
     format_table = rendered.tables[format_table_index]
     assert rendered.table_header_alignments[format_table_index] == ["center"] * len(format_table[0])
+    assert all(
+        vertical == "middle"
+        for table in rendered.table_cell_alignments
+        for row in table
+        for _, vertical in row
+    )
+    assert rendered.table_cell_alignments[format_table_index][1][0] == ("center", "middle")
     all_opcode_rows = [[normalize_document_text(cell) for cell in row] for row in opcode_table[1:]]
     opcode_rows = [row for row in all_opcode_rows if row[0].isdigit()]
     expected_opcodes = sorted(metadata.instructions, key=lambda item: int(item.opcode_bits, 2))
@@ -299,6 +360,8 @@ def test_renderer_supports_arbitrary_word_width_and_more_than_nine_formats(tmp_p
             constructor=f"I{index}",
             opcode_bits=f"{opcodes[index]:04b}",
             syntax=f"I{index}",
+            source_file="small.sail",
+            operand_count=1,
             fields=[Field(name="opcode", width=4), Field(name=f"field{index}", width=4)],
         )
         for index in range(10)
@@ -311,6 +374,8 @@ def test_renderer_supports_arbitrary_word_width_and_more_than_nine_formats(tmp_p
                     "constructor": instruction.constructor,
                     "opcode_bits": instruction.opcode_bits,
                     "syntax": instruction.syntax,
+                    "source_file": instruction.source_file,
+                    "operand_count": instruction.operand_count,
                     "fields": [
                         {"name": field.name, "width": field.width} for field in instruction.fields
                     ],
@@ -323,12 +388,15 @@ def test_renderer_supports_arbitrary_word_width_and_more_than_nine_formats(tmp_p
 
     formats, opcodes = render_tables(metadata)
 
+    assert 'width="92%",role="center"]' in formats.splitlines()[0]
+    assert 'width="72%",role="center"]' in opcodes.splitlines()[0]
     assert (
         formats.index("|[[fmt-F1]]") < formats.index("|[[fmt-F2]]") < formats.index("|[[fmt-F10]]")
     )
-    assert "^m|Format ^m|7 ^m|6 ^m|5 ^m|4 ^m|3 ^m|2 ^m|1 ^m|0 ^m|Instructions" in formats
-    assert "|2 |`+2+` |`+0010+` 3+|unassigned" in opcodes
-    assert "|11-15 |`+B+`-`+F+` |`+1011+`-`+1111+` 3+|unassigned" in opcodes
+    assert "^.^|Format ^.^|7 ^.^|6 ^.^|5 ^.^|4 ^.^|3 ^.^|2 ^.^|1 ^.^|0 ^.^|Instructions" in formats
+    assert ".^|0 .^|`+0+` .^|`+0000+` ^.^|<<insn-I0,`+I0+`>>" in opcodes
+    assert ".^|2 .^|`+2+` .^|`+0010+` 3+.^|unassigned" in opcodes
+    assert ".^|11-15 .^|`+B+`-`+F+` .^|`+1011+`-`+1111+` 3+.^|unassigned" in opcodes
     source = tmp_path / "tables.adoc"
     output = tmp_path / "tables.html"
     source.write_text(formats + "\n" + opcodes, encoding="utf-8")
@@ -339,9 +407,11 @@ def test_renderer_supports_arbitrary_word_width_and_more_than_nine_formats(tmp_p
         check=False,
     )
     assert result.returncode == 0, result.stdout + result.stderr
+    html = output.read_text(encoding="utf-8")
     rendered = InstructionListings()
-    rendered.feed(output.read_text(encoding="utf-8"))
+    rendered.feed(html)
     assert len(rendered.tables) == 2
+    assert 'rowspan="10"' in html
     assert rendered.table_header_alignments == [["center"] * 10, ["center"] * 6]
 
 
@@ -356,6 +426,8 @@ def test_invalid_metadata_fails_without_creating_output(tmp_path: Path) -> None:
                         "constructor": "BAD",
                         "opcode_bits": "0000",
                         "syntax": "BAD",
+                        "source_file": "small.sail",
+                        "operand_count": 1,
                         "fields": [{"name": "opcode", "width": 4}, {"name": "x", "width": 3}],
                     }
                 ],
@@ -402,7 +474,9 @@ def test_table_serializer_preserves_headers_spans_and_pipe_content(tmp_path: Pat
                 )
             ),
         ),
+        attributes=TableAttributes(width=75, alignment=TableAlignment.CENTER),
     )
+    assert '[cols="1,2*1", options="header",width="75%",role="center"]' in table.to_asciidoc()
     source = tmp_path / "table.adoc"
     output = tmp_path / "table.html"
     source.write_text("= Table test\n\n" + table.to_asciidoc(), encoding="utf-8")
@@ -415,20 +489,120 @@ def test_table_serializer_preserves_headers_spans_and_pipe_content(tmp_path: Pat
     )
 
     assert result.returncode == 0, result.stdout + result.stderr
+    html = output.read_text(encoding="utf-8")
+    assert "width: 75%;" in html
+    assert 'class="tableblock frame-all grid-all center"' in html
     rendered = InstructionListings()
-    rendered.feed(output.read_text(encoding="utf-8"))
+    rendered.feed(html)
     assert len(rendered.tables) == 1
     assert rendered.tables[0][0] == ["Left", "Middle", "Right"]
     assert rendered.tables[0][1] == ["plain|pipe", "code|pipe"]
     assert rendered.table_spans[0] == [[1, 1, 1], [1, 2]]
 
 
-def test_table_rejects_rows_with_the_wrong_column_span() -> None:
-    with pytest.raises(ValueError, match="row spans 1 columns; table has 2 columns"):
+def test_table_rowspans_merge_cells_and_render_in_html(tmp_path: Path) -> None:
+    table = Table(
+        columns=(Column(), Column()),
+        rows=(
+            Row(
+                cells=(
+                    Cell(content=(Text(value="Opcode"),), rowspan=2),
+                    Cell(content=(Text(value="First"),)),
+                )
+            ),
+            Row(cells=(Cell(content=(Text(value="Second"),)),)),
+        ),
+        attributes=TableAttributes(header=False),
+    )
+    source = tmp_path / "rowspan.adoc"
+    output = tmp_path / "rowspan.html"
+    source.write_text("= Row span\n\n" + table.to_asciidoc(), encoding="utf-8")
+
+    result = subprocess.run(
+        ["asciidoctor", "-o", str(output), str(source)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert 'rowspan="2"' in output.read_text(encoding="utf-8")
+
+
+def test_table_merges_equal_cells_at_the_same_column_range() -> None:
+    table = Table(
+        columns=(Column(repeat=4),),
+        rows=tuple(
+            Row(cells=tuple(Cell(content=(Text(value=value),)) for value in values))
+            for values in (
+                ("opcode", "rd", "rs", "first"),
+                ("opcode", "rd", "rs", "second"),
+                ("opcode", "rd", "other", "first"),
+            )
+        ),
+        attributes=TableAttributes(header=False),
+    )
+
+    rendered = table.merge_adjacent_equal_cells().to_asciidoc()
+
+    assert ".3+.^|opcode" in rendered
+    assert ".3+.^|rd" in rendered
+    assert ".2+.^|rs" in rendered
+    assert ".2+.^|first" not in rendered
+
+
+def test_table_merge_preserves_the_header_row() -> None:
+    table = Table(
+        columns=(Column(),),
+        rows=tuple(Row(cells=(Cell(content=(Text(value="opcode"),)),)) for _ in range(3)),
+    )
+
+    rendered = table.merge_adjacent_equal_cells().to_asciidoc()
+
+    assert rendered.count(".2+.^|opcode") == 1
+    assert rendered.splitlines()[2] == ".^|opcode"
+
+
+def test_table_merge_all_columns_preserves_fully_covered_row(tmp_path: Path) -> None:
+    table = Table(
+        columns=(Column(),),
+        rows=tuple(Row(cells=(Cell(content=(Text(value="opcode"),)),)) for _ in range(2)),
+        attributes=TableAttributes(header=False),
+    ).merge_adjacent_equal_cells()
+    source = tmp_path / "fully-covered-row.adoc"
+    output = tmp_path / "fully-covered-row.html"
+    source.write_text("= Fully covered row\n\n" + table.to_asciidoc(), encoding="utf-8")
+
+    result = subprocess.run(
+        ["asciidoctor", "-o", str(output), str(source)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert table.rows[1].cells == ()
+    assert 'rowspan="2"' in output.read_text(encoding="utf-8")
+
+
+def test_table_rejects_invalid_rowspan_coverage() -> None:
+    with pytest.raises(ValueError, match="row 1 covers 1 of 2 columns"):
         Table(
             columns=(Column(repeat=2),),
             rows=(Row(cells=(Cell(content=(Text(value="short"),)),)),),
         )
+
+    with pytest.raises(ValueError, match="rowspan extends beyond the table's final row"):
+        Table(
+            columns=(Column(),),
+            rows=(Row(cells=(Cell(content=(Text(value="long"),), rowspan=2),)),),
+        )
+
+
+@pytest.mark.parametrize("width", [0, 101, True])
+def test_table_attributes_reject_invalid_width(width: int) -> None:
+    with pytest.raises(ValueError, match="table width must be an integer from 1 to 100"):
+        TableAttributes(width=width)
 
 
 @pytest.mark.parametrize(
@@ -441,8 +615,8 @@ def test_table_rejects_rows_with_the_wrong_column_span() -> None:
         ),
         (
             "model/syntax.sail",
-            'mapping clause assembly_syntax = NOP() <-> "NOP"',
-            'mapping clause assembly_syntax = NOP() <-> if true then "NOP" else "NOP"',
+            'mapping clause assembly = NOP() <-> "NOP"',
+            'mapping clause assembly = NOP() <-> if true then "NOP" else "NOP"',
         ),
         (
             "model/instructions/data_movement.sail",
@@ -491,7 +665,12 @@ def test_small_sail_isa_supports_generic_layout_and_mapping_expressions(tmp_path
         ("Stop", "0001"),
         ("Tiny", "0010"),
     ]
+    assert {item.constructor: item.operand_count for item in metadata.instructions} == {
+        "Stop": 0,
+        "Tiny": 2,
+    }
     tiny = next(item for item in metadata.instructions if item.constructor == "Tiny")
+    assert {item.source_file for item in metadata.instructions} == {"small.sail"}
     assert [(field.name, field.width) for field in tiny.fields] == [
         ("opcode", 4),
         ("first", 2),
@@ -568,7 +747,7 @@ def test_missing_instruction_union_constructor_fails_closed(tmp_path: Path) -> N
     movement_path.write_text(movement, encoding="utf-8")
     syntax_path = tmp_path / ENTRY_POINT
     syntax = syntax_path.read_text(encoding="utf-8")
-    syntax = syntax.replace('mapping clause assembly_syntax = NOP() <-> "NOP"\n', "", 1)
+    syntax = syntax.replace('mapping clause assembly = NOP() <-> "NOP"\n', "", 1)
     syntax_path.write_text(syntax, encoding="utf-8")
     output = tmp_path / "incomplete.json"
 

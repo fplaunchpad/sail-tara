@@ -79,6 +79,7 @@ in
     ];
     nativeBuildInputs = [
       sail
+      sailDocTables
       jq
       clang-tools
       cmake

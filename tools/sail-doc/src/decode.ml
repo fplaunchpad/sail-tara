@@ -16,6 +16,7 @@ type t =
   ; argument_names : string list
   ; expected_bits : Expected_bit.t list
   ; location : Parse_ast.l
+  ; source_file : string
   }
 
 module Pattern_part = struct
@@ -94,7 +95,16 @@ let extract_one env ({ pattern; body } : Sail_ast.Function_clause.t) =
                part_location
                [%string "decoded field %{name} is not passed to %{constructor}"]))
     in
-    Some ({ constructor; opcode_bits; fields; argument_names; expected_bits; location } : t)
+    Some
+      ({ constructor
+       ; opcode_bits
+       ; fields
+       ; argument_names
+       ; expected_bits
+       ; location
+       ; source_file = Sail_ast.source_file location
+       }
+       : t)
 ;;
 
 let extract env (clauses : Sail_ast.Function_clause.t list) =

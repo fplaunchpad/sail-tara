@@ -19,6 +19,7 @@ end
 
 val id_string : id -> string
 val fail_at : Parse_ast.l -> string -> 'a
+val source_file : Parse_ast.l -> string
 val pat_location : tannot pat -> Parse_ast.l
 val mpat_location : tannot mpat -> Parse_ast.l
 val unwrap_pat : tannot pat -> tannot pat
