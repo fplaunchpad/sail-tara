@@ -1,28 +1,24 @@
-# Generate Rocq definitions from the model's core (no strings).
-[group('rocq')]
-rocq-gen: (build-dir "rocq")
+# Rocq definitions generated from the model's core (no strings).
+import "settings.just"
+
+set working-directory := ".."
+
+# Generate the Rocq definitions.
+[private]
+generate: (build-dir "rocq")
     sail --rocq --rocq-lib-style stdpp --rocq-output-dir "{{ build }}/rocq" -o Tara model/tara.sail
 
-# Compile the generated Rocq types.
-[group('rocq')]
-rocq-types: rocq-gen
+# Compile the generated types.
+[private]
+types: generate
     rocq compile -R "{{ build }}/rocq" Tara "{{ build }}/rocq/Tara_types.v"
 
-# Compile the generated Rocq definitions.
-[group('rocq')]
-rocq-defs: rocq-types
+# Compile the generated definitions.
+[private]
+definitions: types
     rocq compile -R "{{ build }}/rocq" Tara "{{ build }}/rocq/Tara.v"
 
-# Copy the smoke test next to the generated definitions.
-[group('rocq')]
-rocq-smoke-src: rocq-gen
-    cp rocq/Smoke.v "{{ build }}/rocq/Smoke.v"
-
 # Compile the smoke test against the generated definitions.
-[group('rocq')]
-rocq-smoke: rocq-defs rocq-smoke-src
-    rocq compile -R "{{ build }}/rocq" Tara "{{ build }}/rocq/Smoke.v"
-
-# Generate and check the Rocq definitions.
-[group('rocq')]
-rocq: rocq-smoke
+[default]
+build: definitions
+    rocq compile -R "{{ build }}/rocq" Tara -o "{{ build }}/rocq/Smoke.vo" rocq/Smoke.v

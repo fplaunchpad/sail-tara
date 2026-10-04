@@ -1,4 +1,4 @@
-# Checks beyond the packages (whose check phases run the golden tests).
+# Checks beyond building the packages.
 {
   lib,
   runCommand,
@@ -14,19 +14,19 @@
 }:
 
 {
-  # The Sail test suite, through the C backend.
-  sail-tests = justDerivation {
-    pname = "sail-tests";
+  # The model's Sail unit tests, through the C backend.
+  model = justDerivation {
+    pname = "model-tests";
     fileset = [
       ../model
-      ../tests
+      ../tests/model
     ];
     nativeBuildInputs = [ sail ];
     buildInputs = [
       gmp
       zlib
     ];
-    recipes = [ "test" ];
+    recipes = [ "model::test" ];
     installPhase = "touch $out";
   };
 
@@ -36,7 +36,7 @@
     fileset = [
       ../model
       ../emulator
-      ../tests
+      ../tests/model
     ];
     nativeBuildInputs = [
       sail
@@ -44,7 +44,11 @@
       clang-tools
       ocamlPackages.ocamlformat
     ];
-    recipes = [ "lint" ];
+    recipes = [
+      "model::lint"
+      "c::lint"
+      "ocaml::lint"
+    ];
     installPhase = "touch $out";
   };
 

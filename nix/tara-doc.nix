@@ -15,7 +15,7 @@ justDerivation {
     sail
     texlive
   ];
-  recipes = [ "doc" ];
+  recipes = [ "doc::build" ];
   installPhase = ''
     install -Dm644 build/doc/tara.pdf "$out/share/doc/tara/tara.pdf"
   '';

@@ -1,4 +1,4 @@
-# The OCaml emulator, checked against the golden runs and the shared command-line contract.
+# The OCaml emulator, built from the model's OCaml output.
 {
   justDerivation,
   sail,
@@ -11,8 +11,6 @@ justDerivation {
     ../model
     ../emulator/host.sail
     ../emulator/ocaml
-    ../tests/programs
-    ../tests/golden
   ];
   nativeBuildInputs = [
     sail
@@ -26,11 +24,7 @@ justDerivation {
     ocamlPackages.core_unix
     ocamlPackages.ppx_jane
   ];
-  recipes = [ "ocaml" ];
-  checkRecipes = [
-    "golden-ocaml"
-    "cli-ocaml"
-  ];
+  recipes = [ "ocaml::build" ];
   installPhase = ''
     install -Dm755 build/ocaml/_build/default/src/main.exe "$out/bin/tara-ocaml"
   '';

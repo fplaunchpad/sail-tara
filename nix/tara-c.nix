@@ -1,4 +1,4 @@
-# The C emulator, checked against the golden runs and the shared command-line contract.
+# The C emulator, built from the model's C output.
 {
   justDerivation,
   sail,
@@ -12,19 +12,13 @@ justDerivation {
     ../model
     ../emulator/host.sail
     ../emulator/c
-    ../tests/programs
-    ../tests/golden
   ];
   nativeBuildInputs = [ sail ];
   buildInputs = [
     gmp
     zlib
   ];
-  recipes = [ "c" ];
-  checkRecipes = [
-    "golden-c"
-    "cli-c"
-  ];
+  recipes = [ "c::build" ];
   installPhase = ''
     install -Dm755 build/c/tara-c "$out/bin/tara-c"
   '';

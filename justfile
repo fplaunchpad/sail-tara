@@ -2,44 +2,49 @@
 # Run inside `nix develop` (or direnv). Outputs go to $TARA_BUILD (default build/).
 
 import "just/settings.just"
-import "just/sail.just"
-import "just/c.just"
-import "just/ocaml.just"
-import "just/rocq.just"
-import "just/lean.just"
-import "just/doc.just"
-import "just/golden.just"
-import "just/cli.just"
 
-# Python development tools: lint, format, typecheck.
-[group('maintenance')]
+# The Sail model: typecheck, unit tests, formatting.
+mod model "just/model.just"
+
+# The C emulator.
+mod c "just/c.just"
+
+# The OCaml emulator.
+mod ocaml "just/ocaml.just"
+
+# Rocq definitions generated from the model.
+mod rocq "just/rocq.just"
+
+# Lean definitions generated from the model.
+mod lean "just/lean.just"
+
+# The specification typeset from the model.
+mod doc "just/doc.just"
+
+# Python tooling: dependencies, lint, format, typecheck.
 mod python "just/python.just"
 
-build := env("TARA_BUILD", justfile_directory() / "build")
-sail_dir := `sail --dir`
-
-# Create a directory under the build root.
-[private]
-build-dir dir:
-    mkdir -p "{{ build }}/$1"
-
-default:
+# List the recipes and modules.
+[default]
+list:
     @just --list
 
-# Format the Sail, C and OCaml sources (Python: just python format).
-[group('maintenance')]
-format: sail-format c-format ocaml-format
+# Build the emulators, the Rocq and Lean definitions and the PDF.
+build: c::build ocaml::build rocq::build lean::build doc::build
 
-# Check the formatting of the Sail, C and OCaml sources (Python: just python lint).
-[group('maintenance')]
-lint: sail-lint c-format-check ocaml-format-check
+# Run the model's unit tests.
+test: model::test
+
+# Format the Sail, C, OCaml and Python sources.
+format: model::format c::format ocaml::format python::format
+
+# Check the formatting of every source, Python lint and types.
+lint: model::lint c::lint ocaml::lint python::lint (python::format "--check") python::typecheck
 
 # Remove build outputs.
-[group('maintenance')]
 clean:
     rm -rf "{{ build }}"
 
-# Run every flake check (hermetic builds, tests, difftests).
-[group('maintenance')]
+# Run every flake check.
 ci:
     nix flake check -L

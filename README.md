@@ -16,25 +16,22 @@ and the [hardware manual](https://www.cse.iitm.ac.in/~ayon/courses/CS2300/tarama
 | `emulator/host.sail` | Host interface shared by the emulators |
 | `emulator/c/`, `emulator/ocaml/` | The C and OCaml emulators |
 | `rocq/`, `lean/`, `doc/` | Rocq smoke test, Lean project file, LaTeX document |
-| `tests/` | Sail test suite, sample program, golden outputs |
+| `tests/model/` | Sail unit tests of the model |
 | `tools/tara/` | Python tools built on TARA Studio's assembler |
 | `nix/`, `just/` | Flake packages and just recipes |
 
 ## Usage
 
-Run inside `nix develop` (or direnv); `just` lists every recipe. Outputs go to
-`build/`.
+Run inside `nix develop` (or direnv); `just` lists the modules and recipes,
+`just --list MODULE` a module's. Outputs go to `build/`.
 
 ```sh
-just test                 # Sail test suite (C backend)
-just c                    # build/c/tara-c
-just ocaml                # build/ocaml/tara-ocaml
-just rocq                 # Rocq definitions and smoke test
-just lean                 # Lean definitions
-just doc                  # build/doc/tara.pdf
+just test                 # the model's unit tests
+just c                    # build/c/tara-c (likewise: ocaml, rocq, lean, doc)
+just c run prog.tara -t   # assemble and run a program (likewise: ocaml)
 tara-asm prog.tara        # assemble to prog.bin (-o prog.hex for text)
 build/c/tara-c [-t] [-n MAX_STEPS] prog.bin
-just format; just lint    # Sail, C, OCaml (Python: just python format/lint/typecheck)
+just format; just lint    # every language
 just ci                   # nix flake check
 ```
 

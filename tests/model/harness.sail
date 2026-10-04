@@ -2,7 +2,7 @@
  * snapshot the result so regression cases compare plain values.
  */
 
-$include "../model/syntax.sail"
+$include "../../model/syntax.sail"
 
 struct state = {
   regs : regfile,

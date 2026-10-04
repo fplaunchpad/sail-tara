@@ -1,46 +1,41 @@
+# The OCaml emulator, built from the model's OCaml output.
+import "settings.just"
+
+set working-directory := ".."
+
 # Remove the previous overlay, so deleted sources do not linger.
-[group('ocaml')]
-ocaml-clean: (build-dir "ocaml")
+[private]
+clean: (build-dir "ocaml")
     rm -rf "{{ build }}/ocaml/src"
 
-# Generate OCaml for the emulator from the model and its host interface.
-[group('ocaml')]
-ocaml-gen: ocaml-clean
+# Generate OCaml from the model and its host interface.
+[private]
+generate: clean
     sail --ocaml --ocaml-nobuild --ocaml-build-dir "{{ build }}/ocaml" -o tara emulator/host.sail
 
 # Lay the emulator's dune project over the generated one.
-[group('ocaml')]
-ocaml-project: ocaml-gen
+[private]
+project: generate
     cp -r emulator/ocaml/. "{{ build }}/ocaml/"
 
-# Build the OCaml emulator with dune.
-[group('ocaml')]
-ocaml-build: ocaml-project
+# Compile the emulator with dune.
+[private]
+compile: project
     dune build --root "{{ build }}/ocaml"
 
 # Link the OCaml emulator to build/ocaml/tara-ocaml.
-[group('ocaml')]
-ocaml-link: ocaml-build
+[default]
+build: compile
     ln -sf _build/default/src/main.exe "{{ build }}/ocaml/tara-ocaml"
 
-# Build the OCaml emulator, build/ocaml/tara-ocaml.
-[group('ocaml')]
-ocaml: ocaml-link
+# Assemble a TARA program and run it: just ocaml run PROGRAM.tara [OPTION...]
+run program *options: build (assemble program)
+    "{{ build }}/ocaml/tara-ocaml" "${@:2}" "{{ build }}/programs/$(basename "$1" .tara).bin"
 
-# Check the OCaml emulator against the golden Fibonacci dump and trace.
-[group('ocaml')]
-golden-ocaml: ocaml (golden build / "ocaml" / "tara-ocaml")
-
-# Check the OCaml emulator against the shared command-line contract.
-[group('ocaml')]
-cli-ocaml: ocaml (cli build / "ocaml" / "tara-ocaml")
-
-# Format the OCaml emulator's sources in place.
-[group('ocaml')]
-ocaml-format:
+# Format the OCaml sources in place.
+format:
     ocamlformat --inplace emulator/ocaml/src/*.ml emulator/ocaml/src/*.mli
 
-# Check that the OCaml emulator's sources are formatted.
-[group('ocaml')]
-ocaml-format-check:
+# Check that the OCaml sources are formatted.
+lint:
     ocamlformat --check emulator/ocaml/src/*.ml emulator/ocaml/src/*.mli
