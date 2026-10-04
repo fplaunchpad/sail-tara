@@ -99,7 +99,7 @@ Proof.
   - unfold halted, regs. cbn [ss_regstate with_regs]. rewrite register_lookup_set. reflexivity.
 Qed.
 
-(** Power-on yields a well-formed machine that is running. *)
+(** Resetting the generated default register record yields a well-formed, running machine. *)
 Theorem power_on_wf s : power_on = Some s -> wf s /\ halted s = false.
 Proof.
   unfold power_on. destruct (exec (reset tt) (init_state init_regstate)) as [[u s0]|] eqn:E;

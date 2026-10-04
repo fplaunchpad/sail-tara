@@ -80,12 +80,12 @@ Definition fetch (keys : mword 5) (s : machine) : option (mword 16) :=
   '(raw, _) ← exec (read_word (pc s1)) s1;
   Some raw.
 
-(** * Power-on *)
+(** * Default register state and reset *)
 
-(** A machine after power-on and reset: registers and memory zero, PC 0, not halted. The zeros are
-    what Sail's [init_regstate] holds, and what its [sail_model_init] gives under the default
-    choice source. [init_regstate] alone starts halted, because stdpp's inhabitant of [bool] is
-    [true]; the reset clears that. *)
+(** Apply the generated [reset] to the generated default register record [init_regstate]. This
+    helper does not run [sail_model_init], whose undefined-value choices are outside [eval]'s
+    fragment. [init_regstate] starts halted because stdpp's inhabitant of [bool] is [true]; reset
+    clears that and sets PC to zero. *)
 Definition power_on : option machine :=
   '(_, s) ← exec (reset tt) (init_state init_regstate);
   Some s.
