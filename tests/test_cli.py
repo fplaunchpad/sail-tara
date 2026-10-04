@@ -80,7 +80,7 @@ def test_loads_hex_images(emulator: Emulator, program: ProgramImage, tmp_path: P
 
     transcript = emulator.run("--keys", "9", image).transcript
 
-    assert transcript == reference.run(memory, keys=KeySchedule(9))
+    assert transcript == reference.run(memory, keys=KeySchedule(initial=9))
 
 
 @pytest.mark.parametrize(

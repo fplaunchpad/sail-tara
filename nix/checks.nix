@@ -37,7 +37,7 @@ in
       ''
         cp -r ${pythonSource}/. . && chmod -R u+w .
         export HOME="$TMPDIR"
-        pytest -p no:cacheprovider \
+        pytest -p no:cacheprovider --hypothesis-profile=ci \
           --emulator=${lib.getExe tara-c} \
           --emulator=${lib.getExe tara-ocaml}
         touch "$out"

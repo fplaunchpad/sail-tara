@@ -1,4 +1,4 @@
-"""The programs the emulators run: tests/programs, TARA Studio's examples, and the input lines
+"""The programs the emulators run: tests/programs and TARA Studio's examples, and the input lines
 they run with."""
 
 import random
@@ -31,5 +31,5 @@ def key_schedule(seed: str) -> KeySchedule:
     """Input lines that change every KEY_PERIOD retirements up to STEP_LIMIT, seeded by `seed`."""
 
     rng = random.Random(seed)
-    changes = tuple((step, rng.randint(0, ALL_KEYS)) for step in range(0, STEP_LIMIT, KEY_PERIOD))
-    return KeySchedule(changes=changes)
+    steps = range(0, STEP_LIMIT, KEY_PERIOD)
+    return KeySchedule(changes=tuple((step, rng.randint(0, ALL_KEYS)) for step in steps))

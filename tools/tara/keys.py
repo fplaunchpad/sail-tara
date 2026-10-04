@@ -75,7 +75,7 @@ def check_order(changes: Sequence[KeyChange]) -> None:
             raise ValueError(f"step {later} does not follow step {earlier}")
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class KeySchedule:
     """The input lines over a run: `initial` until the first change, then each change's lines
     from its retirement count on."""

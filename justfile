@@ -34,7 +34,7 @@ build: c::build ocaml::build rocq::build lean::build doc::build
 
 # Test the emulators against the reference model; ARGS go to pytest (e.g. -k tara-c).
 test *args: c::build ocaml::build
-    uv run --frozen --no-python-downloads pytest --emulator="{{ build }}/c/tara-c" --emulator="{{ build }}/ocaml/tara-ocaml" "$@"
+    "$TARA_PYTHON" -m pytest --emulator="{{ build }}/c/tara-c" --emulator="{{ build }}/ocaml/tara-ocaml" "$@"
 
 # Format the Sail, C, OCaml and Python sources.
 format: model::format c::format ocaml::format python::format

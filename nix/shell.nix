@@ -16,6 +16,7 @@
   lean-sail,
   texlive,
   python,
+  pythonTest,
   uv,
   nodejs,
   taracpu,
@@ -63,6 +64,8 @@ mkShell {
     TARACPU = "${taracpu}/share/taracpu";
     # TARA Studio's modules (src.*), for the reference model and the tests.
     PYTHONPATH = "${taracpu}/share/taracpu";
+    # The interpreter of the test suite, with its dependencies; Pyright resolves imports with it.
+    TARA_PYTHON = pythonTest.interpreter;
     LEAN_SAIL = "${lean-sail}";
     UV_PYTHON_DOWNLOADS = "never";
     UV_PYTHON = lib.getExe python;

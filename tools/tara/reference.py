@@ -98,7 +98,7 @@ class Reference(TaraCPU):
         self.pc = pc - odd
         self.step(record_history=False)
         if self.error is not None:
-            raise StudioFault(pc, self.error)
+            raise StudioFault(pc=pc, message=self.error)
 
         if name != RET:
             self.pc = (self.pc + odd) & ADDRESS_MASK
@@ -154,7 +154,10 @@ def run(
         pc, word = machine.pc, machine.read_word(machine.pc)
         result = machine.advance()
         if disassembly is not None:
-            steps.append(TraceLine(pc, word, tuple(machine.reg), disassembly[word]))
+            step = TraceLine(
+                pc=pc, word=word, registers=tuple(machine.reg), assembly=disassembly[word]
+            )
+            steps.append(step)
 
         if result is Step.ILLEGAL:
             status = Status.ILLEGAL

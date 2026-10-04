@@ -27,9 +27,14 @@ let
       ps: map (pinnedPackage ps) pyproject.project.dependencies
     );
     pythonDevTools = map (pinnedPackage pkgs) pyproject.dependency-groups.dev;
-    # The runtime and pytest: the interpreter of the test suite and of Pyright.
+    # The runtime and the test suite's dependencies: the interpreter of the tests and of Pyright.
+    # Hypothesis's own test suite fails on the Python 3.15 release candidate (deprecation
+    # warnings raised as errors); the library itself works, so its tests are skipped.
     pythonTest = self.python.withPackages (
-      ps: map (pinnedPackage ps) (pyproject.project.dependencies ++ pyproject.dependency-groups.test)
+      ps:
+      map (pinnedPackage (
+        ps // { hypothesis = ps.hypothesis.overridePythonAttrs { doCheck = false; }; }
+      )) (pyproject.project.dependencies ++ pyproject.tool.tara.test-dependencies)
     );
 
     sail = self.callPackage ./sail.nix { };

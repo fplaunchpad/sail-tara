@@ -1,21 +1,20 @@
 """Every program runs on the emulators exactly as on the reference model: the programs in
-tests/programs, TARA Studio's examples, and random programs."""
+tests/programs, TARA Studio's examples, and random programs that always halt."""
 
-import random
 from collections.abc import Callable
 from pathlib import Path
 
 import pytest
+from hypothesis import given
 
 from helpers.programs import EXAMPLES, PROGRAMS, STEP_LIMIT, key_schedule, program_id
-from helpers.random_programs import random_program
 from tara import reference
 from tara.asm import assemble_file
+from tara.assembly import Program
 from tara.emulator import Emulator
 from tara.image import Image
+from tara.strategies import programs
 from tara.transcript import Status
-
-RANDOM_PROGRAMS = 50
 
 
 @pytest.mark.parametrize("source", [*PROGRAMS, *EXAMPLES], ids=program_id)
@@ -40,18 +39,18 @@ def test_runs_like_the_reference(
     assert run.status == expected.status.exit_status
 
 
-@pytest.mark.parametrize("seed", range(RANDOM_PROGRAMS))
+@given(program=programs)
 def test_random_program_runs_like_the_reference(
-    emulator: Emulator, disassembly: tuple[str, ...], tmp_path: Path, seed: int
+    emulator: Emulator, disassembly: tuple[str, ...], scratch: Path, program: Program
 ) -> None:
-    source = tmp_path / f"random-{seed}.tara"
-    source.write_text(random_program(random.Random(seed)))
-    image = Image(tmp_path / f"random-{seed}.bin")
+    source = scratch / f"{emulator.name}.tara"
+    source.write_text(str(program))
+    image = Image(scratch / f"{emulator.name}.bin")
     image.write(assemble_file(source))
 
     expected = reference.run(image.read(), disassembly=disassembly)
-    assert expected.status is Status.HALTED, "random programs must halt"
+    assert expected.status is Status.HALTED, "random programs always halt"
 
     run = emulator.run("-t", image.path)
 
-    assert run.transcript == expected, source.read_text()
+    assert run.transcript == expected

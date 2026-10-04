@@ -30,6 +30,12 @@ rules from that skill do not apply here.
   distinguish integers from booleans and validate finite numeric values
   directly. Use fixed tuple annotations for known record shapes and
   `Meta(min_length=1)` for decoded nonempty collections.
+- Spell enum values once. A `StrEnum` whose values are its lowercase names uses `auto()`;
+  one whose values are its names derives from a base that overrides
+  `_generate_next_value_` to return the name (see `tara.assembly.Named`).
+- Pass arguments by keyword when a call takes several, and declare records with
+  several fields `@dataclass(kw_only=True)` so their construction names every
+  field.
 - Resolve each override/document/default field together, using explicit
   `None` checks when zero is invalid but still distinct from a missing value.
 - Define fixed spellings once and derive related names from them. Name classes

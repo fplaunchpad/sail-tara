@@ -3,7 +3,7 @@
 import re
 from collections.abc import Iterator
 from dataclasses import dataclass
-from enum import StrEnum
+from enum import StrEnum, auto
 from typing import Self
 
 from tara.isa import MEMORY_BYTES, REGISTERS, SCREEN_SIZE
@@ -23,9 +23,9 @@ MEMORY_ROW_BYTES = 16
 class Status(StrEnum):
     """Why a run ended, as the status line spells it."""
 
-    HALTED = "halted"
-    LIMIT = "limit"
-    ILLEGAL = "illegal"
+    HALTED = auto()
+    LIMIT = auto()
+    ILLEGAL = auto()
 
     @property
     def exit_status(self) -> int:
@@ -44,7 +44,7 @@ class TranscriptError(ValueError):
     """Output that does not follow the emulators' output format."""
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class TraceLine:
     """One step: its PC and instruction word, the registers after it, and its assembly."""
 
@@ -63,7 +63,10 @@ class TraceLine:
 
         pc, word, registers, assembly = match.groups()
         return cls(
-            int(pc, 16), int(word, 16), tuple(int(r, 16) for r in registers.split()), assembly
+            pc=int(pc, 16),
+            word=int(word, 16),
+            registers=tuple(int(register, 16) for register in registers.split()),
+            assembly=assembly,
         )
 
     def render(self) -> str:
@@ -71,7 +74,7 @@ class TraceLine:
         return f"{self.pc:04x} {self.word:04x} {registers} {self.assembly}"
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class Transcript:
     """Everything a batch run prints, parsed: the trace lines (with -t), the final state, and the
     framebuffer rows (with --fb), top row (y = 63) first."""
@@ -100,7 +103,15 @@ class Transcript:
         memory = bytes.fromhex(lines.expect(MEMORY_LINE).group(1))
         framebuffer = tuple(lines.take_framebuffer())
         lines.expect_end()
-        return cls(trace, status, steps, pc, registers, memory, framebuffer)
+        return cls(
+            trace=trace,
+            status=status,
+            steps=steps,
+            pc=pc,
+            registers=registers,
+            memory=memory,
+            framebuffer=framebuffer,
+        )
 
     def render(self) -> str:
         """The output this transcript stands for."""

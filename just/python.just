@@ -23,7 +23,7 @@ lint *args:
 format *args:
     uv run --frozen --no-python-downloads black tools typings tests "$@"
 
-# Check Python types with the strict project configuration.
+# Check Python types with the strict project configuration, against the test interpreter's packages.
 [group('quality')]
 typecheck *args:
-    uv run --frozen --no-python-downloads pyright "$@"
+    uv run --frozen --no-python-downloads pyright --pythonpath "$TARA_PYTHON" "$@"

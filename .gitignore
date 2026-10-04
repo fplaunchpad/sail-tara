@@ -13,6 +13,7 @@ sail_smt_cache
 **/__pycache__/
 .ruff_cache/
 .pytest_cache/
+.hypothesis/
 
 # Environment
 .direnv/

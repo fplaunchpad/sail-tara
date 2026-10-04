@@ -11,7 +11,7 @@ TIMEOUT_SECONDS = 300
 DISASSEMBLE_ALL = "--disasm-all"
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class Run:
     """An emulator's exit status and output."""
 
@@ -50,7 +50,7 @@ class Emulator:
             timeout=TIMEOUT_SECONDS,
             check=False,
         )
-        return Run(completed.returncode, completed.stdout, completed.stderr)
+        return Run(status=completed.returncode, stdout=completed.stdout, stderr=completed.stderr)
 
     def disassembly(self) -> tuple[str, ...]:
         """The assembly text of every word, as `--disasm-all` prints it, indexed by word."""

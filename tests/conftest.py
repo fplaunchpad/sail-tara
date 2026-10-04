@@ -9,6 +9,7 @@ from collections.abc import Callable, Iterator
 from pathlib import Path
 
 import pytest
+from hypothesis import settings
 
 from helpers.programs import PROGRAMS_DIRECTORY, ProgramImage
 from helpers.terminal import Session, Start
@@ -17,8 +18,11 @@ from tara.emulator import Emulator
 from tara.image import Image
 from tara.transcript import Transcript
 
-# Each emulator's --disasm-all output, read once.
-disassembly_of = functools.cache(Emulator.disassembly)
+# Each random program runs the emulator, so examples are few and have no deadline. The ci profile
+# (--hypothesis-profile=ci) draws the same examples on every run and keeps no database.
+settings.register_profile("dev", max_examples=50, deadline=None)
+settings.register_profile("ci", parent=settings.get_profile("dev"), derandomize=True, database=None)
+settings.load_profile("dev")
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
@@ -36,7 +40,9 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
     if "emulator" in metafunc.fixturenames:
         paths = metafunc.config.getoption("emulator") or list[Path]()
         emulators = [Emulator(Path(path)) for path in paths]
-        metafunc.parametrize("emulator", emulators, ids=[emulator.name for emulator in emulators])
+        metafunc.parametrize(
+            "emulator", emulators, ids=[emulator.name for emulator in emulators], scope="session"
+        )
 
 
 def pytest_assertrepr_compare(op: str, left: object, right: object) -> list[str] | None:
@@ -44,8 +50,8 @@ def pytest_assertrepr_compare(op: str, left: object, right: object) -> list[str]
         diff = difflib.unified_diff(
             left.lines(memory_rows=True),
             right.lines(memory_rows=True),
-            "emulator",
-            "reference",
+            fromfile="emulator",
+            tofile="reference",
             lineterm="",
         )
         return ["the emulator's output differs from the reference model's:", *diff]
@@ -68,12 +74,19 @@ def assemble(tmp_path_factory: pytest.TempPathFactory) -> Callable[[Path], Path]
     return assemble
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def disassembly(emulator: Emulator) -> tuple[str, ...]:
     """The emulator's disassembly of every word: the model's assembly syntax, which the tests
     check against TARA Studio's assembler instead of re-implementing it."""
 
-    return disassembly_of(emulator)
+    return emulator.disassembly()
+
+
+@pytest.fixture(scope="session")
+def scratch(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """A directory for files that each Hypothesis example overwrites."""
+
+    return tmp_path_factory.mktemp("scratch")
 
 
 @pytest.fixture(scope="session")

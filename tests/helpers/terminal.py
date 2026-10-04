@@ -10,7 +10,7 @@ import termios
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
-from enum import StrEnum
+from enum import StrEnum, auto
 from pathlib import Path
 
 from tara.emulator import Emulator
@@ -40,10 +40,10 @@ HOLD_SECONDS = 0.15
 class State(StrEnum):
     """The state a status line shows."""
 
-    RUNNING = "running"
-    HALTED = "halted"
-    ILLEGAL = "illegal"
-    LIMIT = "limit"
+    RUNNING = auto()
+    HALTED = auto()
+    ILLEGAL = auto()
+    LIMIT = auto()
 
 
 STATUS_LINE = re.compile(
@@ -52,7 +52,7 @@ STATUS_LINE = re.compile(
 )
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class Status:
     """A status line: the run's state, PC, retirements and held input lines."""
 
@@ -65,7 +65,7 @@ class Status:
     def parse(cls, match: re.Match[str]) -> Status:
         state, pc, steps, *lines = match.groups()
         held = sum(1 << index for index, line in enumerate(lines) if line != RELEASED)
-        return cls(State(state), int(pc, 16), int(steps), Keys(held))
+        return cls(state=State(state), pc=int(pc, 16), steps=int(steps), keys=Keys(held))
 
 
 class Session:
