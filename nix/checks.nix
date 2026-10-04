@@ -8,6 +8,7 @@
   sailDocTables,
   docFonts,
   prettier,
+  just,
   jq,
   clang-tools,
   cmake,
@@ -24,7 +25,7 @@
 
 let
   # The Python sources and their configuration, writable for the tools' caches. The tests of the
-  # specification run Sail on the model, which they copy.
+  # specification build it with the documentation recipes, in a copy of these sources.
   pythonSource = lib.fileset.toSource {
     root = ../.;
     fileset = lib.fileset.unions [
@@ -34,6 +35,8 @@ let
       ../tests
       ../model
       ../doc
+      ../justfile
+      ../just
       ../.prettierrc.json
     ];
   };
@@ -50,9 +53,11 @@ in
           asciidoctorSail
           sailDocTables
           prettier
+          just
         ];
         env = {
           PYTHONPATH = "${taracpu}/share/taracpu";
+          TARA_PYTHON = pythonTest.interpreter;
           TARA_DOC_PLUGIN = "${sailDocTables}/lib/sail-doc-tables/sail_doc_tables.cmxs";
           TARA_DOC_FONTS = "${docFonts}/fonts";
         };
