@@ -11,6 +11,7 @@
   clang-tools,
   cmake,
   ninja,
+  verilator,
   zlib,
   ocamlPackages,
   rocqPackages,
@@ -43,6 +44,7 @@ mkShell {
     clang-tools
     cmake
     ninja
+    verilator
     # OCaml emulator (libsail is part of the sail package).
     ocamlPackages.ocaml
     ocamlPackages.dune_3

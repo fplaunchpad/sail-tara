@@ -38,6 +38,11 @@ let
     );
 
     sail = self.callPackage ./sail.nix { };
+    # GCC 16 defaults to C++20, but nixpkgs' SystemC library exports its C++17 API guard.
+    # Keep Verilator 5.052's SystemC smoke tests on the same standard as that library.
+    verilator = pkgs.verilator.overrideAttrs (previous: {
+      env = previous.env // { NIX_CFLAGS_COMPILE = "-std=c++17"; };
+    });
     rocq-sail-stdpp = self.rocqPackages.callPackage ./rocq-sail-stdpp.nix { };
     taracpu = self.callPackage ./taracpu.nix { };
     lean-sail = self.callPackage ./lean-sail.nix { };
