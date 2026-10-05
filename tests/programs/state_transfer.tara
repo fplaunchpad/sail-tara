@@ -1,0 +1,7 @@
+; The adapter test relocates this to 0x400, seeds distinct registers and patterned RAM, and
+; checks the complete state after each step. R0 = 0; R1 and R2 hold different byte values.
+
+        NOP
+        STB R1, -1(R0)
+        STB R2, 0(R0)
+        HLT

@@ -1,0 +1,24 @@
+# Machine and Terminal methods require their RAII object's lifetime even when the
+# underlying Sail/POSIX resource is process-wide. Static methods would hide that contract.
+Checks: >-
+  -*,
+  bugprone-*,
+  cert-*,
+  clang-analyzer-*,
+  concurrency-*,
+  cppcoreguidelines-*,
+  misc-*,
+  modernize-*,
+  performance-*,
+  portability-*,
+  readability-*,
+  -readability-convert-member-functions-to-static
+WarningsAsErrors: "*"
+ExtraArgs: ["-Wno-unknown-warning-option"]
+HeaderFilterRegex: ".*/emulator/verilator/.*"
+CheckOptions:
+  # Value structs expose their complete state for snapshots, comparison and designated setup.
+  misc-non-private-member-variables-in-classes.IgnoreClassesWithAllMemberVariablesBeingPublic: true
+  bugprone-easily-swappable-parameters.ModelImplicitConversions: false
+  # POSIX uses public umbrella headers for private implementation declarations.
+  misc-include-cleaner.IgnoreHeaders: "bits/.*;sys/poll\\.h"
