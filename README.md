@@ -19,7 +19,7 @@ A Sail model of TARA, the 16-bit teaching CPU of IIT Madras CS2300, and the tool
 | `tests/programs/` | Test programs, in assembly |
 | `examples/` | Programs to play: `snake.tara` |
 | `tools/tara/` | `tara-asm` and the reference model with the RTL corrections below |
-| `tools/sail-doc/` | Sail plugin deriving opcode fields and assembly templates for the documentation tables |
+| `tools/sail-doc/` | Sail plugin that reads the instructions (encodings, syntax, execution, clauses) for the specification |
 | `nix/`, `just/` | Flake packages and just recipes |
 
 ## Usage
