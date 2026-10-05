@@ -1,5 +1,4 @@
 #include <chrono>
-#include <cstdio>
 #include <exception>
 #include <print>
 #include <stdexcept>

@@ -57,14 +57,16 @@ void AdvanceFrame(Run &run, std::uint8_t keys, std::uint64_t instruction_budget,
 InputAction HandleFrameInput(const Terminal &terminal, KeyboardInput &keyboard,
                              TimePoint frame_deadline) {
   // A full CPU frame still needs one nonblocking poll to keep controls responsive.
-  do {
+  for (;;) {
     const auto bytes = terminal.Read(std::min(frame_deadline, keyboard.EscapeDeadline()));
     const auto now = Clock::now();
     if (keyboard.HandleBytes(bytes, now) == InputAction::kExit) {
       return InputAction::kExit;
     }
-  } while (Clock::now() < frame_deadline);
-  return InputAction::kContinue;
+    if (Clock::now() >= frame_deadline) {
+      return InputAction::kContinue;
+    }
+  }
 }
 
 } // namespace
