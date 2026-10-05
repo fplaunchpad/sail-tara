@@ -13,6 +13,7 @@ justDerivation {
   fileset = [
     ../model
     ../emulator/host.sail
+    ../emulator/state.sail
     ../emulator/c
   ];
   nativeBuildInputs = [
