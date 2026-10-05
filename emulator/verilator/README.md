@@ -30,6 +30,7 @@ just test -k tara-verilator
 - Source changes trigger regeneration during CMake configuration and rebuild the circuit.
 - `check` verifies complete state transfer, both RAM boundaries, halted-state preservation
   and illegal-opcode advancement with assembly programs.
+- It also checks fragmented arrow input, Escape deadlines and key release timing without sleeps.
 - `just test` runs CLI, disassembly, terminal and reference-model tests across all three emulators,
   including Hypothesis-generated programs, traces, key scripts and framebuffer output.
 - The Nix package installs the executable in `bin/` and SystemVerilog files in
@@ -46,7 +47,7 @@ just test -k tara-verilator
   standard headers, generated/external headers, then project headers.
 - Tests build one asymmetric state fixture, then arrange, execute and assert each case.
 - `src/` groups responsibilities into machine state, input files, CLI options, run status,
-  key events, terminal lifetime and interactive play.
+  keyboard events, display rendering, terminal lifetime and interactive play.
 
 ## Sail backend patch
 

@@ -42,18 +42,18 @@ void SetColors(std::string &frame, const Cell &cell) {
                  PixelColor(cell.is_upper_set), PixelColor(cell.is_lower_set));
 }
 
-void MoveToRowStart(std::string &frame, std::size_t row) {
-  std::format_to(std::back_inserter(frame), "{}{};1H", kCsi, row);
+void MoveToRowStart(std::string &frame, std::size_t terminal_row) {
+  std::format_to(std::back_inserter(frame), "{}{};1H", kCsi, terminal_row);
 }
 
 std::string HeldLetters(std::uint8_t keys) {
-  std::string held(kKeyLetters);
-  for (auto [line, letter] : held | std::views::enumerate) {
-    if ((keys & (std::uint8_t{1} << line)) == 0) {
+  std::string key_labels(kKeyLetters);
+  for (auto [key_index, letter] : key_labels | std::views::enumerate) {
+    if ((keys & (std::uint8_t{1} << key_index)) == 0) {
       letter = '-';
     }
   }
-  return held;
+  return key_labels;
 }
 
 void AppendStatus(std::string &frame, const Machine &machine, const Run &run, std::uint8_t keys) {

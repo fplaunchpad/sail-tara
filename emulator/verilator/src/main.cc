@@ -16,20 +16,20 @@ namespace tara::verilator {
 namespace {
 
 std::uint8_t Execute(const Command &command) {
-  if (command.help) {
-    std::print("{}", *command.help);
+  if (command.help_text) {
+    std::print("{}", *command.help_text);
     return 0;
   }
   Machine machine;
   switch (command.subcommand) {
   case Subcommand::kRun:
-    if (command.run) {
-      return RunBatch(machine, *command.run);
+    if (command.run_options) {
+      return RunBatch(machine, *command.run_options);
     }
     break;
   case Subcommand::kPlay:
-    if (command.play) {
-      return Play(machine, *command.play);
+    if (command.play_options) {
+      return Play(machine, *command.play_options);
     }
     break;
   case Subcommand::kDisasm:

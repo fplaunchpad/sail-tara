@@ -16,7 +16,7 @@ enum class RunStatus : std::uint8_t { kRunning, kHalted, kLimit, kIllegal };
 
 class Run {
 public:
-  Run(Machine &machine, std::uint64_t limit) : machine_(machine), limit_(limit) {}
+  Run(Machine &machine, std::uint64_t step_limit) : machine_(machine), step_limit_(step_limit) {}
 
   StepResult Step(std::uint8_t keys);
   [[nodiscard]] RunStatus Status() const;
@@ -27,7 +27,7 @@ public:
 
 private:
   std::reference_wrapper<Machine> machine_;
-  std::uint64_t limit_;
+  std::uint64_t step_limit_;
   std::uint64_t retirements_{};
   bool has_illegal_opcode_{};
 };

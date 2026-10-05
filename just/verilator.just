@@ -25,9 +25,10 @@ run program *options: build (assemble program)
 play program *options: build (assemble program)
     "{{ build }}/verilator/tara-verilator" play "${@:2}" "{{ build }}/programs/$(basename "$1" .tara).bin"
 
-# Check complete state transfer, halted preservation and illegal-opcode advancement.
+# Check state transfer, retirement behavior and keyboard timing.
 check: build (assemble "tests/programs/state_transfer.tara") (assemble "tests/programs/illegal.tara")
     "{{ build }}/verilator/state-test" "{{ build }}/programs/state_transfer.bin" "{{ build }}/programs/illegal.bin"
+    "{{ build }}/verilator/keyboard-test"
 
 # Format the authored C++ sources.
 format:
@@ -38,7 +39,7 @@ format:
 format-check:
     clang-format --dry-run --Werror emulator/verilator/src/*.cc emulator/verilator/src/*.h emulator/verilator/tests/*.cc
 
-# Check the authored adapter and state test with clang-tidy.
+# Check the authored C++ sources and state test with clang-tidy.
 [private]
 tidy: build
     clang-tidy --quiet -p "{{ build }}/verilator" emulator/verilator/src/*.cc emulator/verilator/tests/*.cc

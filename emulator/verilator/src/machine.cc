@@ -47,7 +47,7 @@ public:
   SailText(SailText &&) = delete;
   SailText &operator=(SailText &&) = delete;
 
-  [[nodiscard]] sail_string *Out() { return &value_; }
+  [[nodiscard]] sail_string *OutputPointer() { return &value_; }
 
   [[nodiscard]] std::string Copy() const { return value_; }
 
@@ -55,32 +55,32 @@ private:
   sail_string value_{};
 };
 
-void LoadInputs(Vtara_step &model, std::uint8_t keys) {
+void LoadInputs(Vtara_step &circuit, std::uint8_t keys) {
   const auto registers = std::span(zGPR.data, zGPR.len);
   const auto memory = std::span(zMEM.data, zMEM.len);
-  std::ranges::transform(registers, model.in_GPR.data(),
+  std::ranges::transform(registers, circuit.in_GPR.data(),
                          [](std::uint64_t value) { return static_cast<std::uint16_t>(value); });
-  std::ranges::transform(memory, model.in_MEM.data(),
+  std::ranges::transform(memory, circuit.in_MEM.data(),
                          [](std::uint64_t value) { return static_cast<std::uint8_t>(value); });
 
-  model.arg0 = keys;
-  model.in_PC = static_cast<std::uint16_t>(zPC);
-  model.in_HALTED = static_cast<std::uint8_t>(zHALTED);
-  model.in_KEYS = static_cast<std::uint8_t>(zKEYS);
-  model.in_nextPC = static_cast<std::uint16_t>(znextPC);
-  model.in_trace_pc = static_cast<std::uint16_t>(ztrace_pc);
-  model.in_trace_word = static_cast<std::uint16_t>(ztrace_word);
+  circuit.arg0 = keys;
+  circuit.in_PC = static_cast<std::uint16_t>(zPC);
+  circuit.in_HALTED = static_cast<std::uint8_t>(zHALTED);
+  circuit.in_KEYS = static_cast<std::uint8_t>(zKEYS);
+  circuit.in_nextPC = static_cast<std::uint16_t>(znextPC);
+  circuit.in_trace_pc = static_cast<std::uint16_t>(ztrace_pc);
+  circuit.in_trace_word = static_cast<std::uint16_t>(ztrace_word);
 }
 
-void StoreOutputs(const Vtara_step &model) {
-  std::ranges::copy(std::span(model.out_GPR.data(), model.out_GPR.size()), zGPR.data);
-  std::ranges::copy(std::span(model.out_MEM.data(), model.out_MEM.size()), zMEM.data);
-  zPC = model.out_PC;
-  zHALTED = model.out_HALTED != 0;
-  zKEYS = model.out_KEYS;
-  znextPC = model.out_nextPC;
-  ztrace_pc = model.out_trace_pc;
-  ztrace_word = model.out_trace_word;
+void StoreOutputs(const Vtara_step &circuit) {
+  std::ranges::copy(std::span(circuit.out_GPR.data(), circuit.out_GPR.size()), zGPR.data);
+  std::ranges::copy(std::span(circuit.out_MEM.data(), circuit.out_MEM.size()), zMEM.data);
+  zPC = circuit.out_PC;
+  zHALTED = circuit.out_HALTED != 0;
+  zKEYS = circuit.out_KEYS;
+  znextPC = circuit.out_nextPC;
+  ztrace_pc = circuit.out_trace_pc;
+  ztrace_word = circuit.out_trace_word;
 }
 
 } // namespace
@@ -110,7 +110,7 @@ Machine::Machine() : impl_(std::make_unique<Impl>()) {}
 
 Machine::~Machine() = default;
 
-void Machine::Load(std::span<const std::uint8_t> image) {
+void Machine::LoadImage(std::span<const std::uint8_t> image) {
   if (image.size() > kMemoryBytes) {
     throw std::runtime_error("image is larger than TARA memory");
   }
@@ -161,19 +161,19 @@ bool Machine::IsPixelSet(std::size_t pixel_x, std::size_t pixel_y) const {
 
 std::string Machine::Trace() const {
   SailText text;
-  zhost_trace(text.Out(), UNIT);
+  zhost_trace(text.OutputPointer(), UNIT);
   return text.Copy();
 }
 
 std::string Machine::Dump() const {
   SailText text;
-  zhost_dump(text.Out(), UNIT);
+  zhost_dump(text.OutputPointer(), UNIT);
   return text.Copy();
 }
 
 std::string Machine::Disassemble(std::uint16_t word) const {
   SailText text;
-  zhost_disasm(text.Out(), word);
+  zhost_disasm(text.OutputPointer(), word);
   return text.Copy();
 }
 

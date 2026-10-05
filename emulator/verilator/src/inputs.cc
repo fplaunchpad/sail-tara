@@ -30,15 +30,15 @@ constexpr int kDecimalBase = 10;
 constexpr int kHexBase = 16;
 constexpr std::size_t kMaxFileBytes = 1'048'576;
 constexpr std::size_t kChunkBytes = 4'096;
-constexpr std::size_t kWordDigits = 4;
+constexpr std::size_t kMaxHexWordDigits = 4;
 constexpr std::uint16_t kBitsPerByte = 8;
 
 std::uint64_t ParseNumber(std::string_view text, int base, std::uint64_t maximum) {
   std::uint64_t value{};
-  const char *const first = std::to_address(text.begin());
-  const char *const last = std::to_address(text.end());
-  const auto [end, error] = std::from_chars(first, last, value, base);
-  if (error != std::errc{} || end != last || value > maximum) {
+  const char *const digits_begin = std::to_address(text.begin());
+  const char *const digits_end = std::to_address(text.end());
+  const auto [parsed_end, parse_error] = std::from_chars(digits_begin, digits_end, value, base);
+  if (parse_error != std::errc{} || parsed_end != digits_end || value > maximum) {
     throw std::runtime_error(std::format("invalid number '{}'", text));
   }
   return value;
@@ -71,7 +71,7 @@ std::vector<std::uint8_t> ReadHex(std::string_view text) {
   for (std::string line; std::getline(lines, line);) {
     std::istringstream words{std::string(WithoutComment(line))};
     for (std::string spelling; words >> spelling;) {
-      if (spelling.size() > kWordDigits) {
+      if (spelling.size() > kMaxHexWordDigits) {
         throw std::runtime_error("hex words must contain one to four digits");
       }
       const auto word = ParseNumber(spelling, kHexBase, std::numeric_limits<std::uint16_t>::max());
@@ -85,7 +85,7 @@ std::vector<std::uint8_t> ReadHex(std::string_view text) {
   return image;
 }
 
-std::optional<KeyChange> ParseChange(std::string_view line) {
+std::optional<KeyChange> ParseKeyChange(std::string_view line) {
   std::istringstream fields{std::string(WithoutComment(line))};
   std::string step_count;
   std::string key_lines;
@@ -136,7 +136,7 @@ void KeySchedule::Load(const std::filesystem::path &path) {
   }
   std::istringstream lines(contents);
   for (std::string line; std::getline(lines, line);) {
-    if (const auto change = ParseChange(line)) {
+    if (const auto change = ParseKeyChange(line)) {
       if (!changes_.empty() && change->step <= changes_.back().step) {
         throw std::runtime_error("key script steps must increase strictly");
       }
@@ -145,9 +145,9 @@ void KeySchedule::Load(const std::filesystem::path &path) {
   }
 }
 
-std::uint8_t KeySchedule::At(std::uint64_t step) const {
-  const auto next = std::ranges::upper_bound(changes_, step, {}, &KeyChange::step);
-  return next == changes_.begin() ? initial_ : std::prev(next)->keys;
+std::uint8_t KeySchedule::KeysAtStep(std::uint64_t step) const {
+  const auto next_change = std::ranges::upper_bound(changes_, step, {}, &KeyChange::step);
+  return next_change == changes_.begin() ? initial_keys_ : std::prev(next_change)->keys;
 }
 
 } // namespace tara::verilator

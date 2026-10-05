@@ -66,7 +66,7 @@ just ci                          # nix flake check, preserving the lock file
 - `--help`, on its own or after a subcommand, lists the options.
 - The exit status says how a run ended:
 
-- `0`: the CPU halted.
+- `0`: the CPU halted, or the player exited while the CPU was still running.
 - `1`: an error, such as a bad option or a bad image.
 - `3`: the step limit was reached.
 - `4`: the CPU fetched an unassigned opcode.

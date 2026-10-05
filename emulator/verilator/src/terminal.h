@@ -10,7 +10,7 @@
 
 #include <termios.h>
 
-#include "input.h"
+#include "keyboard.h"
 
 namespace tara::verilator {
 
@@ -24,8 +24,8 @@ public:
   Terminal &operator=(Terminal &&) = delete;
 
   void Write(std::string_view text) const;
-  [[nodiscard]] std::string Read(Time deadline) const;
-  [[nodiscard]] bool WasResized() const;
+  [[nodiscard]] std::string Read(TimePoint deadline) const;
+  [[nodiscard]] bool ConsumeResize();
 
 private:
   void InstallFatalHandlers();
@@ -39,18 +39,18 @@ private:
   static void OnResize(int signal);
 
   // Plain int and POSIX structs belong to the signal/terminal API boundary.
-  struct Handler {
+  struct SavedSignalHandler {
     int signal;
-    struct sigaction previous;
+    struct sigaction previous_action;
   };
 
   static constexpr std::size_t kHandlerCapacity = 10;
-  std::array<Handler, kHandlerCapacity> handlers_{};
-  std::size_t handler_count_{};
-  termios original_{};
-  std::atomic<bool> is_open_;
-  static std::atomic<Terminal *> active_;
-  static std::atomic<bool> has_resized_;
+  std::array<SavedSignalHandler, kHandlerCapacity> saved_handlers_{};
+  std::size_t saved_handler_count_{};
+  termios original_settings_{};
+  std::atomic<bool> is_screen_active_;
+  static std::atomic<Terminal *> active_terminal_;
+  static std::atomic<bool> has_pending_resize_;
 };
 
 } // namespace tara::verilator

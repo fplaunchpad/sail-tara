@@ -15,10 +15,10 @@ namespace tara::verilator {
 namespace {
 
 void PrintFramebuffer(const Machine &machine) {
-  for (const auto row : std::views::iota(std::size_t{0}, kScreenSize) | std::views::reverse) {
+  for (const auto pixel_y : std::views::iota(std::size_t{0}, kScreenSize) | std::views::reverse) {
     std::string pixels(kScreenSize, '.');
-    for (auto [column, pixel] : pixels | std::views::enumerate) {
-      if (machine.IsPixelSet(static_cast<std::size_t>(column), row)) {
+    for (auto [pixel_x, pixel] : pixels | std::views::enumerate) {
+      if (machine.IsPixelSet(static_cast<std::size_t>(pixel_x), pixel_y)) {
         pixel = '#';
       }
     }
@@ -35,7 +35,7 @@ RunStatus Run::Status() const {
   if (machine_.get().IsHalted()) {
     return RunStatus::kHalted;
   }
-  if (limit_ != 0 && retirements_ == limit_) {
+  if (step_limit_ != 0 && retirements_ == step_limit_) {
     return RunStatus::kLimit;
   }
   return RunStatus::kRunning;
@@ -67,23 +67,23 @@ std::uint8_t Run::ExitStatus() const {
 }
 
 std::uint8_t RunBatch(Machine &machine, const RunOptions &options) {
-  KeySchedule keys(options.keys);
-  if (options.key_script) {
-    keys.Load(*options.key_script);
+  KeySchedule key_schedule(options.initial_keys);
+  if (options.key_script_path) {
+    key_schedule.Load(*options.key_script_path);
   }
-  machine.Load(ReadImage(options.image));
+  machine.LoadImage(ReadImage(options.image_path));
 
   Run run(machine, options.max_steps);
   while (run.Status() == RunStatus::kRunning) {
-    const auto result = run.Step(keys.At(run.Retirements()));
-    if (options.needs_trace && result != StepResult::kStopped) {
+    const auto result = run.Step(key_schedule.KeysAtStep(run.Retirements()));
+    if (options.should_print_trace && result != StepResult::kStopped) {
       std::println("{}", machine.Trace());
     }
   }
 
   std::println("status {}\nsteps {}", run.Status(), run.Retirements());
   std::print("{}", machine.Dump());
-  if (options.needs_framebuffer) {
+  if (options.should_print_framebuffer) {
     PrintFramebuffer(machine);
   }
   return run.ExitStatus();

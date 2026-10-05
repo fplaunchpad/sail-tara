@@ -40,7 +40,7 @@ public:
   Machine(Machine &&) = delete;
   Machine &operator=(Machine &&) = delete;
 
-  void Load(std::span<const std::uint8_t> image);
+  void LoadImage(std::span<const std::uint8_t> image);
   [[nodiscard]] StepResult Step(std::uint8_t keys);
   [[nodiscard]] State ReadState() const;
   void WriteState(const State &state);

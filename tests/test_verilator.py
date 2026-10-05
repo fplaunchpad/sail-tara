@@ -1,4 +1,4 @@
-"""Verilator's terminal cleanup under signals, resize and output failure."""
+"""Verilator's input responsiveness and terminal cleanup."""
 
 import contextlib
 import os
@@ -22,9 +22,11 @@ from helpers.terminal import (
     TIMEOUT_SECONDS,
     Start,
     State,
+    holding,
     in_state,
 )
 from tara.emulator import Emulator, Subcommand
+from tara.keys import Keys
 
 VERILATOR = "tara-verilator"
 CLEAR_SCREEN = f"{CSI}2J"
@@ -38,6 +40,28 @@ MAX_QUEUE_WRITES = 64
 def require_verilator(emulator: Emulator) -> None:
     if emulator.name != VERILATOR:
         pytest.skip("Verilator frontend regression")
+
+
+@pytest.mark.parametrize(
+    "instructions_per_second",
+    [
+        pytest.param("0", id="unlimited"),
+        pytest.param(str((1 << 64) - 1), id="saturated"),
+    ],
+)
+def test_full_cpu_frames_still_handle_input(
+    start: Start, program: Program, instructions_per_second: str
+) -> None:
+    session = start(RATE, instructions_per_second, program("spin"))
+    session.wait_for(in_state(State.RUNNING))
+    session.send(f"{CSI}A")
+
+    session.wait_for(holding(Keys.UP))
+    session.wait_for(holding(Keys(0)))
+    session.send(ESCAPE)
+
+    assert session.finish() == 0
+    assert session.restored()
 
 
 @pytest.mark.parametrize("signal_number", [signal.SIGTERM, signal.SIGINT])

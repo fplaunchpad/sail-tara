@@ -19,13 +19,13 @@ struct KeyChange {
 
 class KeySchedule {
 public:
-  explicit KeySchedule(std::uint8_t initial) : initial_(initial) {}
+  explicit KeySchedule(std::uint8_t initial_keys) : initial_keys_(initial_keys) {}
 
   void Load(const std::filesystem::path &path);
-  [[nodiscard]] std::uint8_t At(std::uint64_t step) const;
+  [[nodiscard]] std::uint8_t KeysAtStep(std::uint64_t step) const;
 
 private:
-  std::uint8_t initial_;
+  std::uint8_t initial_keys_;
   std::vector<KeyChange> changes_;
 };
 

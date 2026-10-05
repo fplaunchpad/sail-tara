@@ -5,8 +5,8 @@
 #include <ranges>
 
 #include "display.h"
-#include "input.h"
 #include "inputs.h"
+#include "keyboard.h"
 #include "machine.h"
 #include "options.h"
 #include "play.h"
@@ -16,77 +16,82 @@
 namespace tara::verilator {
 namespace {
 
-constexpr std::uint64_t kFrameRate = 60;
-constexpr auto kFrameTime = std::chrono::nanoseconds(1'000'000'000 / kFrameRate);
-constexpr std::uint64_t kDeadlineInterval = 64;
+constexpr std::uint64_t kFramesPerSecond = 60;
+constexpr auto kFrameDuration = std::chrono::nanoseconds(1'000'000'000 / kFramesPerSecond);
+constexpr std::uint64_t kInstructionsPerClockCheck = 64;
 
 class FrameBudget {
 public:
-  explicit FrameBudget(std::uint64_t frequency) : frequency_(frequency) {}
+  explicit FrameBudget(std::uint64_t instructions_per_second)
+      : instructions_per_second_(instructions_per_second) {}
 
-  [[nodiscard]] std::uint64_t Next() {
-    if (frequency_ == 0) {
+  [[nodiscard]] std::uint64_t NextInstructionCount() {
+    if (instructions_per_second_ == 0) {
       return std::numeric_limits<std::uint64_t>::max();
     }
-    remainder_ += frequency_ % kFrameRate;
-    const auto instructions = (frequency_ / kFrameRate) + (remainder_ / kFrameRate);
-    remainder_ %= kFrameRate;
-    return instructions;
+    instruction_remainder_ += instructions_per_second_ % kFramesPerSecond;
+    const auto instruction_count =
+        (instructions_per_second_ / kFramesPerSecond) + (instruction_remainder_ / kFramesPerSecond);
+    instruction_remainder_ %= kFramesPerSecond;
+    return instruction_count;
   }
 
 private:
-  std::uint64_t frequency_;
-  std::uint64_t remainder_{};
+  std::uint64_t instructions_per_second_;
+  std::uint64_t instruction_remainder_{};
 };
 
-void AdvanceFrame(Run &run, std::uint8_t keys, std::uint64_t budget, Time deadline) {
-  for (const auto instruction : std::views::iota(std::uint64_t{0}, budget)) {
+void AdvanceFrame(Run &run, std::uint8_t keys, std::uint64_t instruction_budget,
+                  TimePoint frame_deadline) {
+  for (const auto instruction_index : std::views::iota(std::uint64_t{0}, instruction_budget)) {
     if (run.Status() != RunStatus::kRunning) {
       break;
     }
     run.Step(keys);
-    if (instruction % kDeadlineInterval == 0 && Clock::now() >= deadline) {
+    if (instruction_index % kInstructionsPerClockCheck == 0 && Clock::now() >= frame_deadline) {
       break;
     }
   }
 }
 
-bool WaitForInput(const Terminal &terminal, Input &input, Time deadline) {
-  while (Clock::now() < deadline) {
-    const auto bytes = terminal.Read(std::min(deadline, input.Deadline()));
+InputAction HandleFrameInput(const Terminal &terminal, KeyboardInput &keyboard,
+                             TimePoint frame_deadline) {
+  // A full CPU frame still needs one nonblocking poll to keep controls responsive.
+  do {
+    const auto bytes = terminal.Read(std::min(frame_deadline, keyboard.EscapeDeadline()));
     const auto now = Clock::now();
-    if (input.WantsQuit(bytes, now) || input.HasExpiredEscape(now)) {
-      return true;
+    if (keyboard.HandleBytes(bytes, now) == InputAction::kExit) {
+      return InputAction::kExit;
     }
-  }
-  return false;
+  } while (Clock::now() < frame_deadline);
+  return InputAction::kContinue;
 }
 
 } // namespace
 
 std::uint8_t Play(Machine &machine, const PlayOptions &options) {
   // Validate the image before entering the alternate screen.
-  machine.Load(ReadImage(options.image));
-  const Terminal terminal;
-  Input input;
+  machine.LoadImage(ReadImage(options.image_path));
+  Terminal terminal;
+  KeyboardInput keyboard;
   Display display;
-  FrameBudget budget(options.frequency);
+  FrameBudget frame_budget(options.instructions_per_second);
   Run run(machine, options.max_steps);
 
-  auto start = Clock::now();
+  auto frame_start = Clock::now();
   for (;;) {
-    const auto end = start + kFrameTime;
-    const auto keys = input.HeldKeys(Clock::now());
-    if (terminal.WasResized()) {
+    const auto frame_deadline = frame_start + kFrameDuration;
+    const auto keys = keyboard.HeldKeys(Clock::now());
+    if (terminal.ConsumeResize()) {
       display.Reset();
     }
-    AdvanceFrame(run, keys, budget.Next(), end);
+    AdvanceFrame(run, keys, frame_budget.NextInstructionCount(), frame_deadline);
     terminal.Write(display.Draw(machine, run, keys));
-    if (WaitForInput(terminal, input, end)) {
+    if (HandleFrameInput(terminal, keyboard, frame_deadline) == InputAction::kExit) {
       return run.ExitStatus();
     }
     const auto now = Clock::now();
-    start = now > end + kFrameTime ? now : end;
+    frame_start = now > frame_deadline + kFrameDuration ? now : frame_deadline;
   }
 }
 
