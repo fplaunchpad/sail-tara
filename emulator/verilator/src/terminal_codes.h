@@ -22,6 +22,8 @@ template <std::size_t Size> consteval auto ControlSequence(const char (&suffix)[
   return bytes;
 }
 
+inline constexpr auto kResetAttributes = ControlSequence("0m");
+
 template <std::size_t... Sizes>
 consteval auto JoinSequences(const std::array<char, Sizes> &...sequences) {
   std::array<char, (Sizes + ...)> bytes{};

@@ -21,6 +21,8 @@ namespace {
 constexpr std::string_view kKeyLetters = "UDLRQ";
 constexpr std::string_view kAmber = "255;176;0";
 constexpr std::string_view kDark = "28;28;28";
+constexpr auto kClearToEndOfLine = ControlSequence("K");
+constexpr auto kClearScreen = ControlSequence("2J");
 
 std::string_view PixelColor(bool is_set) { return is_set ? kAmber : kDark; }
 
@@ -40,6 +42,10 @@ void SetColors(std::string &frame, const Cell &cell) {
                  PixelColor(cell.is_upper_set), PixelColor(cell.is_lower_set));
 }
 
+void MoveToRowStart(std::string &frame, std::size_t row) {
+  std::format_to(std::back_inserter(frame), "{}{};1H", kCsi, row);
+}
+
 std::string HeldLetters(std::uint8_t keys) {
   std::string held(kKeyLetters);
   for (auto [line, letter] : held | std::views::enumerate) {
@@ -51,9 +57,13 @@ std::string HeldLetters(std::uint8_t keys) {
 }
 
 void AppendStatus(std::string &frame, const Machine &machine, const Run &run, std::uint8_t keys) {
-  std::format_to(std::back_inserter(frame), "{}0m{}{};1H{}  pc 0x{:04x}  steps {}  keys {}{}K",
-                 kCsi, kCsi, kDisplayRows + 1, run.Status(), machine.ProgramCounter(),
-                 run.Retirements(), HeldLetters(keys), kCsi);
+  frame += std::string_view(kResetAttributes);
+  MoveToRowStart(frame, kDisplayRows + 1);
+
+  std::format_to(std::back_inserter(frame), "{}  pc 0x{:04x}  steps {}  keys {}", run.Status(),
+                 machine.ProgramCounter(), run.Retirements(), HeldLetters(keys));
+
+  frame += std::string_view(kClearToEndOfLine);
 }
 
 } // namespace
@@ -67,7 +77,7 @@ void Display::Reset() {
 
 void Display::PaintRow(std::string &frame, std::size_t row_index, std::span<const Cell> pixel_cells,
                        std::optional<Cell> &active_colors) {
-  std::format_to(std::back_inserter(frame), "{}{};1H", kCsi, row_index + 1);
+  MoveToRowStart(frame, row_index + 1);
   for (const auto &cell : pixel_cells) {
     if (active_colors != cell) {
       SetColors(frame, cell);
@@ -92,7 +102,8 @@ void Display::PaintChanges(std::string &frame, const Machine &machine) {
 std::string Display::Draw(const Machine &machine, const Run &run, std::uint8_t keys) {
   std::string frame;
   if (needs_clear_) {
-    std::format_to(std::back_inserter(frame), "{}0m{}2J", kCsi, kCsi);
+    frame += std::string_view(kResetAttributes);
+    frame += std::string_view(kClearScreen);
     needs_clear_ = false;
   }
   PaintChanges(frame, machine);

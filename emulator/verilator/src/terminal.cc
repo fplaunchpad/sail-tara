@@ -25,7 +25,7 @@ namespace {
 
 constexpr auto kEnterScreen = JoinSequences(ControlSequence("?1049h"), ControlSequence("?25l"));
 constexpr auto kLeaveScreen =
-    JoinSequences(ControlSequence("0m"), ControlSequence("?25h"), ControlSequence("?1049l"));
+    JoinSequences(kResetAttributes, ControlSequence("?25h"), ControlSequence("?1049l"));
 constexpr std::array kFatalSignals{SIGHUP,  SIGINT, SIGQUIT, SIGTERM, SIGABRT,
                                    SIGSEGV, SIGBUS, SIGFPE,  SIGILL};
 constexpr std::size_t kCleanupWriteAttempts = 4;
