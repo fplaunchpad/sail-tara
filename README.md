@@ -45,19 +45,19 @@ just ci                          # nix flake check, preserving the lock file
 
 - `run [OPTION...] IMAGE` runs a program to its end and prints its final state (`status`, `steps`, `pc`, `r0` to `r7`, `mem`). Its options:
   - `-t`, `--trace`: print a line per step first: its PC, its instruction word, the registers after it and its disassembly.
-  - `-n N`, `--max-steps N`: stop after N instructions (default 1000000; 0 for no limit).
-  - `--keys K`: hold the input lines at K (0 to 31) for the whole run.
+  - `-n N`, `--max-steps N`: stop after `N` instructions (default `1000000`; `0` for no limit).
+  - `--keys K`: hold the input lines at `K` (`0` to `31`) for the whole run.
   - `--key-script FILE`: change the input lines as the run goes on, with `STEP KEYS` lines.
   - `--framebuffer`: print the framebuffer after the final state.
-- `play [OPTION...] IMAGE` plays a program in the terminal: the arrow keys or WASD drive the input lines, Q drives QUIT, and Esc quits. Its options are `-n N` (no limit by default) and `--hz N`, instructions a second (default 2000; 0 for as fast as possible).
+- `play [OPTION...] IMAGE` plays a program in the terminal: the arrow keys or `W` `A` `S` `D` drive the input lines, `Q` drives `QUIT`, and `Esc` quits. Its options are `-n N` (no limit by default) and `--hz N`, instructions a second (default `2000`; `0` for as fast as possible).
 - `disasm` prints the disassembly of every 16-bit word.
 
 `--help`, on its own or after a subcommand, lists the options. The exit status says how a run ended:
 
-- 0: the CPU halted.
-- 1: an error, such as a bad option or a bad image.
-- 3: the step limit was reached.
-- 4: the CPU fetched an unassigned opcode.
+- `0`: the CPU halted.
+- `1`: an error, such as a bad option or a bad image.
+- `3`: the step limit was reached.
+- `4`: the CPU fetched an unassigned opcode.
 
 ## Website vs. TARA Studio
 
@@ -65,21 +65,21 @@ Where the website and the TARA Studio emulator (`taracpu` 1.2.2) disagree, the m
 
 | | Website (RTL) | TARA Studio |
 |---|---|---|
-| Word access or fetch at an odd address | bit 0 ignored: "word index = addr » 1" | bytes addr and addr+1 |
-| Word access or fetch at 0x7FF | the word at 0x7FE | error; the CPU halts |
-| CALL at 0x7FE | links 0x000: PC is "masked to 0x7FF" | links 0x800 |
-| Reading 0x5FF | the live input lines | RAM, rewritten by the UI on key events |
-| Opcodes 27–31 | fetched like any word, so PC + 2 | error; the CPU halts, PC unchanged |
-| Q key | requests a reset; QUIT is switch sw[4] | sets QUIT (bit 4 of 0x5FF) |
+| Word access or fetch at an odd address | bit 0 ignored: `word index = addr >> 1` | bytes `addr` and `addr + 1` |
+| Word access or fetch at `0x7FF` | the word at `0x7FE` | error; the CPU halts |
+| `CALL` at `0x7FE` | links `0x000`: PC is "masked to `0x7FF`" | links `0x800` |
+| Reading `0x5FF` | the live input lines | RAM, rewritten by the UI on key events |
+| Opcodes 27–31 | fetched like any word, so `PC + 2` | error; the CPU halts, PC unchanged |
+| `Q` key | requests a reset; `QUIT` is switch `sw[4]` | sets `QUIT` (bit 4 of `0x5FF`) |
 
 ## Assumptions
 
 Where the website is silent, the model assumes:
 
 - Shift counts 16 to 31 (`shamt = imm8[4:0]`) shift out every bit.
-- PUSH R7 stores the decremented SP, and POP R7 leaves the loaded value plus 2, following the order of the ISA table (Studio agrees).
-- A word read that covers 0x5FF (LDW or a fetch at 0x5FE) gets the input lines as its low byte.
-- A store to 0x5FF writes the RAM byte, which reads never return: memory has a single write port, and byte stores are read-modify-write.
+- `PUSH R7` stores the decremented SP, and `POP R7` leaves the loaded value plus 2, following the order of the ISA table (Studio agrees).
+- A word read that covers `0x5FF` (`LDW` or a fetch at `0x5FE`) gets the input lines as its low byte.
+- A store to `0x5FF` writes the RAM byte, which reads never return: memory has a single write port, and byte stores are read-modify-write.
 - After fetching opcode 27 to 31 the model stops with `Illegal`; the control ROM that would decide what happens next is unpublished.
-- Reset clears the halt latch and sets PC to 0; registers and memory keep their values.
+- Reset clears the halt latch and sets PC to `0`; registers and memory keep their values.
 - The input lines hold still for the duration of one instruction.
