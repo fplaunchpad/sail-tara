@@ -1,7 +1,9 @@
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <cerrno>
 #include <chrono>
+#include <csignal> // IWYU pragma: keep (POSIX declarations come from signal.h)
 #include <cstddef>
 #include <span>
 #include <stdexcept>
@@ -9,27 +11,35 @@
 #include <string_view>
 #include <system_error>
 
+#include <fcntl.h>
 #include <poll.h> // IWYU pragma: keep (poll is declared by sys/poll.h)
-#include <signal.h>
 #include <termios.h>
 #include <unistd.h>
 
 #include "input.h"
 #include "terminal.h"
+#include "terminal_codes.h"
 
 namespace tara::verilator {
 namespace {
 
-constexpr std::string_view kEnterScreen = "\x1b[?1049h\x1b[?25l";
-constexpr std::string_view kLeaveScreen = "\x1b[0m\x1b[?25h\x1b[?1049l";
+constexpr auto kEnterScreen = JoinSequences(ControlSequence("?1049h"), ControlSequence("?25l"));
+constexpr auto kLeaveScreen =
+    JoinSequences(ControlSequence("0m"), ControlSequence("?25h"), ControlSequence("?1049l"));
 constexpr std::array kFatalSignals{SIGHUP,  SIGINT, SIGQUIT, SIGTERM, SIGABRT,
                                    SIGSEGV, SIGBUS, SIGFPE,  SIGILL};
+constexpr std::size_t kCleanupWriteAttempts = 4;
+constexpr int kCleanupWaitMilliseconds = 50;
+constexpr std::size_t kReadBytes = 256;
+
+static_assert(std::atomic<Terminal *>::is_always_lock_free);
+static_assert(std::atomic<bool>::is_always_lock_free);
 
 [[noreturn]] void ThrowSystemError(std::string_view operation) {
   throw std::system_error(errno, std::generic_category(), std::string(operation));
 }
 
-bool WouldBlock(int error) {
+auto WouldBlock(int error) -> bool {
   return error == EAGAIN
 #if EWOULDBLOCK != EAGAIN
          || error == EWOULDBLOCK
@@ -37,7 +47,7 @@ bool WouldBlock(int error) {
       ;
 }
 
-termios RawSettings(termios settings) {
+auto RawSettings(termios settings) -> termios {
   settings.c_iflag &=
       ~static_cast<tcflag_t>(IGNBRK | BRKINT | PARMRK | ISTRIP | INLCR | IGNCR | ICRNL | IXON);
   settings.c_oflag &= ~static_cast<tcflag_t>(OPOST);
@@ -49,10 +59,39 @@ termios RawSettings(termios settings) {
   return settings;
 }
 
+void WriteCleanupSequence(int timeout) {
+  // POSIX exposes fixed file-status operations through fcntl's variadic API.
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
+  const auto original_flags = fcntl(STDOUT_FILENO, F_GETFL);
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
+  if (original_flags < 0 || fcntl(STDOUT_FILENO, F_SETFL, original_flags | O_NONBLOCK) < 0) {
+    return;
+  }
+
+  std::string_view remaining(kLeaveScreen);
+  // The attempt budget bounds both EINTR retries and waits on a stalled terminal.
+  for (std::size_t attempt = 0; attempt < kCleanupWriteAttempts && !remaining.empty(); ++attempt) {
+    const auto written = write(STDOUT_FILENO, remaining.data(), remaining.size());
+    if (written > 0) {
+      remaining.remove_prefix(static_cast<std::size_t>(written));
+    } else if (written < 0 && WouldBlock(errno)) {
+      pollfd output{.fd = STDOUT_FILENO, .events = POLLOUT, .revents = 0};
+      if (poll(&output, 1, timeout) <= 0) {
+        break;
+      }
+    } else if (written == 0 || errno != EINTR) {
+      break;
+    }
+  }
+
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
+  fcntl(STDOUT_FILENO, F_SETFL, original_flags);
+}
+
 } // namespace
 
-Terminal *Terminal::active_{};
-volatile sig_atomic_t Terminal::has_resized_{};
+std::atomic<Terminal *> Terminal::active_{};
+std::atomic<bool> Terminal::has_resized_{};
 
 Terminal::Terminal() {
   if (isatty(STDIN_FILENO) == 0 || isatty(STDOUT_FILENO) == 0) {
@@ -107,13 +146,13 @@ void Terminal::InstallResizeHandler() {
 }
 
 void Terminal::OpenScreen() {
-  active_ = this;
-  is_open_ = true;
+  active_.store(this);
+  is_open_.store(true);
   const auto raw = RawSettings(original_);
   if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw) != 0) {
     ThrowSystemError("set terminal to raw mode");
   }
-  Write(kEnterScreen);
+  Write(std::string_view(kEnterScreen));
 }
 
 Terminal::~Terminal() {
@@ -122,38 +161,51 @@ Terminal::~Terminal() {
 }
 
 void Terminal::RestoreScreen() {
-  if (!is_open_) {
+  sigset_t blocked{};
+  sigset_t previous{};
+  sigfillset(&blocked);
+  const bool has_blocked_signals = pthread_sigmask(SIG_BLOCK, &blocked, &previous) == 0;
+  const bool was_open = is_open_.exchange(false);
+  if (was_open) {
+    active_.store(nullptr);
+    tcsetattr(STDIN_FILENO, TCSANOW, &original_);
+  }
+  if (was_open) {
+    WriteCleanupSequence(kCleanupWaitMilliseconds);
+  }
+
+  if (has_blocked_signals) {
+    pthread_sigmask(SIG_SETMASK, &previous, nullptr);
+  }
+}
+
+void Terminal::RestoreAfterSignal() {
+  if (!is_open_.exchange(false)) {
     return;
   }
-  // Best effort during cleanup, including fatal signals; these calls are async-signal-safe.
-  [[maybe_unused]] const auto written =
-      write(STDOUT_FILENO, kLeaveScreen.data(), kLeaveScreen.size());
-  [[maybe_unused]] const auto restored = tcsetattr(STDIN_FILENO, TCSAFLUSH, &original_);
-  is_open_ = false;
-  active_ = nullptr;
+  tcsetattr(STDIN_FILENO, TCSANOW, &original_);
+  WriteCleanupSequence(0);
 }
 
 void Terminal::RestoreHandlers() {
   for (const auto &handler : std::span(handlers_).first(handler_count_)) {
-    [[maybe_unused]] const auto restored = sigaction(handler.signal, &handler.previous, nullptr);
+    sigaction(handler.signal, &handler.previous, nullptr);
   }
   handler_count_ = 0;
 }
 
 void Terminal::OnFatalSignal(int signal) {
-  if (active_ != nullptr) {
-    active_->RestoreScreen();
+  if (auto *terminal = active_.exchange(nullptr)) {
+    terminal->RestoreAfterSignal();
   }
-  [[maybe_unused]] const auto raised = raise(signal);
+  if (raise(signal) != 0) {
+    _exit(1);
+  }
 }
 
-void Terminal::OnResize([[maybe_unused]] int signal) { has_resized_ = 1; }
+void Terminal::OnResize([[maybe_unused]] int signal) { has_resized_.store(true); }
 
-bool Terminal::WasResized() const {
-  const bool was_resized = has_resized_ != 0;
-  has_resized_ = 0;
-  return was_resized;
-}
+auto Terminal::WasResized() const -> bool { return has_resized_.exchange(false); }
 
 void Terminal::Write(std::string_view text) const {
   while (!text.empty()) {
@@ -173,7 +225,7 @@ void Terminal::Write(std::string_view text) const {
   }
 }
 
-std::string Terminal::Read(Time deadline) const {
+auto Terminal::Read(Time deadline) const -> std::string {
   const auto delay = std::chrono::ceil<std::chrono::milliseconds>(deadline - Clock::now());
   // poll takes an int millisecond timeout; frame deadlines are at most one frame away.
   const auto timeout = static_cast<int>(std::max(delay.count(), std::chrono::milliseconds::rep{0}));
@@ -188,8 +240,7 @@ std::string Terminal::Read(Time deadline) const {
   return ReadAvailable();
 }
 
-std::string Terminal::ReadAvailable() const {
-  constexpr std::size_t kReadBytes = 256;
+auto Terminal::ReadAvailable() const -> std::string {
   std::array<char, kReadBytes> bytes{};
   const auto count = read(STDIN_FILENO, bytes.data(), bytes.size());
   if (count > 0) {

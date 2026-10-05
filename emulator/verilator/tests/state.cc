@@ -17,13 +17,15 @@ namespace {
 
 constexpr std::uint16_t kCodeBase = 0x04'00;
 constexpr std::uint16_t kStoreTopAddress = kCodeBase + 2;
-constexpr std::uint16_t kStoreBottomAddress = kCodeBase + 4;
 constexpr std::uint16_t kHaltAddress = kCodeBase + 6;
 constexpr std::uint64_t kIllegalSetupSteps = 3;
 constexpr std::uint16_t kIllegalAddress = 6;
 constexpr std::uint16_t kAfterIllegalAddress = 8;
 
-State SeedState(std::span<const std::uint8_t> program) {
+auto SeedState(std::span<const std::uint8_t> program) -> State {
+  constexpr std::size_t kMemoryStride = 37;
+  constexpr std::size_t kMemorySeed = 0x5b;
+
   State state{
       .registers = {0, 0x13'57, 0x24'68, 0x36'9c, 0x48'ad, 0x5a'be, 0x6b'cf, 0x7d'e1},
       .memory = {},
@@ -34,13 +36,11 @@ State SeedState(std::span<const std::uint8_t> program) {
       .keys = 0x1b,
       .is_halted = false,
   };
-  constexpr std::size_t kMemoryStride = 37;
-  constexpr std::size_t kMemorySeed = 0x5b;
   for (auto [address, byte] : state.memory | std::views::enumerate) {
     byte = static_cast<std::uint8_t>((static_cast<std::size_t>(address) * kMemoryStride) +
                                      kMemorySeed);
   }
-  std::ranges::copy(program, state.memory.begin() + kCodeBase);
+  std::ranges::copy(program, std::span(state.memory).subspan(kCodeBase).begin());
   return state;
 }
 
@@ -132,15 +132,16 @@ void CheckStateTransfer(const State &seed) {
 } // namespace
 } // namespace tara::verilator
 
-int main(int argc, char *argv[]) {
+auto main(int argc, char *argv[]) -> int {
   try {
     constexpr int kArgumentCount = 3; // Two image paths at the command-line boundary.
     if (argc != kArgumentCount) {
       throw std::runtime_error("usage: state-test STATE_IMAGE ILLEGAL_IMAGE");
     }
-    const auto seed = tara::verilator::SeedState(tara::verilator::ReadImage(argv[1]));
+    const auto image_paths = std::span(argv, static_cast<std::size_t>(argc)).subspan(1);
+    const auto seed = tara::verilator::SeedState(tara::verilator::ReadImage(image_paths.front()));
     tara::verilator::CheckStateTransfer(seed);
-    tara::verilator::CheckIllegal(tara::verilator::ReadImage(argv[2]));
+    tara::verilator::CheckIllegal(tara::verilator::ReadImage(image_paths.back()));
   } catch (const std::exception &error) {
     try {
       std::println(stderr, "{}", error.what());

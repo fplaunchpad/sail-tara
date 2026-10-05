@@ -19,13 +19,13 @@ inline constexpr std::size_t kDisplayRows = kScreenSize / 2;
 struct Cell {
   bool is_upper_set{};
   bool is_lower_set{};
-  bool operator==(const Cell &) const = default;
+  auto operator==(const Cell &) const -> bool = default;
 };
 
 class Display {
 public:
   void Reset();
-  [[nodiscard]] std::string Draw(const Machine &machine, const Run &run, std::uint8_t keys);
+  [[nodiscard]] auto Draw(const Machine &machine, const Run &run, std::uint8_t keys) -> std::string;
 
 private:
   void PaintChanges(std::string &frame, const Machine &machine);

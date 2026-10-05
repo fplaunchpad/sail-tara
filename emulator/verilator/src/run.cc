@@ -28,11 +28,11 @@ void PrintFramebuffer(const Machine &machine) {
 
 } // namespace
 
-RunStatus Run::Status() const {
+auto Run::Status() const -> RunStatus {
   if (has_illegal_opcode_) {
     return RunStatus::kIllegal;
   }
-  if (machine_.IsHalted()) {
+  if (machine_.get().IsHalted()) {
     return RunStatus::kHalted;
   }
   if (limit_ != 0 && retirements_ == limit_) {
@@ -41,8 +41,8 @@ RunStatus Run::Status() const {
   return RunStatus::kRunning;
 }
 
-StepResult Run::Step(std::uint8_t keys) {
-  const auto result = machine_.Step(keys);
+auto Run::Step(std::uint8_t keys) -> StepResult {
+  const auto result = machine_.get().Step(keys);
   if (result == StepResult::kRetired) {
     ++retirements_;
   } else if (result == StepResult::kIllegal) {
@@ -51,7 +51,7 @@ StepResult Run::Step(std::uint8_t keys) {
   return result;
 }
 
-std::uint8_t Run::ExitStatus() const {
+auto Run::ExitStatus() const -> std::uint8_t {
   constexpr std::uint8_t kLimitExit = 3;
   constexpr std::uint8_t kIllegalExit = 4;
   switch (Status()) {
@@ -66,7 +66,7 @@ std::uint8_t Run::ExitStatus() const {
   std::unreachable();
 }
 
-std::uint8_t RunBatch(Machine &machine, const RunOptions &options) {
+auto RunBatch(Machine &machine, const RunOptions &options) -> std::uint8_t {
   KeySchedule keys(options.keys);
   if (options.key_script) {
     keys.Load(*options.key_script);

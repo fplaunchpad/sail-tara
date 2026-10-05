@@ -7,7 +7,7 @@ EmptyLineAfterAccessModifier: Never
 IncludeBlocks: Regroup
 IncludeIsMainRegex: '$^'
 IncludeCategories:
-  - Regex: '^<(CLI/.*|poll\.h|signal\.h|termios\.h|unistd\.h|sys/.*)>'
+  - Regex: '^<(CLI/.*|fcntl\.h|poll\.h|pthread\.h|signal\.h|termios\.h|unistd\.h|sys/.*)>'
     Priority: 2
   - Regex: '^<'
     Priority: 1

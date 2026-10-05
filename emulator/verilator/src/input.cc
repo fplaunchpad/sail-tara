@@ -7,19 +7,19 @@
 #include <string_view>
 
 #include "input.h"
+#include "terminal_codes.h"
 
 namespace tara::verilator {
 namespace {
 
 constexpr auto kHoldTime = std::chrono::milliseconds(150);
 constexpr auto kEscapeTime = std::chrono::milliseconds(20);
-constexpr char kEscape = '\x1b';
 constexpr char kInterrupt = '\x03';
 constexpr std::string_view kLetters = "wsadq";
 constexpr std::string_view kUpperLetters = "WSADQ";
 constexpr std::string_view kArrows = "ABDC";
 
-std::optional<std::size_t> LetterLine(char byte) {
+auto LetterLine(char byte) -> std::optional<std::size_t> {
   const auto lower = kLetters.find(byte);
   if (lower != std::string_view::npos) {
     return lower;
@@ -31,7 +31,7 @@ std::optional<std::size_t> LetterLine(char byte) {
   return std::nullopt;
 }
 
-std::optional<std::size_t> ArrowLine(char byte) {
+auto ArrowLine(char byte) -> std::optional<std::size_t> {
   const auto line = kArrows.find(byte);
   return line == std::string_view::npos ? std::nullopt : std::optional(line);
 }
@@ -44,7 +44,7 @@ void Input::Press(std::optional<std::size_t> line, Time now) {
   }
 }
 
-bool Input::Feed(char byte, Time now) {
+auto Input::Feed(char byte, Time now) -> bool {
   switch (sequence_) {
   case Sequence::kEscape:
     if (byte != '[' && byte != 'O') {
@@ -76,22 +76,22 @@ bool Input::Feed(char byte, Time now) {
   return false;
 }
 
-bool Input::WantsQuit(std::string_view bytes, Time now) {
+auto Input::WantsQuit(std::string_view bytes, Time now) -> bool {
   const bool wants_quit =
-      std::ranges::any_of(bytes, [this, now](char byte) { return Feed(byte, now); });
+      std::ranges::any_of(bytes, [this, now](char byte) -> bool { return Feed(byte, now); });
   if (!bytes.empty() && sequence_ != Sequence::kGround) {
     pending_since_ = now;
   }
   return wants_quit;
 }
 
-Time Input::Deadline() const {
+auto Input::Deadline() const -> Time {
   return sequence_ == Sequence::kGround ? Time::max() : pending_since_ + kEscapeTime;
 }
 
-bool Input::HasExpiredEscape(Time now) const { return now >= Deadline(); }
+auto Input::HasExpiredEscape(Time now) const -> bool { return now >= Deadline(); }
 
-std::uint8_t Input::HeldKeys(Time now) const {
+auto Input::HeldKeys(Time now) const -> std::uint8_t {
   std::uint8_t keys{};
   for (const auto [line, release_deadline] : release_deadlines_ | std::views::enumerate) {
     if (now < release_deadline) {

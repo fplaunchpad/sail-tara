@@ -1,7 +1,9 @@
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <exception>
 #include <print>
+#include <span>
 #include <stdexcept>
 #include <utility>
 
@@ -13,7 +15,7 @@
 namespace tara::verilator {
 namespace {
 
-std::uint8_t Execute(const Command &command) {
+auto Execute(const Command &command) -> std::uint8_t {
   if (command.help) {
     std::print("{}", *command.help);
     return 0;
@@ -21,9 +23,15 @@ std::uint8_t Execute(const Command &command) {
   Machine machine;
   switch (command.subcommand) {
   case Subcommand::kRun:
-    return RunBatch(machine, command.run.value());
+    if (command.run) {
+      return RunBatch(machine, *command.run);
+    }
+    break;
   case Subcommand::kPlay:
-    return Play(machine, command.play.value());
+    if (command.play) {
+      return Play(machine, *command.play);
+    }
+    break;
   case Subcommand::kDisasm:
     DisassembleAll(machine);
     return 0;
@@ -36,9 +44,10 @@ std::uint8_t Execute(const Command &command) {
 } // namespace
 } // namespace tara::verilator
 
-int main(int argc, char *argv[]) {
+auto main(int argc, char *argv[]) -> int {
   try {
-    const auto command = tara::verilator::ParseCommand(argc, argv);
+    const auto arguments = std::span(argv, static_cast<std::size_t>(argc));
+    const auto command = tara::verilator::ParseCommand(arguments);
     const auto status = tara::verilator::Execute(command);
     if (std::fflush(stdout) != 0) {
       throw std::runtime_error("cannot write standard output");

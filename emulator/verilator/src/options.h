@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <optional>
+#include <span>
 #include <string>
 
 namespace tara::verilator {
@@ -28,13 +29,13 @@ struct PlayOptions {
 };
 
 struct Command {
-  Subcommand subcommand;
+  Subcommand subcommand = Subcommand::kHelp;
   std::optional<RunOptions> run;
   std::optional<PlayOptions> play;
   std::optional<std::string> help;
 };
 
-[[nodiscard]] Command ParseCommand(int argc, char *argv[]);
+[[nodiscard]] auto ParseCommand(std::span<const char *const> arguments) -> Command;
 
 } // namespace tara::verilator
 

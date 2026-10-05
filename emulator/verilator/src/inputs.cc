@@ -9,7 +9,9 @@
 #include <ios>
 #include <iterator>
 #include <limits>
+#include <memory>
 #include <optional>
+#include <ranges>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -27,25 +29,27 @@ namespace {
 constexpr int kDecimalBase = 10;
 constexpr int kHexBase = 16;
 constexpr std::size_t kMaxFileBytes = 1'048'576;
+constexpr std::size_t kChunkBytes = 4'096;
 constexpr std::size_t kWordDigits = 4;
 constexpr std::uint16_t kBitsPerByte = 8;
 
-std::uint64_t ParseNumber(std::string_view text, int base, std::uint64_t maximum) {
+auto ParseNumber(std::string_view text, int base, std::uint64_t maximum) -> std::uint64_t {
   std::uint64_t value{};
-  const auto [end, error] = std::from_chars(text.data(), text.data() + text.size(), value, base);
-  if (error != std::errc{} || end != text.data() + text.size() || value > maximum) {
+  const char *const first = std::to_address(text.begin());
+  const char *const last = std::to_address(text.end());
+  const auto [end, error] = std::from_chars(first, last, value, base);
+  if (error != std::errc{} || end != last || value > maximum) {
     throw std::runtime_error(std::format("invalid number '{}'", text));
   }
   return value;
 }
 
-std::string ReadFile(const std::filesystem::path &path) {
+auto ReadFile(const std::filesystem::path &path) -> std::string {
   std::ifstream file(path, std::ios::binary);
   if (!file) {
     throw std::runtime_error(std::format("cannot open {}", path.string()));
   }
   std::string contents;
-  constexpr std::size_t kChunkBytes = 4'096;
   std::array<char, kChunkBytes> chunk{};
   while (file.read(chunk.data(), static_cast<std::streamsize>(chunk.size())) || file.gcount() > 0) {
     contents.append(chunk.data(), static_cast<std::size_t>(file.gcount()));
@@ -59,9 +63,11 @@ std::string ReadFile(const std::filesystem::path &path) {
   return contents;
 }
 
-std::string_view WithoutComment(std::string_view line) { return line.substr(0, line.find(';')); }
+auto WithoutComment(std::string_view line) -> std::string_view {
+  return line.substr(0, line.find(';'));
+}
 
-std::vector<std::uint8_t> ReadHex(std::string_view text) {
+auto ReadHex(std::string_view text) -> std::vector<std::uint8_t> {
   std::istringstream lines{std::string(text)};
   std::vector<std::uint8_t> image;
   for (std::string line; std::getline(lines, line);) {
@@ -81,7 +87,7 @@ std::vector<std::uint8_t> ReadHex(std::string_view text) {
   return image;
 }
 
-std::optional<KeyChange> ParseChange(std::string_view line) {
+auto ParseChange(std::string_view line) -> std::optional<KeyChange> {
   std::istringstream fields{std::string(WithoutComment(line))};
   std::string step_count;
   std::string key_lines;
@@ -97,11 +103,11 @@ std::optional<KeyChange> ParseChange(std::string_view line) {
 
 } // namespace
 
-std::uint64_t ParseCount(std::string_view text) {
+auto ParseCount(std::string_view text) -> std::uint64_t {
   return ParseNumber(text, kDecimalBase, std::numeric_limits<std::uint64_t>::max());
 }
 
-std::uint8_t ParseKeys(std::string_view text) {
+auto ParseKeys(std::string_view text) -> std::uint8_t {
   auto base = kDecimalBase;
   if (text.starts_with("0x") || text.starts_with("0X")) {
     text.remove_prefix(2);
@@ -110,7 +116,7 @@ std::uint8_t ParseKeys(std::string_view text) {
   return static_cast<std::uint8_t>(ParseNumber(text, base, kAllKeys));
 }
 
-std::vector<std::uint8_t> ReadImage(const std::filesystem::path &path) {
+auto ReadImage(const std::filesystem::path &path) -> std::vector<std::uint8_t> {
   const auto suffix = path.extension();
   if (suffix != ".bin" && suffix != ".hex") {
     throw std::runtime_error("IMAGE must have a .bin or .hex suffix");
@@ -122,7 +128,7 @@ std::vector<std::uint8_t> ReadImage(const std::filesystem::path &path) {
   if (contents.size() > kMemoryBytes) {
     throw std::runtime_error("image is larger than TARA memory");
   }
-  return std::vector<std::uint8_t>(contents.begin(), contents.end());
+  return {std::from_range, contents};
 }
 
 void KeySchedule::Load(const std::filesystem::path &path) {
@@ -141,7 +147,7 @@ void KeySchedule::Load(const std::filesystem::path &path) {
   }
 }
 
-std::uint8_t KeySchedule::At(std::uint64_t step) const {
+auto KeySchedule::At(std::uint64_t step) const -> std::uint8_t {
   const auto next = std::ranges::upper_bound(changes_, step, {}, &KeyChange::step);
   return next == changes_.begin() ? initial_ : std::prev(next)->keys;
 }

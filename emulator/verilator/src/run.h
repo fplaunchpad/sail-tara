@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <format>
+#include <functional>
 #include <string_view>
 #include <utility>
 
@@ -17,21 +18,21 @@ class Run {
 public:
   Run(Machine &machine, std::uint64_t limit) : machine_(machine), limit_(limit) {}
 
-  [[nodiscard]] StepResult Step(std::uint8_t keys);
-  [[nodiscard]] RunStatus Status() const;
+  auto Step(std::uint8_t keys) -> StepResult;
+  [[nodiscard]] auto Status() const -> RunStatus;
 
-  [[nodiscard]] std::uint64_t Retirements() const { return retirements_; }
+  [[nodiscard]] auto Retirements() const -> std::uint64_t { return retirements_; }
 
-  [[nodiscard]] std::uint8_t ExitStatus() const;
+  [[nodiscard]] auto ExitStatus() const -> std::uint8_t;
 
 private:
-  Machine &machine_;
+  std::reference_wrapper<Machine> machine_;
   std::uint64_t limit_;
   std::uint64_t retirements_{};
   bool has_illegal_opcode_{};
 };
 
-[[nodiscard]] std::uint8_t RunBatch(Machine &machine, const RunOptions &options);
+[[nodiscard]] auto RunBatch(Machine &machine, const RunOptions &options) -> std::uint8_t;
 void DisassembleAll(const Machine &machine);
 
 } // namespace tara::verilator

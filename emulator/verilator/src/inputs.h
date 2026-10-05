@@ -8,9 +8,9 @@
 
 namespace tara::verilator {
 
-[[nodiscard]] std::uint64_t ParseCount(std::string_view text);
-[[nodiscard]] std::uint8_t ParseKeys(std::string_view text);
-[[nodiscard]] std::vector<std::uint8_t> ReadImage(const std::filesystem::path &path);
+[[nodiscard]] auto ParseCount(std::string_view text) -> std::uint64_t;
+[[nodiscard]] auto ParseKeys(std::string_view text) -> std::uint8_t;
+[[nodiscard]] auto ReadImage(const std::filesystem::path &path) -> std::vector<std::uint8_t>;
 
 struct KeyChange {
   std::uint64_t step;
@@ -22,7 +22,7 @@ public:
   explicit KeySchedule(std::uint8_t initial) : initial_(initial) {}
 
   void Load(const std::filesystem::path &path);
-  [[nodiscard]] std::uint8_t At(std::uint64_t step) const;
+  [[nodiscard]] auto At(std::uint64_t step) const -> std::uint8_t;
 
 private:
   std::uint8_t initial_;

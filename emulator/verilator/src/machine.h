@@ -27,7 +27,7 @@ struct State {
   std::uint8_t keys{};
   bool is_halted{};
 
-  bool operator==(const State &) const = default;
+  auto operator==(const State &) const -> bool = default;
 };
 
 // Sail's C helpers own process-wide state, so only one Machine may be alive at a time.
@@ -36,21 +36,21 @@ public:
   Machine();
   ~Machine();
   Machine(const Machine &) = delete;
-  Machine &operator=(const Machine &) = delete;
+  auto operator=(const Machine &) -> Machine & = delete;
   Machine(Machine &&) = delete;
-  Machine &operator=(Machine &&) = delete;
+  auto operator=(Machine &&) -> Machine & = delete;
 
   void Load(std::span<const std::uint8_t> image);
-  [[nodiscard]] StepResult Step(std::uint8_t keys);
-  [[nodiscard]] State ReadState() const;
+  [[nodiscard]] auto Step(std::uint8_t keys) -> StepResult;
+  [[nodiscard]] auto ReadState() const -> State;
   void WriteState(const State &state);
 
-  [[nodiscard]] std::uint16_t ProgramCounter() const;
-  [[nodiscard]] bool IsHalted() const;
-  [[nodiscard]] bool IsPixelSet(std::size_t pixel_x, std::size_t pixel_y) const;
-  [[nodiscard]] std::string Trace() const;
-  [[nodiscard]] std::string Dump() const;
-  [[nodiscard]] std::string Disassemble(std::uint16_t word) const;
+  [[nodiscard]] auto ProgramCounter() const -> std::uint16_t;
+  [[nodiscard]] auto IsHalted() const -> bool;
+  [[nodiscard]] auto IsPixelSet(std::size_t pixel_x, std::size_t pixel_y) const -> bool;
+  [[nodiscard]] auto Trace() const -> std::string;
+  [[nodiscard]] auto Dump() const -> std::string;
+  [[nodiscard]] auto Disassemble(std::uint16_t word) const -> std::string;
 
 private:
   class Impl;

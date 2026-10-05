@@ -1,5 +1,6 @@
 # Machine and Terminal methods require their RAII object's lifetime even when the
 # underlying Sail/POSIX resource is process-wide. Static methods would hide that contract.
+# Array indices use [] by the user's preference; index ranges come from the owning protocol.
 Checks: >-
   -*,
   bugprone-*,
@@ -12,6 +13,7 @@ Checks: >-
   performance-*,
   portability-*,
   readability-*,
+  -cppcoreguidelines-pro-bounds-constant-array-index,
   -readability-convert-member-functions-to-static
 WarningsAsErrors: "*"
 ExtraArgs: ["-Wno-unknown-warning-option"]
@@ -21,4 +23,4 @@ CheckOptions:
   misc-non-private-member-variables-in-classes.IgnoreClassesWithAllMemberVariablesBeingPublic: true
   bugprone-easily-swappable-parameters.ModelImplicitConversions: false
   # POSIX uses public umbrella headers for private implementation declarations.
-  misc-include-cleaner.IgnoreHeaders: "bits/.*;sys/poll\\.h"
+  misc-include-cleaner.IgnoreHeaders: "bits/.*;sys/poll\\.h;signal\\.h"
