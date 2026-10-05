@@ -1,6 +1,5 @@
-/* Host interface of the C and OCaml emulators: state access, stepping, and
- * text. All text is formatted here, in Sail, so both emulators print the same
- * bytes.
+/* Shared emulator interface: state access, stepping and text.
+ * Sail formats the text so all frontends print the same bytes.
  */
 
 $include "state.sail"
