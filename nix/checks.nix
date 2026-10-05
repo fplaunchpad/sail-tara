@@ -4,6 +4,8 @@
   runCommand,
   justDerivation,
   sail,
+  verilator,
+  cli11,
   asciidoctorSail,
   sailDocTables,
   docFonts,
@@ -18,6 +20,7 @@
   ocamlPackages,
   taracpu,
   tara-c,
+  tara-verilator,
   tara-ocaml,
   pythonTest,
   pythonDevTools,
@@ -43,7 +46,7 @@ let
   };
 in
 {
-  # The test suite: both emulators against the reference model, and the specification written
+  # The test suite: all three emulators against the reference model, and the specification written
   # from the model.
   tests =
     runCommand "tests"
@@ -68,11 +71,12 @@ in
         export HOME="$TMPDIR"
         pytest -p no:cacheprovider --hypothesis-profile=ci \
           --emulator=${lib.getExe tara-c} \
-          --emulator=${lib.getExe tara-ocaml}
+          --emulator=${lib.getExe tara-ocaml} \
+          --emulator=${lib.getExe tara-verilator}
         touch "$out"
       '';
 
-  # Formatting and line width of the Sail, C, OCaml, Rocq and Lean sources.
+  # Formatting and line width of the Sail, C, C++, OCaml, Rocq and Lean sources.
   lint = justDerivation {
     pname = "lint";
     fileset = [
@@ -85,6 +89,7 @@ in
     ];
     nativeBuildInputs = [
       sail
+      verilator
       sailDocTables
       jq
       clang-tools
@@ -97,6 +102,7 @@ in
     buildInputs = [
       gmp
       zlib
+      cli11
     ];
     dontUseCmakeConfigure = true;
     dontUseNinjaBuild = true;
@@ -105,6 +111,7 @@ in
     recipes = [
       "model::lint"
       "c::lint"
+      "verilator::lint"
       "ocaml::lint"
       "sail-doc::lint"
       "rocq::lint"

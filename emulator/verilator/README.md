@@ -40,7 +40,7 @@ just test -k tara-verilator
 
 - `LoadInputs` copies the C helper state into the generated module's input ports.
 - `Machine::Step` evaluates the combinational module once.
-- `StoreOutputs` copies its results back for the shared frontend to print and inspect.
+- `StoreOutputs` copies its results back for the C++ frontend to print and inspect.
 - The adapter never calls the C model's instruction execution functions.
 - Authored C++ uses strict warnings, clang-tidy and clang-format. Include groups are
   standard headers, generated/external headers, then project headers.

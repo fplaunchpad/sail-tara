@@ -41,7 +41,9 @@ let
     # GCC 16 defaults to C++20, but nixpkgs' SystemC library exports its C++17 API guard.
     # Keep Verilator 5.052's SystemC smoke tests on the same standard as that library.
     verilator = pkgs.verilator.overrideAttrs (previous: {
-      env = previous.env // { NIX_CFLAGS_COMPILE = "-std=c++17"; };
+      env = previous.env // {
+        NIX_CFLAGS_COMPILE = "-std=c++17";
+      };
     });
     rocq-sail-stdpp = self.rocqPackages.callPackage ./rocq-sail-stdpp.nix { };
     taracpu = self.callPackage ./taracpu.nix { };
@@ -53,6 +55,7 @@ let
 
     tara-tools = self.callPackage ./tara-tools.nix { };
     tara-c = self.callPackage ./tara-c.nix { };
+    tara-verilator = self.callPackage ./tara-verilator.nix { };
     tara-ocaml = self.callPackage ./tara-ocaml.nix { };
     tara-rocq = self.callPackage ./tara-rocq.nix { };
     tara-lean = self.callPackage ./tara-lean.nix { };
@@ -74,6 +77,7 @@ in
       taracpu
       tara-tools
       tara-c
+      tara-verilator
       tara-ocaml
       tara-rocq
       tara-lean
@@ -85,6 +89,7 @@ in
     sail-doc-tables = scope.sailDocTables;
     inherit (scope)
       tara-c
+      tara-verilator
       tara-ocaml
       tara-rocq
       tara-lean
@@ -96,6 +101,7 @@ in
   apps = {
     tara-asm = app scope.tara-tools "tara-asm";
     tara-c = app scope.tara-c "tara-c";
+    tara-verilator = app scope.tara-verilator "tara-verilator";
     tara-ocaml = app scope.tara-ocaml "tara-ocaml";
   };
   devShell = scope.callPackage ./shell.nix { };

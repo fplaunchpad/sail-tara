@@ -32,7 +32,6 @@ target_link_libraries(host_model PUBLIC ${GMP} ZLIB::ZLIB)
 find_package(verilator REQUIRED)
 
 set(STATE ${CMAKE_CURRENT_SOURCE_DIR}/../state.sail)
-file(GLOB_RECURSE MODEL_SOURCES CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/../../model/*.sail)
 set(STEP_SOURCES ${STATE} ${MODEL_SOURCES})
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${STEP_SOURCES} ${SAIL})
 set(SYSTEMVERILOG ${CMAKE_CURRENT_BINARY_DIR}/tara.sv)
@@ -88,8 +87,8 @@ tara_check_cpp(machine)
 target_include_directories(machine PUBLIC src)
 target_link_libraries(machine PRIVATE step_model host_model)
 
-add_library(frontend STATIC src/inputs.cc src/options.cc src/run.cc src/input.cc src/display.cc src/terminal.cc
-                            src/play.cc)
+add_library(frontend STATIC src/inputs.cc src/options.cc src/run.cc src/input.cc src/display.cc
+                            src/terminal.cc src/play.cc)
 tara_check_cpp(frontend)
 target_link_libraries(frontend PUBLIC machine PRIVATE CLI11::CLI11)
 # CLI11 is a packaged dependency, so its headers are checked by its own build.

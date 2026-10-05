@@ -1,5 +1,5 @@
 {
-  description = "TARA ISA: Sail specification, C and OCaml emulators, Rocq/Lean proofs, HTML/PDF reference";
+  description = "TARA ISA: Sail, C/OCaml/Verilator emulators, Rocq/Lean proofs, HTML/PDF reference";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
