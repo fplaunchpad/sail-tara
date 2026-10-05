@@ -18,12 +18,12 @@ class Run {
 public:
   Run(Machine &machine, std::uint64_t limit) : machine_(machine), limit_(limit) {}
 
-  auto Step(std::uint8_t keys) -> StepResult;
-  [[nodiscard]] auto Status() const -> RunStatus;
+  StepResult Step(std::uint8_t keys);
+  [[nodiscard]] RunStatus Status() const;
 
-  [[nodiscard]] auto Retirements() const -> std::uint64_t { return retirements_; }
+  [[nodiscard]] std::uint64_t Retirements() const { return retirements_; }
 
-  [[nodiscard]] auto ExitStatus() const -> std::uint8_t;
+  [[nodiscard]] std::uint8_t ExitStatus() const;
 
 private:
   std::reference_wrapper<Machine> machine_;
@@ -32,7 +32,7 @@ private:
   bool has_illegal_opcode_{};
 };
 
-[[nodiscard]] auto RunBatch(Machine &machine, const RunOptions &options) -> std::uint8_t;
+[[nodiscard]] std::uint8_t RunBatch(Machine &machine, const RunOptions &options);
 void DisassembleAll(const Machine &machine);
 
 } // namespace tara::verilator

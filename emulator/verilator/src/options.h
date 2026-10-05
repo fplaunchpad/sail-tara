@@ -35,7 +35,7 @@ struct Command {
   std::optional<std::string> help;
 };
 
-[[nodiscard]] auto ParseCommand(std::span<const char *const> arguments) -> Command;
+[[nodiscard]] Command ParseCommand(std::span<const char *const> arguments);
 
 } // namespace tara::verilator
 

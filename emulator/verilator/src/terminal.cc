@@ -39,7 +39,7 @@ static_assert(std::atomic<bool>::is_always_lock_free);
   throw std::system_error(errno, std::generic_category(), std::string(operation));
 }
 
-auto WouldBlock(int error) -> bool {
+bool WouldBlock(int error) {
   return error == EAGAIN
 #if EWOULDBLOCK != EAGAIN
          || error == EWOULDBLOCK
@@ -47,7 +47,7 @@ auto WouldBlock(int error) -> bool {
       ;
 }
 
-auto RawSettings(termios settings) -> termios {
+termios RawSettings(termios settings) {
   settings.c_iflag &=
       ~static_cast<tcflag_t>(IGNBRK | BRKINT | PARMRK | ISTRIP | INLCR | IGNCR | ICRNL | IXON);
   settings.c_oflag &= ~static_cast<tcflag_t>(OPOST);
@@ -205,7 +205,7 @@ void Terminal::OnFatalSignal(int signal) {
 
 void Terminal::OnResize([[maybe_unused]] int signal) { has_resized_.store(true); }
 
-auto Terminal::WasResized() const -> bool { return has_resized_.exchange(false); }
+bool Terminal::WasResized() const { return has_resized_.exchange(false); }
 
 void Terminal::Write(std::string_view text) const {
   while (!text.empty()) {
@@ -225,7 +225,7 @@ void Terminal::Write(std::string_view text) const {
   }
 }
 
-auto Terminal::Read(Time deadline) const -> std::string {
+std::string Terminal::Read(Time deadline) const {
   const auto delay = std::chrono::ceil<std::chrono::milliseconds>(deadline - Clock::now());
   // poll takes an int millisecond timeout; frame deadlines are at most one frame away.
   const auto timeout = static_cast<int>(std::max(delay.count(), std::chrono::milliseconds::rep{0}));
@@ -240,7 +240,7 @@ auto Terminal::Read(Time deadline) const -> std::string {
   return ReadAvailable();
 }
 
-auto Terminal::ReadAvailable() const -> std::string {
+std::string Terminal::ReadAvailable() const {
   std::array<char, kReadBytes> bytes{};
   const auto count = read(STDIN_FILENO, bytes.data(), bytes.size());
   if (count > 0) {

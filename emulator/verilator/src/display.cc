@@ -22,9 +22,9 @@ constexpr std::string_view kKeyLetters = "UDLRQ";
 constexpr std::string_view kAmber = "255;176;0";
 constexpr std::string_view kDark = "28;28;28";
 
-auto PixelColor(bool is_set) -> std::string_view { return is_set ? kAmber : kDark; }
+std::string_view PixelColor(bool is_set) { return is_set ? kAmber : kDark; }
 
-auto ReadRow(const Machine &machine, std::size_t row_index) -> std::array<Cell, kScreenSize> {
+std::array<Cell, kScreenSize> ReadRow(const Machine &machine, std::size_t row_index) {
   const auto upper_pixel_y = kScreenSize - 1 - (2 * row_index);
   std::array<Cell, kScreenSize> pixel_cells{};
   for (auto [column_index, cell] : pixel_cells | std::views::enumerate) {
@@ -40,7 +40,7 @@ void SetColors(std::string &frame, const Cell &cell) {
                  PixelColor(cell.is_upper_set), PixelColor(cell.is_lower_set));
 }
 
-auto HeldLetters(std::uint8_t keys) -> std::string {
+std::string HeldLetters(std::uint8_t keys) {
   std::string held(kKeyLetters);
   for (auto [line, letter] : held | std::views::enumerate) {
     if ((keys & (std::uint8_t{1} << line)) == 0) {
@@ -89,7 +89,7 @@ void Display::PaintChanges(std::string &frame, const Machine &machine) {
   }
 }
 
-auto Display::Draw(const Machine &machine, const Run &run, std::uint8_t keys) -> std::string {
+std::string Display::Draw(const Machine &machine, const Run &run, std::uint8_t keys) {
   std::string frame;
   if (needs_clear_) {
     std::format_to(std::back_inserter(frame), "{}0m{}2J", kCsi, kCsi);

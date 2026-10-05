@@ -22,7 +22,7 @@ constexpr std::uint64_t kIllegalSetupSteps = 3;
 constexpr std::uint16_t kIllegalAddress = 6;
 constexpr std::uint16_t kAfterIllegalAddress = 8;
 
-auto SeedState(std::span<const std::uint8_t> program) -> State {
+State SeedState(std::span<const std::uint8_t> program) {
   constexpr std::size_t kMemoryStride = 37;
   constexpr std::size_t kMemorySeed = 0x5b;
 
@@ -132,7 +132,7 @@ void CheckStateTransfer(const State &seed) {
 } // namespace
 } // namespace tara::verilator
 
-auto main(int argc, char *argv[]) -> int {
+int main(int argc, char *argv[]) {
   try {
     constexpr int kArgumentCount = 3; // Two image paths at the command-line boundary.
     if (argc != kArgumentCount) {

@@ -15,7 +15,7 @@
 namespace tara::verilator {
 namespace {
 
-auto Execute(const Command &command) -> std::uint8_t {
+std::uint8_t Execute(const Command &command) {
   if (command.help) {
     std::print("{}", *command.help);
     return 0;
@@ -44,7 +44,7 @@ auto Execute(const Command &command) -> std::uint8_t {
 } // namespace
 } // namespace tara::verilator
 
-auto main(int argc, char *argv[]) -> int {
+int main(int argc, char *argv[]) {
   try {
     const auto arguments = std::span(argv, static_cast<std::size_t>(argc));
     const auto command = tara::verilator::ParseCommand(arguments);

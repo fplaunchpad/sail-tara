@@ -24,7 +24,7 @@ class FrameBudget {
 public:
   explicit FrameBudget(std::uint64_t frequency) : frequency_(frequency) {}
 
-  [[nodiscard]] auto Next() -> std::uint64_t {
+  [[nodiscard]] std::uint64_t Next() {
     if (frequency_ == 0) {
       return std::numeric_limits<std::uint64_t>::max();
     }
@@ -51,7 +51,7 @@ void AdvanceFrame(Run &run, std::uint8_t keys, std::uint64_t budget, Time deadli
   }
 }
 
-auto WaitForInput(const Terminal &terminal, Input &input, Time deadline) -> bool {
+bool WaitForInput(const Terminal &terminal, Input &input, Time deadline) {
   while (Clock::now() < deadline) {
     const auto bytes = terminal.Read(std::min(deadline, input.Deadline()));
     const auto now = Clock::now();
@@ -64,7 +64,7 @@ auto WaitForInput(const Terminal &terminal, Input &input, Time deadline) -> bool
 
 } // namespace
 
-auto Play(Machine &machine, const PlayOptions &options) -> std::uint8_t {
+std::uint8_t Play(Machine &machine, const PlayOptions &options) {
   // Validate the image before entering the alternate screen.
   machine.Load(ReadImage(options.image));
   const Terminal terminal;

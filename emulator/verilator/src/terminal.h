@@ -19,13 +19,13 @@ public:
   Terminal();
   ~Terminal();
   Terminal(const Terminal &) = delete;
-  auto operator=(const Terminal &) -> Terminal & = delete;
+  Terminal &operator=(const Terminal &) = delete;
   Terminal(Terminal &&) = delete;
-  auto operator=(Terminal &&) -> Terminal & = delete;
+  Terminal &operator=(Terminal &&) = delete;
 
   void Write(std::string_view text) const;
-  [[nodiscard]] auto Read(Time deadline) const -> std::string;
-  [[nodiscard]] auto WasResized() const -> bool;
+  [[nodiscard]] std::string Read(Time deadline) const;
+  [[nodiscard]] bool WasResized() const;
 
 private:
   void InstallFatalHandlers();
@@ -34,7 +34,7 @@ private:
   void RestoreScreen();
   void RestoreAfterSignal();
   void RestoreHandlers();
-  [[nodiscard]] auto ReadAvailable() const -> std::string;
+  [[nodiscard]] std::string ReadAvailable() const;
   static void OnFatalSignal(int signal);
   static void OnResize(int signal);
 

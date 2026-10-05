@@ -33,7 +33,7 @@ constexpr std::size_t kChunkBytes = 4'096;
 constexpr std::size_t kWordDigits = 4;
 constexpr std::uint16_t kBitsPerByte = 8;
 
-auto ParseNumber(std::string_view text, int base, std::uint64_t maximum) -> std::uint64_t {
+std::uint64_t ParseNumber(std::string_view text, int base, std::uint64_t maximum) {
   std::uint64_t value{};
   const char *const first = std::to_address(text.begin());
   const char *const last = std::to_address(text.end());
@@ -44,7 +44,7 @@ auto ParseNumber(std::string_view text, int base, std::uint64_t maximum) -> std:
   return value;
 }
 
-auto ReadFile(const std::filesystem::path &path) -> std::string {
+std::string ReadFile(const std::filesystem::path &path) {
   std::ifstream file(path, std::ios::binary);
   if (!file) {
     throw std::runtime_error(std::format("cannot open {}", path.string()));
@@ -63,11 +63,9 @@ auto ReadFile(const std::filesystem::path &path) -> std::string {
   return contents;
 }
 
-auto WithoutComment(std::string_view line) -> std::string_view {
-  return line.substr(0, line.find(';'));
-}
+std::string_view WithoutComment(std::string_view line) { return line.substr(0, line.find(';')); }
 
-auto ReadHex(std::string_view text) -> std::vector<std::uint8_t> {
+std::vector<std::uint8_t> ReadHex(std::string_view text) {
   std::istringstream lines{std::string(text)};
   std::vector<std::uint8_t> image;
   for (std::string line; std::getline(lines, line);) {
@@ -87,7 +85,7 @@ auto ReadHex(std::string_view text) -> std::vector<std::uint8_t> {
   return image;
 }
 
-auto ParseChange(std::string_view line) -> std::optional<KeyChange> {
+std::optional<KeyChange> ParseChange(std::string_view line) {
   std::istringstream fields{std::string(WithoutComment(line))};
   std::string step_count;
   std::string key_lines;
@@ -103,11 +101,11 @@ auto ParseChange(std::string_view line) -> std::optional<KeyChange> {
 
 } // namespace
 
-auto ParseCount(std::string_view text) -> std::uint64_t {
+std::uint64_t ParseCount(std::string_view text) {
   return ParseNumber(text, kDecimalBase, std::numeric_limits<std::uint64_t>::max());
 }
 
-auto ParseKeys(std::string_view text) -> std::uint8_t {
+std::uint8_t ParseKeys(std::string_view text) {
   auto base = kDecimalBase;
   if (text.starts_with("0x") || text.starts_with("0X")) {
     text.remove_prefix(2);
@@ -116,7 +114,7 @@ auto ParseKeys(std::string_view text) -> std::uint8_t {
   return static_cast<std::uint8_t>(ParseNumber(text, base, kAllKeys));
 }
 
-auto ReadImage(const std::filesystem::path &path) -> std::vector<std::uint8_t> {
+std::vector<std::uint8_t> ReadImage(const std::filesystem::path &path) {
   const auto suffix = path.extension();
   if (suffix != ".bin" && suffix != ".hex") {
     throw std::runtime_error("IMAGE must have a .bin or .hex suffix");
@@ -147,7 +145,7 @@ void KeySchedule::Load(const std::filesystem::path &path) {
   }
 }
 
-auto KeySchedule::At(std::uint64_t step) const -> std::uint8_t {
+std::uint8_t KeySchedule::At(std::uint64_t step) const {
   const auto next = std::ranges::upper_bound(changes_, step, {}, &KeyChange::step);
   return next == changes_.begin() ? initial_ : std::prev(next)->keys;
 }

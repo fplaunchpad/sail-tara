@@ -8,7 +8,7 @@
 
 namespace tara::verilator {
 
-[[nodiscard]] auto Play(Machine &machine, const PlayOptions &options) -> std::uint8_t;
+[[nodiscard]] std::uint8_t Play(Machine &machine, const PlayOptions &options);
 
 } // namespace tara::verilator
 

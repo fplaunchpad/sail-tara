@@ -28,7 +28,7 @@ void PrintFramebuffer(const Machine &machine) {
 
 } // namespace
 
-auto Run::Status() const -> RunStatus {
+RunStatus Run::Status() const {
   if (has_illegal_opcode_) {
     return RunStatus::kIllegal;
   }
@@ -41,7 +41,7 @@ auto Run::Status() const -> RunStatus {
   return RunStatus::kRunning;
 }
 
-auto Run::Step(std::uint8_t keys) -> StepResult {
+StepResult Run::Step(std::uint8_t keys) {
   const auto result = machine_.get().Step(keys);
   if (result == StepResult::kRetired) {
     ++retirements_;
@@ -51,7 +51,7 @@ auto Run::Step(std::uint8_t keys) -> StepResult {
   return result;
 }
 
-auto Run::ExitStatus() const -> std::uint8_t {
+std::uint8_t Run::ExitStatus() const {
   constexpr std::uint8_t kLimitExit = 3;
   constexpr std::uint8_t kIllegalExit = 4;
   switch (Status()) {
@@ -66,7 +66,7 @@ auto Run::ExitStatus() const -> std::uint8_t {
   std::unreachable();
 }
 
-auto RunBatch(Machine &machine, const RunOptions &options) -> std::uint8_t {
+std::uint8_t RunBatch(Machine &machine, const RunOptions &options) {
   KeySchedule keys(options.keys);
   if (options.key_script) {
     keys.Load(*options.key_script);

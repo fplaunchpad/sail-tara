@@ -20,7 +20,7 @@ public:
     RejectRepeatedOptions();
   }
 
-  [[nodiscard]] auto Parse(std::span<const char *const> arguments) -> Command {
+  [[nodiscard]] Command Parse(std::span<const char *const> arguments) {
     try {
       // CLI11's argc is an int; main supplies a span of exactly that many arguments.
       app_.parse(static_cast<int>(arguments.size()), arguments.data());
@@ -49,10 +49,10 @@ private:
                            "Print each instruction's trace");
     run_command_->add_option_function<std::string>(
         "-n,--max-steps",
-        [this](const std::string &text) -> void { run_options_.max_steps = ParseCount(text); },
+        [this](const std::string &text) { run_options_.max_steps = ParseCount(text); },
         "Retirement limit (default 1000000; 0: unlimited)");
     run_command_->add_option_function<std::string>(
-        "--keys", [this](const std::string &text) -> void { run_options_.keys = ParseKeys(text); },
+        "--keys", [this](const std::string &text) { run_options_.keys = ParseKeys(text); },
         "Input lines 0-31, decimal or 0x hex");
     script_option_ = run_command_->add_option("--key-script", script_path_, "STEP KEYS lines");
     run_command_->add_flag("--framebuffer", run_options_.needs_framebuffer,
@@ -64,11 +64,10 @@ private:
     play_command_->add_option("IMAGE", play_options_.image, ".bin bytes or .hex words")->required();
     play_command_->add_option_function<std::string>(
         "-n,--max-steps",
-        [this](const std::string &text) -> void { play_options_.max_steps = ParseCount(text); },
+        [this](const std::string &text) { play_options_.max_steps = ParseCount(text); },
         "Retirement limit (default 0: unlimited)");
     play_command_->add_option_function<std::string>(
-        "--hz",
-        [this](const std::string &text) -> void { play_options_.frequency = ParseCount(text); },
+        "--hz", [this](const std::string &text) { play_options_.frequency = ParseCount(text); },
         "Instructions per second (default 2000; 0: as fast as possible)");
   }
 
@@ -93,7 +92,7 @@ private:
 
 } // namespace
 
-auto ParseCommand(std::span<const char *const> arguments) -> Command {
+Command ParseCommand(std::span<const char *const> arguments) {
   return CommandLine{}.Parse(arguments);
 }
 

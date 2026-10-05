@@ -31,9 +31,9 @@ public:
   ~HostModel() { model_fini(); }
 
   HostModel(const HostModel &) = delete;
-  auto operator=(const HostModel &) -> HostModel & = delete;
+  HostModel &operator=(const HostModel &) = delete;
   HostModel(HostModel &&) = delete;
-  auto operator=(HostModel &&) -> HostModel & = delete;
+  HostModel &operator=(HostModel &&) = delete;
 };
 
 class SailText {
@@ -43,13 +43,13 @@ public:
   ~SailText() { KILL(sail_string)(&value_); }
 
   SailText(const SailText &) = delete;
-  auto operator=(const SailText &) -> SailText & = delete;
+  SailText &operator=(const SailText &) = delete;
   SailText(SailText &&) = delete;
-  auto operator=(SailText &&) -> SailText & = delete;
+  SailText &operator=(SailText &&) = delete;
 
-  [[nodiscard]] auto Out() -> sail_string * { return &value_; }
+  [[nodiscard]] sail_string *Out() { return &value_; }
 
-  [[nodiscard]] auto Copy() const -> std::string { return value_; }
+  [[nodiscard]] std::string Copy() const { return value_; }
 
 private:
   sail_string value_{};
@@ -58,12 +58,10 @@ private:
 void LoadInputs(Vtara_step &model, std::uint8_t keys) {
   const auto registers = std::span(zGPR.data, zGPR.len);
   const auto memory = std::span(zMEM.data, zMEM.len);
-  std::ranges::transform(registers, model.in_GPR.data(), [](std::uint64_t value) -> std::uint16_t {
-    return static_cast<std::uint16_t>(value);
-  });
-  std::ranges::transform(memory, model.in_MEM.data(), [](std::uint64_t value) -> std::uint8_t {
-    return static_cast<std::uint8_t>(value);
-  });
+  std::ranges::transform(registers, model.in_GPR.data(),
+                         [](std::uint64_t value) { return static_cast<std::uint16_t>(value); });
+  std::ranges::transform(memory, model.in_MEM.data(),
+                         [](std::uint64_t value) { return static_cast<std::uint8_t>(value); });
 
   model.arg0 = keys;
   model.in_PC = static_cast<std::uint16_t>(zPC);
@@ -97,9 +95,9 @@ public:
   ~Impl() { circuit_->final(); }
 
   Impl(const Impl &) = delete;
-  auto operator=(const Impl &) -> Impl & = delete;
+  Impl &operator=(const Impl &) = delete;
   Impl(Impl &&) = delete;
-  auto operator=(Impl &&) -> Impl & = delete;
+  Impl &operator=(Impl &&) = delete;
 
 private:
   friend class Machine;
@@ -119,7 +117,7 @@ void Machine::Load(std::span<const std::uint8_t> image) {
   std::ranges::copy(image, zMEM.data);
 }
 
-auto Machine::Step(std::uint8_t keys) -> StepResult {
+StepResult Machine::Step(std::uint8_t keys) {
   auto &circuit = *impl_->circuit_;
   LoadInputs(circuit, keys);
   circuit.eval();
@@ -127,14 +125,12 @@ auto Machine::Step(std::uint8_t keys) -> StepResult {
   return static_cast<StepResult>(circuit.sail_return);
 }
 
-auto Machine::ReadState() const -> State {
+State Machine::ReadState() const {
   State state;
-  std::ranges::transform(
-      std::span(zGPR.data, zGPR.len), state.registers.begin(),
-      [](std::uint64_t value) -> std::uint16_t { return static_cast<std::uint16_t>(value); });
-  std::ranges::transform(
-      std::span(zMEM.data, zMEM.len), state.memory.begin(),
-      [](std::uint64_t value) -> std::uint8_t { return static_cast<std::uint8_t>(value); });
+  std::ranges::transform(std::span(zGPR.data, zGPR.len), state.registers.begin(),
+                         [](std::uint64_t value) { return static_cast<std::uint16_t>(value); });
+  std::ranges::transform(std::span(zMEM.data, zMEM.len), state.memory.begin(),
+                         [](std::uint64_t value) { return static_cast<std::uint8_t>(value); });
   state.program_counter = static_cast<std::uint16_t>(zPC);
   state.next_program_counter = static_cast<std::uint16_t>(znextPC);
   state.trace_address = static_cast<std::uint16_t>(ztrace_pc);
@@ -155,27 +151,27 @@ void Machine::WriteState(const State &state) {
   zHALTED = state.is_halted;
 }
 
-auto Machine::ProgramCounter() const -> std::uint16_t { return static_cast<std::uint16_t>(zPC); }
+std::uint16_t Machine::ProgramCounter() const { return static_cast<std::uint16_t>(zPC); }
 
-auto Machine::IsHalted() const -> bool { return zHALTED; }
+bool Machine::IsHalted() const { return zHALTED; }
 
-auto Machine::IsPixelSet(std::size_t pixel_x, std::size_t pixel_y) const -> bool {
+bool Machine::IsPixelSet(std::size_t pixel_x, std::size_t pixel_y) const {
   return zhost_pixel(pixel_x, pixel_y);
 }
 
-auto Machine::Trace() const -> std::string {
+std::string Machine::Trace() const {
   SailText text;
   zhost_trace(text.Out(), UNIT);
   return text.Copy();
 }
 
-auto Machine::Dump() const -> std::string {
+std::string Machine::Dump() const {
   SailText text;
   zhost_dump(text.Out(), UNIT);
   return text.Copy();
 }
 
-auto Machine::Disassemble(std::uint16_t word) const -> std::string {
+std::string Machine::Disassemble(std::uint16_t word) const {
   SailText text;
   zhost_disasm(text.Out(), word);
   return text.Copy();

@@ -1,6 +1,7 @@
 # Machine and Terminal methods require their RAII object's lifetime even when the
 # underlying Sail/POSIX resource is process-wide. Static methods would hide that contract.
 # Array indices use [] by the user's preference; index ranges come from the owning protocol.
+# Return types precede function names by the user's preference.
 Checks: >-
   -*,
   bugprone-*,
@@ -14,6 +15,7 @@ Checks: >-
   portability-*,
   readability-*,
   -cppcoreguidelines-pro-bounds-constant-array-index,
+  -modernize-use-trailing-return-type,
   -readability-convert-member-functions-to-static
 WarningsAsErrors: "*"
 ExtraArgs: ["-Wno-unknown-warning-option"]

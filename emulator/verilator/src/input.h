@@ -16,14 +16,14 @@ inline constexpr std::size_t kInputLines = 5;
 
 class Input {
 public:
-  [[nodiscard]] auto WantsQuit(std::string_view bytes, Time now) -> bool;
-  [[nodiscard]] auto HasExpiredEscape(Time now) const -> bool;
-  [[nodiscard]] auto Deadline() const -> Time;
-  [[nodiscard]] auto HeldKeys(Time now) const -> std::uint8_t;
+  [[nodiscard]] bool WantsQuit(std::string_view bytes, Time now);
+  [[nodiscard]] bool HasExpiredEscape(Time now) const;
+  [[nodiscard]] Time Deadline() const;
+  [[nodiscard]] std::uint8_t HeldKeys(Time now) const;
 
 private:
   enum class Sequence : std::uint8_t { kGround, kEscape, kControl };
-  auto Feed(char byte, Time now) -> bool;
+  bool Feed(char byte, Time now);
   void Press(std::optional<std::size_t> line, Time now);
 
   Sequence sequence_ = Sequence::kGround;

@@ -19,7 +19,7 @@ constexpr std::string_view kLetters = "wsadq";
 constexpr std::string_view kUpperLetters = "WSADQ";
 constexpr std::string_view kArrows = "ABDC";
 
-auto LetterLine(char byte) -> std::optional<std::size_t> {
+std::optional<std::size_t> LetterLine(char byte) {
   const auto lower = kLetters.find(byte);
   if (lower != std::string_view::npos) {
     return lower;
@@ -31,7 +31,7 @@ auto LetterLine(char byte) -> std::optional<std::size_t> {
   return std::nullopt;
 }
 
-auto ArrowLine(char byte) -> std::optional<std::size_t> {
+std::optional<std::size_t> ArrowLine(char byte) {
   const auto line = kArrows.find(byte);
   return line == std::string_view::npos ? std::nullopt : std::optional(line);
 }
@@ -44,7 +44,7 @@ void Input::Press(std::optional<std::size_t> line, Time now) {
   }
 }
 
-auto Input::Feed(char byte, Time now) -> bool {
+bool Input::Feed(char byte, Time now) {
   switch (sequence_) {
   case Sequence::kEscape:
     if (byte != '[' && byte != 'O') {
@@ -76,22 +76,22 @@ auto Input::Feed(char byte, Time now) -> bool {
   return false;
 }
 
-auto Input::WantsQuit(std::string_view bytes, Time now) -> bool {
+bool Input::WantsQuit(std::string_view bytes, Time now) {
   const bool wants_quit =
-      std::ranges::any_of(bytes, [this, now](char byte) -> bool { return Feed(byte, now); });
+      std::ranges::any_of(bytes, [this, now](char byte) { return Feed(byte, now); });
   if (!bytes.empty() && sequence_ != Sequence::kGround) {
     pending_since_ = now;
   }
   return wants_quit;
 }
 
-auto Input::Deadline() const -> Time {
+Time Input::Deadline() const {
   return sequence_ == Sequence::kGround ? Time::max() : pending_since_ + kEscapeTime;
 }
 
-auto Input::HasExpiredEscape(Time now) const -> bool { return now >= Deadline(); }
+bool Input::HasExpiredEscape(Time now) const { return now >= Deadline(); }
 
-auto Input::HeldKeys(Time now) const -> std::uint8_t {
+std::uint8_t Input::HeldKeys(Time now) const {
   std::uint8_t keys{};
   for (const auto [line, release_deadline] : release_deadlines_ | std::views::enumerate) {
     if (now < release_deadline) {
