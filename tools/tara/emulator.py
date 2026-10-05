@@ -83,7 +83,7 @@ class Run:
 
 @dataclass(frozen=True)
 class Emulator:
-    """An emulator executable (tara-c, tara-ocaml)."""
+    """An emulator executable (tara-c, tara-ocaml, tara-verilator)."""
 
     path: Path
 
