@@ -36,7 +36,7 @@ set(STEP_SOURCES ${STATE_SOURCE} ${MODEL_SOURCES})
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${STEP_SOURCES} ${SAIL})
 set(SYSTEMVERILOG ${CMAKE_CURRENT_BINARY_DIR}/tara.sv)
 set(SAIL_SV_COMMAND
-    ${SAIL} --sv --sv-specialize 2 --sv-disable-optimizations --sv-toplevel host_step --sv-comb
+    ${SAIL} --sv --sv-specialize 2 --sv-toplevel host_step --sv-comb
     --sv-no-unions --sv-never-pack-unions --sv-nomem --sv-no-write-flush --sv-output-dir
     ${CMAKE_CURRENT_BINARY_DIR} -o tara ${STATE_SOURCE})
 

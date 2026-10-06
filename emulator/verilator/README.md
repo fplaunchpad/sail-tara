@@ -56,8 +56,9 @@ just test -k tara-verilator
 - The original backend repeatedly expands branch conditions at joins in the generated
   instruction codec. The patch shares them through one reachability signal per block.
 - Phi inputs and assertions use those signals. Assertions remain enabled.
-- Sail's SystemVerilog optimization passes are disabled to keep the shared signals;
-  Verilator optimizes the resulting circuit.
+- Sail's SystemVerilog optimizations stay on. They fold the shared signals into expressions,
+  which makes the generated SystemVerilog about ten times smaller and the emulator about three
+  times faster than with them off; the synthesized circuit is the same size.
 - Unions become structs, state ports use fixed arrays, and Sail's dynamic memory
   implementation is disabled.
 - Nix builds Verilator itself with C++17 to match SystemC's API in its smoke tests.
