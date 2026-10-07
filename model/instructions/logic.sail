@@ -5,6 +5,7 @@
 @anchor logic
 The logic instructions are bitwise, on whole registers.
  */
+
 union clause instruction = AND : (regidx, regidx, regidx)
 mapping clause encdec = AND(rd, rs1, rs2) <-> 0b01101 : opcode @ rd @ rs1 @ rs2 @ ignored(2)
 

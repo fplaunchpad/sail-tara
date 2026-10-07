@@ -7,6 +7,7 @@ Both shifts are logical, and take their count from the low five bits of the imme
 (`shamt = imm8[4:0]`). The RTL does not say what a count of 16 or more does; the model shifts every
 bit out, leaving zero.
  */
+
 union clause instruction = SHL : (regidx, bits(8))
 mapping clause encdec = SHL(rd, shamt) <-> 0b10001 : opcode @ rd @ shamt
 

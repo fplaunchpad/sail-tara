@@ -6,6 +6,7 @@
 A relative target is `PC + 2 + 2 * off`: the offset counts instructions from the next one. PC keeps
 11 bits, so targets wrap around memory.
  */
+
 union clause instruction = BZ : (regidx, bits(8))
 mapping clause encdec = BZ(rs, off) <-> 0b10100 : opcode @ rs @ off
 

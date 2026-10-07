@@ -5,6 +5,7 @@
 @anchor arithmetic
 Results wrap at 16 bits, and nothing records a carry or an overflow.
  */
+
 union clause instruction = ADD : (regidx, regidx, regidx)
 mapping clause encdec = ADD(rd, rs1, rs2) <-> 0b01001 : opcode @ rd @ rs1 @ rs2 @ ignored(2)
 

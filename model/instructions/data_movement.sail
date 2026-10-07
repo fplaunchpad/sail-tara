@@ -6,6 +6,7 @@
 `NOP` and `HLT` take no operands. `MOV` copies a register, and `LIL` and `LIH` load a 16-bit
 constant a byte at a time.
  */
+
 union clause instruction = NOP : unit
 mapping clause encdec = NOP() <-> 0b00000 : opcode @ ignored(11)
 

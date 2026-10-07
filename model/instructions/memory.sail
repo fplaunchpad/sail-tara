@@ -7,6 +7,7 @@ A load or store addresses `base + off`, where `off` counts bytes, -16 to 15, and
 16 bits. Memory uses only the low 11 address bits; a word access ignores bit 0. The byte at
 `0x5FF` reads as the input port.
  */
+
 union clause instruction = LDW : (regidx, regidx, bits(5))
 mapping clause encdec = LDW(rd, base, off) <-> 0b00101 : opcode @ rd @ base @ off
 

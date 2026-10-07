@@ -7,6 +7,7 @@ The stack grows down from the address in R7, a word at a time, unchecked. Reset 
 a program sets it before its first `PUSH`. Each instruction takes its two steps in the order of the
 ISA table, which shows when the register is R7 itself.
  */
+
 union clause instruction = PUSH : regidx
 mapping clause encdec = PUSH(rs) <-> 0b11001 : opcode @ rs @ ignored(8)
 
