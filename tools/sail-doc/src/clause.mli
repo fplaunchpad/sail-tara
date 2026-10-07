@@ -10,22 +10,21 @@ module Selector : sig
     | Right
 end
 
-(** A clause of the function or mapping [name] that takes a constructor apart: [pattern] is the
-    constructor with the constants the Sail Asciidoctor plugin can match (enum members, binary
-    and hexadecimal literals) and wildcards for the other arguments, which is how the plugin finds
-    the clause. In JSON, [name] is [function]. *)
+(** A clause that takes a constructor apart, with its exact source and documentation comment.
+    [pattern] retains constants and wildcards for the other arguments. In JSON, [name] is
+    [function]. *)
 type t =
   { name : string
   ; selector : Selector.t
   ; pattern : string
   ; documented : bool
+  ; source : string
+  ; description : string
   }
 [@@deriving yojson_of]
 
-(** The clauses of every function and mapping that take one of [constructors] apart, by
-    constructor, in source order. The plugin takes the first clause that a pattern matches, so a
-    clause whose pattern also matches an earlier clause of the same function cannot be shown, and
-    is an error. *)
+(** Clauses grouped by constructor in source order. A clause hidden by an unguarded earlier
+    clause is rejected; guarded alternatives retain their own sources. *)
 val read
   :  ast:Type_check.typed_ast
   -> env:Type_check.Env.t

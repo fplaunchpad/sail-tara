@@ -9,8 +9,6 @@ from html.parser import HTMLParser
 from pathlib import Path
 from typing import Self, override
 
-import msgspec
-
 ROOT = Path(__file__).parents[2]
 INSTRUCTION_SETS = ROOT / "tests" / "instruction_sets"
 # What the documentation recipes read.
@@ -75,61 +73,6 @@ class Workspace:
         run = self.just(*arguments)
         if run.returncode != 0:
             raise AssertionError(f"just {' '.join(arguments)} failed:\n{run.stdout}{run.stderr}")
-
-
-class FunctionClause(msgspec.Struct):
-    source: str
-    pattern: dict[str, object]
-
-    def matches(self, constructor: str) -> bool:
-        """Whether the clause takes `constructor` apart."""
-
-        return self.pattern.get("id") == constructor
-
-
-class Function(msgspec.Struct):
-    function: list[FunctionClause]
-
-
-class MappingClause(msgspec.Struct):
-    source: str
-    left: dict[str, object]
-
-    def matches(self, constructor: str) -> bool:
-        return self.left.get("id") == constructor
-
-
-class Mapping(msgspec.Struct):
-    mapping: list[MappingClause]
-
-
-class Functions(msgspec.Struct):
-    execute: Function
-
-
-class Mappings(msgspec.Struct):
-    encdec: Mapping
-    assembly: Mapping
-
-
-class Bundle(msgspec.Struct):
-    """Sail's documentation bundle: the source of every clause, which the specification shows."""
-
-    functions: Functions
-    mappings: Mappings
-
-    @classmethod
-    def read(cls, path: Path) -> Self:
-        return msgspec.json.decode(path.read_bytes(), type=cls)
-
-    def clauses(self, constructor: str) -> list[str]:
-        """The encdec, execute and assembly clauses of `constructor`, normalized."""
-
-        mappings = self.mappings
-        encdec = [c.source for c in mappings.encdec.mapping if c.matches(constructor)]
-        execute = [c.source for c in self.functions.execute.function if c.matches(constructor)]
-        assembly = [c.source for c in mappings.assembly.mapping if c.matches(constructor)]
-        return [normalize(source) for source in (*encdec, *execute, *assembly)]
 
 
 @dataclass(eq=False, kw_only=True)

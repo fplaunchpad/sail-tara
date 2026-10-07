@@ -24,12 +24,7 @@ let run output (state : Interactive.State.istate) =
   | None -> Sail_ast.fail_at Parse_ast.Unknown "--doc-tables writes to the file given with -o"
   | Some path ->
     let json =
-      Instruction_set.read
-        ~ast:state.ast
-        ~env:state.env
-        ~encdec:!encdec
-        ~assembly:!assembly
-        ~execute:!execute
+      Instruction_set.read ~state ~encdec:!encdec ~assembly:!assembly ~execute:!execute
       |> Instruction_set.yojson_of_t
       |> Yojson.Safe.pretty_to_string
     in

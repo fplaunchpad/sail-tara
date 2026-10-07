@@ -4,9 +4,6 @@
 :sectnums:
 :chapter-signifier:
 :reproducible:
-:source-highlighter: rouge
-:rouge-style: github
-:rouge-css: style
 :autofit-option:
 :sail-doc: {docdir}/tara.json
 
@@ -23,90 +20,25 @@ include::sailcomment:section_machine[type=anchor,indent=0]
 
 include::sailcomment:types[type=anchor,indent=0]
 
-sail::word[type=type]
-sail::byte[type=type]
-sail::regidx[type=type]
-sail::address[type=type]
-sail::regfile[type=type]
-sail::memory[type=type]
-
 include::sailcomment:GPR[type=register,indent=0]
-
-sail::GPR[type=register]
 
 include::sailcomment:PC[type=register,indent=0]
 
-sail::PC[type=register]
-
 include::sailcomment:MEM[type=register,indent=0]
-
-sail::MEM[type=register]
 
 include::sailcomment:HALTED[type=register,indent=0]
 
-sail::HALTED[type=register]
-
 include::sailcomment:KEYS[type=register,indent=0]
-
-sail::KEYS[type=register]
-
-include::sailcomment:nextPC[type=register,indent=0]
-
-sail::nextPC[type=register]
-
-include::sailcomment:rX[type=function,indent=0]
-
-sail::rX[type=function]
-
-include::sailcomment:wX[type=function,indent=0]
-
-sail::wX[type=function]
 
 include::sailcomment:lr[type=let,indent=0]
 
-sail::lr[type=let]
-
 include::sailcomment:sp[type=let,indent=0]
 
-sail::sp[type=let]
-
-include::sailcomment:pc_mask[type=function,indent=0]
-
-sail::pc_mask[type=function]
-
 include::sailcomment:input_port[type=let,indent=0]
-
-sail::input_port[type=let]
-
-include::sailcomment:read_byte[type=function,indent=0]
-
-sail::read_byte[type=function]
-
-include::sailcomment:write_byte[type=function,indent=0]
-
-sail::write_byte[type=function]
-
-include::sailcomment:read_word[type=function,indent=0]
-
-sail::read_word[type=function]
-
-include::sailcomment:write_word[type=function,indent=0]
-
-sail::write_word[type=function]
-
-include::sailcomment:pixel[type=val,indent=0]
-
-sail::pixel[type=function]
 
 include::sailcomment:section_instruction_set[type=anchor,indent=0]
 
 include::sailcomment:encoding[type=anchor,indent=0]
-
-sail::opcode[type=type]
-
-include::sailcomment:ignored[type=val,indent=0]
-
-sail::ignored[type=val]
 
 include::sailcomment:section_instruction_formats[type=anchor,indent=0]
 
@@ -118,15 +50,7 @@ include::opcodes.adoc[]
 
 include::sailcomment:operands[type=anchor,indent=0]
 
-sail::instruction[type=type]
-
-include::sailcomment:encdec[type=val,indent=0]
-
-sail::encdec[type=val]
-
-include::sailcomment:execute[type=val,indent=0]
-
-sail::execute[type=val]
+include::notation.adoc[]
 
 include::instructions.adoc[]
 
@@ -134,51 +58,11 @@ include::sailcomment:section_execution[type=anchor,indent=0]
 
 include::sailcomment:drivers[type=anchor,indent=0]
 
-sail::retirement[type=type]
-
-include::sailcomment:retire[type=function,indent=0]
-
-sail::retire[type=function]
-
-include::sailcomment:run_instruction[type=val,indent=0]
-
-sail::run_instruction[type=val]
-
-sail::run_instruction[type=function]
-
-include::sailcomment:step[type=val,indent=0]
-
-sail::step[type=val]
-
-sail::step[type=function]
-
-include::sailcomment:reset[type=val,indent=0]
-
-sail::reset[type=function]
-
 include::sailcomment:section_assembly[type=anchor,indent=0]
 
 include::sailcomment:syntax[type=anchor,indent=0]
 
-include::sailcomment:reg_name[type=val,indent=0]
-
-sail::reg_name[type=val]
-
-include::sailcomment:unsigned_dec_8[type=val,indent=0]
-
-sail::unsigned_dec_8[type=val]
-
-include::sailcomment:signed_dec_5[type=val,indent=0]
-
-sail::signed_dec_5[type=val]
-
-sail::signed_dec_8[type=val]
-
-sail::signed_dec_11[type=val]
-
-include::sailcomment:assembly[type=val,indent=0]
-
-sail::assembly[type=val]
+include::helpers.adoc[]
 
 [bibliography]
 == References

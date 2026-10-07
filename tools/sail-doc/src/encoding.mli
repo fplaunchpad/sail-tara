@@ -1,4 +1,5 @@
 open Libsail
+open Extraction.Ast
 
 module Argument : sig
   (** An argument of an encoded instruction: an operand it binds, or a constant such as an enum
@@ -17,6 +18,7 @@ type t =
   ; fields : Word_field.t list
   ; condition : string option
   ; location : Parse_ast.l
+  ; annotation : unit def_annot
   }
 
 (** The instruction as its encoding clause takes it apart, such as [RTYPE(rs2, rs1, rd, ADD)]. *)

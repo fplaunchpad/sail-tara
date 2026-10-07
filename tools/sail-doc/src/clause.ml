@@ -24,6 +24,8 @@ type t =
   ; selector : Selector.t
   ; pattern : string
   ; documented : bool
+  ; source : string
+  ; description : string
   }
 [@@deriving yojson_of]
 
@@ -57,21 +59,31 @@ module Found = struct
     { constructor : string
     ; location : Parse_ast.l
     ; constants : string option list
+    ; guarded : bool
     ; clause : t
     }
 
-  let make ~constructor ~location ~constants ~name ~selector ~documented =
+  let make ~constructor ~location ~constants ~name ~selector ~documented ~guarded ~description =
     let arguments = List.map constants ~f:(Option.value ~default:"_") |> String.concat ~sep:", " in
     { constructor
     ; location
     ; constants
-    ; clause = { name; selector; pattern = [%string "%{constructor}(%{arguments})"]; documented }
+    ; guarded
+    ; clause =
+        { name
+        ; selector
+        ; pattern = [%string "%{constructor}(%{arguments})"]
+        ; documented
+        ; source = Sail_ast.source_text location
+        ; description
+        }
     }
   ;;
 
   (* Whether the plugin, looking for [found], would stop at [earlier] first. *)
   let hides ~earlier found =
-    String.equal earlier.clause.name found.clause.name
+    (not earlier.guarded)
+    && String.equal earlier.clause.name found.clause.name
     && Selector.equal earlier.clause.selector found.clause.selector
     && String.equal earlier.constructor found.constructor
     &&
@@ -91,7 +103,7 @@ let read ~ast ~env ~constructors =
   let from_functions =
     List.filter_map
       (Sail_ast.function_clauses ast)
-      ~f:(fun { name; pattern; documented; location; _ } ->
+      ~f:(fun { name; pattern; documented; location; guard; annotation; _ } ->
         let%map.Option constructor, arguments = instruction (Sail_ast.constructor_pat pattern) in
         Found.make
           ~constructor
@@ -99,12 +111,16 @@ let read ~ast ~env ~constructors =
           ~constants:(List.map arguments ~f:(of_pat env))
           ~name
           ~selector:Pattern
-          ~documented)
+          ~documented
+          ~guarded:(Option.is_some guard)
+          ~description:
+            (Option.value_map annotation.doc_comment ~default:"" ~f:(fun comment ->
+               comment.contents)))
   in
   let from_mappings =
     List.filter_map
       (Sail_ast.mapping_clauses ast)
-      ~f:(fun { name; left; right; documented; location; _ } ->
+      ~f:(fun { name; left; right; documented; location; guards; annotation; _ } ->
         let side (selector : Selector.t) pattern =
           let%map.Option constructor, arguments = instruction (Sail_ast.constructor_mpat pattern) in
           Found.make
@@ -114,6 +130,10 @@ let read ~ast ~env ~constructors =
             ~name
             ~selector
             ~documented
+            ~guarded:(not (List.is_empty guards))
+            ~description:
+              (Option.value_map annotation.doc_comment ~default:"" ~f:(fun comment ->
+                 comment.contents))
         in
         Option.first_some (side Left left) (side Right right))
   in
@@ -129,8 +149,8 @@ let read ~ast ~env ~constructors =
       Sail_ast.fail_at
         clause.location
         [%string
-          "an earlier clause of %{clause.clause.name} also matches %{clause.clause.pattern}, so \
-           the specification cannot show this one"]);
+          "an unguarded earlier clause of %{clause.clause.name} also matches \
+           %{clause.clause.pattern}, making this clause unreachable"]);
   List.map found ~f:(fun { constructor; clause; _ } -> constructor, clause)
   |> String.Map.of_alist_multi
 ;;

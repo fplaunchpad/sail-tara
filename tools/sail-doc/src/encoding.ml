@@ -14,6 +14,7 @@ type t =
   ; fields : Word_field.t list
   ; condition : string option
   ; location : Parse_ast.l
+  ; annotation : unit def_annot
   }
 
 let to_string { constructor; arguments; _ } =
@@ -83,7 +84,7 @@ let field env pattern : Word_field.t =
   | _ -> Sail_ast.fail_at location "an encoding field must be bits, an operand or a mapping"
 ;;
 
-let instruction env ({ left; right; guard; location; _ } : Sail_ast.Mapping_clause.t) =
+let instruction env ({ left; right; guards; location; annotation; _ } : Sail_ast.Mapping_clause.t) =
   let constructor, arguments =
     match Sail_ast.constructor_mpat left with
     | Some application -> application
@@ -95,10 +96,22 @@ let instruction env ({ left; right; guard; location; _ } : Sail_ast.Mapping_clau
     | _ -> [ field env right ]
   in
   let condition =
-    let%map.Option guard = guard in
-    Sail_ast.exp_location guard |> Sail_ast.source_text
+    match
+      List.map guards ~f:(fun guard -> Sail_ast.exp_location guard |> Sail_ast.source_text)
+      |> List.dedup_and_sort ~compare:String.compare
+    with
+    | [] -> None
+    | [ guard ] -> Some guard
+    | guards ->
+      Some (List.map guards ~f:(fun guard -> "(" ^ guard ^ ")") |> String.concat ~sep:" && ")
   in
-  ({ constructor; arguments = List.map arguments ~f:(argument env); fields; condition; location }
+  ({ constructor
+   ; arguments = List.map arguments ~f:(argument env)
+   ; fields
+   ; condition
+   ; location
+   ; annotation
+   }
    : t)
 ;;
 

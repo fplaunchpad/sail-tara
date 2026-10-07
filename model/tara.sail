@@ -27,6 +27,7 @@ value.
  */
 val ignored : forall 'n, 'n >= 0. int('n) <-> bits('n)
 
+$[helper_doc { title = "Ignore encoding bits" }]
 mapping ignored = {
     forwards width => sail_zeros(width),
     backwards bits => length(bits),
@@ -40,9 +41,9 @@ $anchor section_instruction_formats
 === Opcodes
 
 Opcodes 27 to 31 are unassigned: no clause of `encdec` matches their words, and `step` reports them
-as `Illegal`. The execution column summarises each instruction's `execute` clause: `R[r]` is
-register `r`, `M[a](7:0)` and `M[a](15:0)` are the byte and the word at address `a`, `sext` and
-`zext` extend with the sign and with zeros, `++` concatenates, and PC is the next PC.
+as `Illegal`. Operations use compact notation: fixed-width arithmetic wraps implicitly,
+`s(x)` interprets x as signed, and `++` concatenates bits. `zextN` and `sextN` extend to N bits.
+Instruction names link to their encodings, operands and architectural notes.
  */
 $anchor section_opcodes
 
@@ -71,6 +72,20 @@ Carries out an instruction. It sees PC as the address of the instruction itself,
 address of the next one in `nextPC` for the drivers to commit. An instruction reads its operands
 before it writes; `PUSH` and `POP` update R7 and memory in the order their clauses give.
  */
+$[doc_examples {
+    runner = run_instruction,
+    arguments = ["0b00000"],
+    initial = [{ "register" = PC, value = "0x0100" }],
+    observed =
+        [
+            { "register" = GPR, label = "R{index}" },
+            { "register" = PC, label = PC },
+            { "register" = MEM, label = "M[0x{index:03X}]" },
+            { "register" = HALTED, label = HALTED },
+            { "register" = KEYS, label = KEYS },
+        ],
+    complete = true,
+}]
 val execute : instruction -> unit
 scattered function execute
 

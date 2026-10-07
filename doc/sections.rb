@@ -87,7 +87,7 @@ class TaraDocLayout < Asciidoctor::Extensions::TreeProcessor
     end
 
     document.find_by(context: :listing).each do |listing|
-      listing.set_option 'unbreakable'
+      listing.set_option 'unbreakable' unless listing.role?('operation')
     end
 
     document

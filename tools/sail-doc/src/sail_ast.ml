@@ -8,6 +8,8 @@ module Function_clause = struct
     { name : string
     ; pattern : tannot pat
     ; body : tannot exp
+    ; guard : tannot exp option
+    ; annotation : unit def_annot
     ; documented : bool
     ; location : Parse_ast.l
     }
@@ -18,7 +20,8 @@ module Mapping_clause = struct
     { name : string
     ; left : tannot mpat
     ; right : tannot mpat
-    ; guard : tannot exp option
+    ; guards : tannot exp list
+    ; annotation : unit def_annot
     ; documented : bool
     ; location : Parse_ast.l
     }
@@ -172,13 +175,16 @@ let function_clauses (ast : typed_ast) =
   List.concat_map ast.defs ~f:(function
     | DEF_aux (DEF_fundef (FD_aux (FD_function (_, _, clauses), _)), _) ->
       List.map clauses ~f:(fun (FCL_aux (FCL_funcl (id, Pat_aux (clause, _)), (annot, _))) ->
-        let pattern, body =
+        let pattern, guard, body =
           match clause with
-          | Pat_exp (pattern, body) | Pat_when (pattern, _, body) -> pattern, body
+          | Pat_exp (pattern, body) -> pattern, None, body
+          | Pat_when (pattern, guard, body) -> pattern, Some guard, body
         in
         ({ name = id_string id
          ; pattern
          ; body
+         ; guard
+         ; annotation = annot
          ; documented = Option.is_some annot.doc_comment
          ; location = annot.loc
          }
@@ -203,7 +209,8 @@ let mapping_clauses (ast : typed_ast) =
             ({ name = id_string id
              ; left
              ; right
-             ; guard = Option.first_some left_guard right_guard
+             ; guards = List.filter_opt [ left_guard; right_guard ]
+             ; annotation = annot
              ; documented = Option.is_some annot.doc_comment
              ; location = annot.loc
              }

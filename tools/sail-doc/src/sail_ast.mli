@@ -11,18 +11,21 @@ module Function_clause : sig
     { name : string
     ; pattern : tannot pat
     ; body : tannot exp
+    ; guard : tannot exp option
+    ; annotation : unit def_annot
     ; documented : bool
     ; location : Parse_ast.l
     }
 end
 
-(** A two-way clause of a mapping, named [name], and the guard on either side. *)
+(** A two-way clause of a mapping, named [name], preserving guards on both sides. *)
 module Mapping_clause : sig
   type t =
     { name : string
     ; left : tannot mpat
     ; right : tannot mpat
-    ; guard : tannot exp option
+    ; guards : tannot exp list
+    ; annotation : unit def_annot
     ; documented : bool
     ; location : Parse_ast.l
     }

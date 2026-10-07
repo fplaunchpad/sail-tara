@@ -7,6 +7,10 @@
   encoding
   syntax
   notation
+  operation
+  documentation
+  example
+  helper
   execution
   clause
   outline

@@ -16,6 +16,8 @@
 - `proofs/rocq/`, `proofs/lean/`: proofs about progress, PC, halting, illegal opcodes,
   frame conditions and codec round trips.
 - `doc/`: specification layout and styles; content comes from the model.
+  Its [authoring guide](doc/README.md) covers generated encoding diagrams, readable operations,
+  notation and the helper appendix.
 - `tests/`: CLI, terminal and reference-model comparisons; assembly fixtures in `tests/programs/`.
 - `examples/`: programs to play, including `snake.tara`.
 - `tools/tara/`: assembler and corrected reference model.

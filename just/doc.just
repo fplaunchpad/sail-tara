@@ -5,15 +5,15 @@ set working-directory := ".."
 
 out := build / "doc"
 
-# Format the stylesheet, the PDF theme and the listing width.
+# Format the stylesheet, the PDF theme and the bundled source width.
 format:
     prettier --write doc/styles.css doc/theme.yml doc/sail_config.json
 
-# Check the formatting of the stylesheet, the PDF theme and the listing width.
+# Check the formatting of the stylesheet, the PDF theme and the bundled source width.
 lint:
     prettier --check doc/styles.css doc/theme.yml doc/sail_config.json
 
-# Format a copy of the Sail sources to the width of the listings.
+# Format a copy of the Sail sources for the documentation bundle.
 [private]
 [script("bash", "-euo", "pipefail")]
 documentation-sources: (build-dir "doc/model")
@@ -41,7 +41,7 @@ specification: bundle
 metadata: (build-dir "doc")
     sail -plugin "$TARA_DOC_PLUGIN" --doc-tables -o "{{ out }}/tables.json" model/syntax.sail
 
-# Generate the format and opcode tables and the instruction sections from the metadata.
+# Generate tables, instruction entries, helper definitions and SVG encodings.
 [private]
 sections: metadata
     PYTHONPATH="{{ justfile_directory() }}/tools" "$TARA_PYTHON" -m tara.doc \

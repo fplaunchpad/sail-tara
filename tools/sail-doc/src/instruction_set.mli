@@ -9,15 +9,23 @@ module Instruction : sig
     ; syntax : string
     ; fields : Word_field.t list
     ; condition : string option
-    ; execution : string list
+    ; execution : Operation.t list
+    ; documentation : Documentation.t option
+    ; description : string
+    ; examples : Example.t list
     }
   [@@deriving yojson_of]
 end
 
 type t =
-  { word_width : int
+  { schema_version : int
+  ; word_width : int
   ; instructions : Instruction.t list
   ; outline : Outline.t
+  ; helpers : Helper.t list
+  ; retirement : Operation.t list
+  ; complete : bool
+  ; context : Documentation.Context.t option
   }
 [@@deriving yojson_of]
 
@@ -25,10 +33,4 @@ type t =
     mapping [assembly] of instructions to text and the function [execute]. Every constructor of
     the union must have an [encdec] clause, and every instruction must have [assembly] and
     [execute] clauses. *)
-val read
-  :  ast:Type_check.typed_ast
-  -> env:Type_check.Env.t
-  -> encdec:string
-  -> assembly:string
-  -> execute:string
-  -> t
+val read : state:Interactive.State.istate -> encdec:string -> assembly:string -> execute:string -> t

@@ -9,15 +9,23 @@ module Instruction = struct
     ; syntax : string
     ; fields : Word_field.t list
     ; condition : string option
-    ; execution : string list
+    ; execution : Operation.t list
+    ; documentation : Documentation.t option
+    ; description : string
+    ; examples : Example.t list
     }
   [@@deriving yojson_of]
 end
 
 type t =
-  { word_width : int
+  { schema_version : int
+  ; word_width : int
   ; instructions : Instruction.t list
   ; outline : Outline.t
+  ; helpers : Helper.t list
+  ; retirement : Operation.t list
+  ; complete : bool
+  ; context : Documentation.Context.t option
   }
 [@@deriving yojson_of]
 
@@ -43,7 +51,10 @@ let signature env ~encdec =
   | _ -> fail ()
 ;;
 
-let read ~ast ~env ~encdec ~assembly ~execute =
+let read ~(state : Interactive.State.istate) ~encdec ~assembly ~execute =
+  let ast, env = state.ast, state.env in
+  let context = Documentation.context ast execute in
+  let evaluator = Option.map context ~f:(fun _ -> Example.Evaluator.create state) in
   let constructors, word_width = signature env ~encdec in
   let mappings = Sail_ast.mapping_clauses ast in
   let encodings =
@@ -57,6 +68,38 @@ let read ~ast ~env ~encdec ~assembly ~execute =
   let notation = Notation.read ast in
   let instructions =
     List.map encodings ~f:(fun encoding ->
+      let documentation = Documentation.read encoding.annotation in
+      let description =
+        List.find_map
+          functions
+          ~f:(fun ({ name; pattern; annotation; _ } : Sail_ast.Function_clause.t) ->
+            let%bind.Option () = Option.some_if (String.equal name execute) () in
+            let%bind.Option constructor, patterns = Sail_ast.constructor_pat pattern in
+            let%bind.Option _ =
+              Encoding.bindings
+                encoding
+                (constructor, List.map patterns ~f:(Sail_ast.Argument.of_pat env))
+            in
+            let%map.Option comment = annotation.doc_comment in
+            comment.contents)
+        |> Option.value ~default:""
+      in
+      Option.iter documentation ~f:(Documentation.validate encoding);
+      if
+        Option.value_map context ~default:false ~f:(fun context -> context.complete)
+        && Option.is_none documentation
+      then
+        Sail_ast.fail_at
+          encoding.location
+          "complete documentation requires instruction_doc on every encoding";
+      let examples =
+        match documentation, context, evaluator with
+        | Some doc, Some context, Some evaluator ->
+          List.map doc.examples ~f:(Example.read evaluator ~context ~encdec ~assembly encoding)
+        | Some _, _, _ ->
+          Sail_ast.fail_at encoding.location "instruction examples require doc_examples on execute"
+        | None, _, _ -> []
+      in
       let required name = function
         | Some found -> found
         | None ->
@@ -69,6 +112,9 @@ let read ~ast ~env ~encdec ~assembly ~execute =
        ; fields = encoding.fields
        ; condition = encoding.condition
        ; execution = Execution.read ~env ~notation ~functions ~execute encoding |> required execute
+       ; documentation
+       ; description
+       ; examples
        }
        : Instruction.t))
   in
@@ -82,5 +128,22 @@ let read ~ast ~env ~encdec ~assembly ~execute =
         (List.map constructors ~f:(fun (name, location) ->
            ({ name; clauses = Map.find_multi clauses name } : Outline.Item.Constructor.t), location))
   in
-  { word_width; instructions; outline }
+  let calls =
+    List.concat_map instructions ~f:(fun instruction ->
+      List.concat_map instruction.Instruction.execution ~f:Operation.calls)
+  in
+  let helpers = Helper.read ~ast ~env ~notation ~roots:[ encdec; assembly; execute ] ~calls in
+  let retirement =
+    List.find helpers ~f:(fun helper -> String.equal helper.name "retire")
+    |> Option.value_map ~default:[] ~f:(fun helper -> helper.operation)
+  in
+  { schema_version = 2
+  ; word_width
+  ; instructions
+  ; outline
+  ; helpers
+  ; retirement
+  ; complete = Option.value_map context ~default:false ~f:(fun context -> context.complete)
+  ; context
+  }
 ;;

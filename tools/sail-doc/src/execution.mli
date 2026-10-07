@@ -8,4 +8,4 @@ val read
   -> functions:Sail_ast.Function_clause.t list
   -> execute:string
   -> Encoding.t
-  -> string list option
+  -> Operation.t list option

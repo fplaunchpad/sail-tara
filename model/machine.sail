@@ -28,9 +28,10 @@ description.
 $anchor machine
 
 /*!
-This document is typeset from a model of TARA in Sail <<sail>>. Each listing is a definition of the
-model, and the text beside it is that definition's comment. The listings are normative: where they
-and the text disagree, the listings are right.
+This document is generated from the TARA model in Sail <<sail>>. Encodings, assembly syntax,
+and operations come from the model; explanations sit beside their definitions. The helper appendix
+explains the notation and the architectural access rules.
+The Sail model is normative: where a readable view and the model disagree, the model is right.
  */
 $anchor document_introduction
 
@@ -40,8 +41,8 @@ $anchor section_machine
 
 /*!
 A `word` is 16 bits: a register, PC and an instruction are each one word. An `address` selects one
-of the 2048 bytes of memory, and a `regidx` one of the eight registers. In the listings, `-` and `^`
-on bit vectors are subtraction and exclusive or.
+of the 2048 bytes of memory, and a `regidx` one of the eight registers. In the operations,
+`-` and `^` on bit vectors are subtraction and exclusive or.
  */
 $anchor types
 
@@ -71,7 +72,7 @@ register PC : word
 Memory: 2048 bytes, for code, data, the stack, the input port and the framebuffer.
 
 - `0x000` to `0x5FE`: code, data and stack.
-- `0x5FF`: the input port; see `read_byte`.
+- `0x5FF`: the input port; reads return the current input lines.
 - `0x600` to `0x7FF`: the framebuffer; see `pixel`.
 
 TARA Studio suggests a layout (code from `0x000`, data from `0x400`, the stack below `0x5F0`) that
@@ -97,7 +98,7 @@ register KEYS : bits(5)
 Not architectural state: the address of the next instruction, which `execute` may change before
 the drivers write it to PC.
  */
-$[notation PC]
+$[notation PC_next]
 register nextPC : word
 
 /*!
@@ -105,11 +106,13 @@ Reads register `r`. `X` stands for `rX` and `wX`: `X(r)` reads a register and `X
 one.
  */
 $[notation "R[{0}]"]
+$[helper_doc { title = "Read register" }]
 function rX(r : regidx) -> word = GPR[unsigned(r)]
 
 /*!
 Writes `value` to register `r`. */
 $[notation "R[{0}] = {1}"]
+$[helper_doc { title = "Write register" }]
 function wX(r : regidx, value : word) -> unit = {
     GPR[unsigned(r)] = value
 }
@@ -128,7 +131,8 @@ let sp : regidx = 0b111
 Keeps the low 11 bits of a PC value, as the RTL says: `PC 16-bit, +2 per fetch, masked to 0x7FF`.
 Every write of PC but reset's goes through it.
  */
-$[notation "{0}"]
+$[notation "pc_mask({0})"]
+$[helper_doc { title = "Mask the program counter" }]
 function pc_mask(value : word) -> word = 0b00000 @ value[10 .. 0]
 
 /*!
@@ -139,7 +143,8 @@ let input_port : address = 0b10111111111
 Reads a byte. Only the low 11 bits of the address count, so addresses wrap at 2048: `0xFFFF` reads
 the byte at `0x7FF`. The input port reads as the input lines, zero-extended.
  */
-$[notation "M[{0}](7:0)"]
+$[notation "M[{0}][7:0]"]
+$[helper_doc { title = "Read byte" }]
 function read_byte(addr : word) -> byte = {
     let a : address = addr[10 .. 0];
     if a == input_port then {
@@ -153,7 +158,8 @@ function read_byte(addr : word) -> byte = {
 Writes a byte at the low 11 bits of the address. A store to the input port writes the memory
 behind it, which no read returns.
  */
-$[notation "M[{0}](7:0) = {1}"]
+$[notation "M[{0}][7:0] = {1}"]
+$[helper_doc { title = "Write byte" }]
 function write_byte(addr : word, value : byte) -> unit = {
     MEM[unsigned(addr[10 .. 0])] = value
 }
@@ -165,13 +171,15 @@ memory is at `0x7FE`. A word read is two byte reads, so a read that covers the i
 input lines as its low byte; the RTL does not say, and the model assumes so. Instruction fetch is a
 word read.
  */
-$[notation "M[{0}](15:0)"]
+$[notation "M[{0}][15:0]"]
+$[helper_doc { title = "Read word" }]
 function read_word(addr : word) -> word =
     read_byte(addr[15 .. 1] @ 0b0) @ read_byte(addr[15 .. 1] @ 0b1)
 
 /*!
-Writes a word, high byte first, ignoring bit 0 of the address as `read_word` does. */
-$[notation "M[{0}](15:0) = {1}"]
+Writes a word, high byte first, ignoring bit 0 of the address. */
+$[notation "M[{0}][15:0] = {1}"]
+$[helper_doc { title = "Write word" }]
 function write_word(addr : word, value : word) -> unit = {
     write_byte(addr[15 .. 1] @ 0b0, value[15 .. 8]);
     write_byte(addr[15 .. 1] @ 0b1, value[7 .. 0])
@@ -185,6 +193,7 @@ state.
  */
 val pixel : (range(0, 63), range(0, 63)) -> bool
 
+$[helper_doc { title = "Read framebuffer pixel" }]
 function pixel(x, y) = {
     let column : bits(6) = get_slice_int(6, x, 0);
     let row : bits(6) = get_slice_int(6, y, 0);
