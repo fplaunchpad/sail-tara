@@ -41,6 +41,7 @@ mapping signed_dec_5 : bits(5) <-> string = {
   forwards bits => dec_str(signed(bits)),
   backwards _ if false => 0b00000
 }
+
 /*!
 @brief Print a signed byte
  */
@@ -48,6 +49,7 @@ mapping signed_dec_8 : bits(8) <-> string = {
   forwards bits => dec_str(signed(bits)),
   backwards _ if false => 0b00000000
 }
+
 /*!
 @brief Print a signed eleven-bit value
  */

@@ -9,6 +9,7 @@ bit out, leaving zero.
  */
 union clause instruction = SHL : (regidx, bits(8))
 mapping clause encdec = SHL(rd, shamt) <-> 0b10001 : opcode @ rd @ shamt
+
 /*!
 @brief Logical shift left
 
@@ -27,6 +28,7 @@ function clause execute(SHL(rd, shamt)) = {
 
 union clause instruction = SHR : (regidx, bits(8))
 mapping clause encdec = SHR(rd, shamt) <-> 0b10010 : opcode @ rd @ shamt
+
 /*!
 @brief Logical shift right
 

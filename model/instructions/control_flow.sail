@@ -8,6 +8,7 @@ A relative target is `PC + 2 + 2 * off`: the offset counts instructions from the
  */
 union clause instruction = BZ : (regidx, bits(8))
 mapping clause encdec = BZ(rs, off) <-> 0b10100 : opcode @ rs @ off
+
 /*!
 @brief Branch if zero
 
@@ -26,6 +27,7 @@ function clause execute(BZ(rs, off)) = {
 
 union clause instruction = BN : (regidx, bits(8))
 mapping clause encdec = BN(rs, off) <-> 0b10101 : opcode @ rs @ off
+
 /*!
 @brief Branch if negative
 
@@ -44,6 +46,7 @@ function clause execute(BN(rs, off)) = {
 
 union clause instruction = JMP : bits(11)
 mapping clause encdec = JMP(off) <-> 0b10110 : opcode @ off
+
 /*!
 @brief Relative jump
 
@@ -58,6 +61,7 @@ function clause execute(JMP(off)) = {
 
 union clause instruction = CALL : bits(11)
 mapping clause encdec = CALL(off) <-> 0b10111 : opcode @ off
+
 /*!
 @brief Call subroutine
 
@@ -76,6 +80,7 @@ function clause execute(CALL(off)) = {
 
 union clause instruction = RET : unit
 mapping clause encdec = RET() <-> 0b11000 : opcode @ ignored(11)
+
 /*!
 @brief Return from subroutine
 

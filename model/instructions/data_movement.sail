@@ -8,6 +8,7 @@ constant a byte at a time.
  */
 union clause instruction = NOP : unit
 mapping clause encdec = NOP() <-> 0b00000 : opcode @ ignored(11)
+
 /*!
 @brief No operation
 
@@ -17,6 +18,7 @@ function clause execute(NOP()) = ()
 
 union clause instruction = HLT : unit
 mapping clause encdec = HLT() <-> 0b00001 : opcode @ ignored(11)
+
 /*!
 @brief Halt
 
@@ -30,6 +32,7 @@ function clause execute(HLT()) = {
 
 union clause instruction = MOV : (regidx, regidx)
 mapping clause encdec = MOV(rd, rs) <-> 0b00010 : opcode @ rd @ rs @ ignored(5)
+
 /*!
 @brief Move register
 
@@ -44,6 +47,7 @@ function clause execute(MOV(rd, rs)) = {
 
 union clause instruction = LIL : (regidx, bits(8))
 mapping clause encdec = LIL(rd, imm) <-> 0b00011 : opcode @ rd @ imm
+
 /*!
 @brief Load low immediate
 
@@ -60,6 +64,7 @@ function clause execute(LIL(rd, imm)) = {
 
 union clause instruction = LIH : (regidx, bits(8))
 mapping clause encdec = LIH(rd, imm) <-> 0b00100 : opcode @ rd @ imm
+
 /*!
 @brief Load high immediate
 

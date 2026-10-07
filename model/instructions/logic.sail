@@ -7,6 +7,7 @@ The logic instructions are bitwise, on whole registers.
  */
 union clause instruction = AND : (regidx, regidx, regidx)
 mapping clause encdec = AND(rd, rs1, rs2) <-> 0b01101 : opcode @ rd @ rs1 @ rs2 @ ignored(2)
+
 /*!
 @brief Bitwise AND
 
@@ -22,6 +23,7 @@ function clause execute(AND(rd, rs1, rs2)) = {
 
 union clause instruction = OR : (regidx, regidx, regidx)
 mapping clause encdec = OR(rd, rs1, rs2) <-> 0b01110 : opcode @ rd @ rs1 @ rs2 @ ignored(2)
+
 /*!
 @brief Bitwise OR
 
@@ -37,6 +39,7 @@ function clause execute(OR(rd, rs1, rs2)) = {
 
 union clause instruction = XOR : (regidx, regidx, regidx)
 mapping clause encdec = XOR(rd, rs1, rs2) <-> 0b01111 : opcode @ rd @ rs1 @ rs2 @ ignored(2)
+
 /*!
 @brief Bitwise exclusive OR
 
@@ -52,6 +55,7 @@ function clause execute(XOR(rd, rs1, rs2)) = {
 
 union clause instruction = NOT : (regidx, regidx)
 mapping clause encdec = NOT(rd, rs) <-> 0b10000 : opcode @ rd @ rs @ ignored(5)
+
 /*!
 @brief Bitwise complement
 

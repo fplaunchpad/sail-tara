@@ -7,6 +7,7 @@ Results wrap at 16 bits, and nothing records a carry or an overflow.
  */
 union clause instruction = ADD : (regidx, regidx, regidx)
 mapping clause encdec = ADD(rd, rs1, rs2) <-> 0b01001 : opcode @ rd @ rs1 @ rs2 @ ignored(2)
+
 /*!
 @brief Add registers
 
@@ -23,6 +24,7 @@ function clause execute(ADD(rd, rs1, rs2)) = {
 
 union clause instruction = SUB : (regidx, regidx, regidx)
 mapping clause encdec = SUB(rd, rs1, rs2) <-> 0b01010 : opcode @ rd @ rs1 @ rs2 @ ignored(2)
+
 /*!
 @brief Subtract registers
 
@@ -38,6 +40,7 @@ function clause execute(SUB(rd, rs1, rs2)) = {
 
 union clause instruction = ADDI : (regidx, bits(8))
 mapping clause encdec = ADDI(rd, imm) <-> 0b01011 : opcode @ rd @ imm
+
 /*!
 @brief Add immediate
 
@@ -54,6 +57,7 @@ function clause execute(ADDI(rd, imm)) = {
 
 union clause instruction = MUL : (regidx, regidx, regidx)
 mapping clause encdec = MUL(rd, rs1, rs2) <-> 0b01100 : opcode @ rd @ rs1 @ rs2 @ ignored(2)
+
 /*!
 @brief Multiply registers
 

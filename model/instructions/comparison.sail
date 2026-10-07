@@ -8,6 +8,7 @@ with `BZ` or `BN`.
  */
 union clause instruction = SLT : (regidx, regidx, regidx)
 mapping clause encdec = SLT(rd, rs1, rs2) <-> 0b10011 : opcode @ rd @ rs1 @ rs2 @ ignored(2)
+
 /*!
 @brief Set if less than
 

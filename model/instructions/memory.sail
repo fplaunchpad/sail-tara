@@ -9,6 +9,7 @@ A load or store addresses `base + off`, where `off` counts bytes, -16 to 15, and
  */
 union clause instruction = LDW : (regidx, regidx, bits(5))
 mapping clause encdec = LDW(rd, base, off) <-> 0b00101 : opcode @ rd @ base @ off
+
 /*!
 @brief Load word
 
@@ -28,6 +29,7 @@ function clause execute(LDW(rd, base, off)) = {
 
 union clause instruction = STW : (regidx, regidx, bits(5))
 mapping clause encdec = STW(rs, base, off) <-> 0b00110 : opcode @ rs @ base @ off
+
 /*!
 @brief Store word
 
@@ -46,6 +48,7 @@ function clause execute(STW(rs, base, off)) = {
 
 union clause instruction = LDB : (regidx, regidx, bits(5))
 mapping clause encdec = LDB(rd, base, off) <-> 0b00111 : opcode @ rd @ base @ off
+
 /*!
 @brief Load byte
 
@@ -63,6 +66,7 @@ function clause execute(LDB(rd, base, off)) = {
 
 union clause instruction = STB : (regidx, regidx, bits(5))
 mapping clause encdec = STB(rs, base, off) <-> 0b01000 : opcode @ rs @ base @ off
+
 /*!
 @brief Store byte
 

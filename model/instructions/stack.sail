@@ -9,6 +9,7 @@ ISA table, which shows when the register is R7 itself.
  */
 union clause instruction = PUSH : regidx
 mapping clause encdec = PUSH(rs) <-> 0b11001 : opcode @ rs @ ignored(8)
+
 /*!
 @brief Push register
 
@@ -27,6 +28,7 @@ function clause execute(PUSH(rs)) = {
 
 union clause instruction = POP : regidx
 mapping clause encdec = POP(rd) <-> 0b11010 : opcode @ rd @ ignored(8)
+
 /*!
 @brief Pop register
 
