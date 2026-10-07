@@ -1,9 +1,6 @@
 /* The drivers: each call retires at most one instruction. */
 
 /*!
-@anchor section_execution
-== Execution
-
 @anchor drivers
 The drivers run an instruction per call. `step` and `run_instruction` take the input lines, hold
 them for the call, and say what happened:

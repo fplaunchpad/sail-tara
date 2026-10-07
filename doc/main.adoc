@@ -35,6 +35,8 @@ include::comments/let/sp.adoc[]
 
 include::comments/let/input_port.adoc[]
 
+include::comments/anchor/drivers.adoc[]
+
 include::comments/anchor/section_instruction_set.adoc[]
 
 include::comments/anchor/encoding.adoc[]
@@ -52,14 +54,6 @@ include::comments/anchor/operands.adoc[]
 include::notation.adoc[]
 
 include::instructions.adoc[]
-
-include::comments/anchor/section_execution.adoc[]
-
-include::comments/anchor/drivers.adoc[]
-
-include::comments/anchor/section_assembly.adoc[]
-
-include::comments/anchor/syntax.adoc[]
 
 include::helpers.adoc[]
 

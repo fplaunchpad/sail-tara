@@ -32,7 +32,7 @@ explains the notation and the architectural access rules.
 The Sail model is normative: where a readable view and the model disagree, the model is right.
 
 @anchor section_machine
-== Machine state
+== Machine state and execution
 
 @anchor types
 A `word` is 16 bits: a register, PC and an instruction are each one word. An `address` selects one
