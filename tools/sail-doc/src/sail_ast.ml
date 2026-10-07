@@ -27,13 +27,6 @@ module Mapping_clause = struct
     }
 end
 
-module Anchor = struct
-  type t =
-    { name : string
-    ; location : Parse_ast.l
-    }
-end
-
 let id_string = Ast_util.string_of_id
 let fail_at location message = raise (Reporting.err_general location message)
 let pat_location (P_aux (_, (location, _))) = location
@@ -217,14 +210,6 @@ let mapping_clauses (ast : typed_ast) =
              : Mapping_clause.t)
         | MCL_forwards _ | MCL_backwards _ -> None)
     | _ -> [])
-;;
-
-let anchors (ast : typed_ast) =
-  List.filter_map ast.defs ~f:(function
-    | DEF_aux (DEF_pragma ("anchor", Pragma_line (name, _)), annot)
-      when Option.is_some annot.doc_comment ->
-      Some ({ name = String.strip name; location = annot.loc } : Anchor.t)
-    | _ -> None)
 ;;
 
 let order (ast : typed_ast) =

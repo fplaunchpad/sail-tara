@@ -12,7 +12,8 @@ from typing import Self, override
 ROOT = Path(__file__).parents[2]
 INSTRUCTION_SETS = ROOT / "tests" / "instruction_sets"
 # What the documentation recipes read.
-SOURCES = ("justfile", "just", "model", "doc", "tools/tara", ".prettierrc.json")
+EXAMPLES = "tests/fixtures/doc_examples.json"
+SOURCES = ("justfile", "just", "model", "doc", "tools/tara", ".prettierrc.json", EXAMPLES)
 ENTRY_POINT = "model/syntax.sail"
 VOID_ELEMENTS = frozenset(
     {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "wbr"}
@@ -56,6 +57,44 @@ class Workspace:
             raise AssertionError(f"{path}: {old!r} occurs {text.count(old)} times")
 
         file.write_text(text.replace(old, new))
+
+    def extract(self, output: Path, *arguments: str) -> subprocess.CompletedProcess[str]:
+        self.output.mkdir(parents=True, exist_ok=True)
+        return subprocess.run(
+            [
+                "sail",
+                "-plugin",
+                os.environ["TARA_DOC_PLUGIN"],
+                "--doc-tables",
+                *arguments,
+                "-o",
+                str(output),
+                ENTRY_POINT,
+            ],
+            cwd=self.root,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+    def sections(self) -> None:
+        run = self.extract(self.output / "tables.json")
+        assert run.returncode == 0, run.stdout + run.stderr
+        run = subprocess.run(
+            [
+                os.environ["TARA_PYTHON"],
+                "-m",
+                "tara.doc",
+                str(self.output / "tables.json"),
+                str(self.output),
+            ],
+            cwd=self.root,
+            env={**os.environ, "PYTHONPATH": str(self.root / "tools")},
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert run.returncode == 0, run.stdout + run.stderr
 
     def just(self, *arguments: str) -> subprocess.CompletedProcess[str]:
         return subprocess.run(

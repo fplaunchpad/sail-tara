@@ -2,6 +2,8 @@
  (name tara_doc_tables)
  (modules
   sail_ast
+  doc_comment
+  prose
   tagged
   word_field
   encoding
@@ -16,7 +18,7 @@
   outline
   instruction_set
   main)
- (libraries core libsail yojson ppx_yojson_conv_lib ppx_string.runtime)
+ (libraries core libsail yojson angstrom ppx_yojson_conv_lib ppx_string.runtime)
  (preprocess (pps ppx_jane ppx_yojson_conv))
  ; Warning 4 comes from deliberately fail-closed matches on Sail's extensible AST.
  ; Warnings 40 and 42 are emitted for Core record fields selected by type.

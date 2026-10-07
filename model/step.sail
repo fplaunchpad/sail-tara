@@ -1,10 +1,10 @@
 /* The drivers: each call retires at most one instruction. */
 
 /*!
-== Execution */
-$anchor section_execution
+@anchor section_execution
+== Execution
 
-/*!
+@anchor drivers
 The drivers run an instruction per call. `step` and `run_instruction` take the input lines, hold
 them for the call, and say what happened:
 
@@ -13,8 +13,6 @@ them for the call, and say what happened:
 - `Illegal(word)`: the fetched `word` has an unassigned opcode. The fetch advanced PC past it, and
 nothing else changed.
  */
-$anchor drivers
-
 union retirement = {
   Retired : unit,
   Stopped : unit,
@@ -22,11 +20,12 @@ union retirement = {
 }
 
 /*!
+@brief Retire an instruction
+
 Retires an instruction: sets `nextPC` to `PC + 2`, executes the instruction, which may change it,
 and masks it into PC. The instruction sees PC as its own address, where the RTL has already advanced
 PC, so relative targets add 2 to it.
  */
-$[helper_doc { title = "Retire an instruction" }]
 function retire(insn : instruction) -> retirement = {
     nextPC = PC + 0x0002;
     execute(insn);
@@ -35,12 +34,13 @@ function retire(insn : instruction) -> retirement = {
 }
 
 /*!
+@brief Run a decoded instruction
+
 Executes a decoded instruction as if it had been fetched from PC, without a fetch. Like `step`, it
 does nothing while the CPU is halted.
  */
 val run_instruction : (bits(5), instruction) -> retirement
 
-$[helper_doc { title = "Run a decoded instruction" }]
 function run_instruction(keys, insn) =
     if HALTED then {
         Stopped()
@@ -50,6 +50,8 @@ function run_instruction(keys, insn) =
     }
 
 /*!
+@brief Fetch, decode and retire
+
 Runs the next instruction:
 
 - If the CPU is halted, it returns `Stopped`.
@@ -61,7 +63,6 @@ Runs the next instruction:
  */
 val step : bits(5) -> retirement
 
-$[helper_doc { title = "Fetch, decode and retire" }]
 function step(keys) =
     if HALTED then {
         Stopped()
@@ -77,12 +78,13 @@ function step(keys) =
     }
 
 /*!
+@brief Reset the processor
+
 The reset button, which "clears halted state, and restarts from PC 0". Registers and memory keep
 their values.
  */
 val reset : unit -> unit
 
-$[helper_doc { title = "Reset the processor" }]
 function reset() = {
     PC = 0x0000;
     HALTED = false

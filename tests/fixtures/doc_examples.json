@@ -1,0 +1,1153 @@
+{
+  "context": {
+    "runner": "run_instruction",
+    "arguments": [
+      "0b00000"
+    ],
+    "initial": [
+      {
+        "register": "PC",
+        "index": null,
+        "value": "0x0100"
+      }
+    ],
+    "observed": [
+      {
+        "register": "GPR",
+        "label": "R{index}"
+      },
+      {
+        "register": "PC",
+        "label": "PC"
+      },
+      {
+        "register": "MEM",
+        "label": "M[0x{index:03X}]"
+      },
+      {
+        "register": "HALTED",
+        "label": "HALTED"
+      },
+      {
+        "register": "KEYS",
+        "label": "KEYS"
+      }
+    ]
+  },
+  "instructions": [
+    {
+      "syntax": "NOP",
+      "examples": [
+        {
+          "title": "Advance without changing registers",
+          "operands": [],
+          "before": [],
+          "arguments": [],
+          "watch": []
+        }
+      ]
+    },
+    {
+      "syntax": "HLT",
+      "examples": [
+        {
+          "title": "Retire and halt",
+          "operands": [],
+          "before": [],
+          "arguments": [],
+          "watch": []
+        }
+      ]
+    },
+    {
+      "syntax": "MOV rd, rs",
+      "examples": [
+        {
+          "title": "Copy a register",
+          "operands": [
+            {
+              "name": "rd",
+              "value": "0b001"
+            },
+            {
+              "name": "rs",
+              "value": "0b010"
+            }
+          ],
+          "before": [
+            {
+              "register": "GPR",
+              "index": 2,
+              "value": "0x1234"
+            }
+          ],
+          "arguments": [],
+          "watch": [
+            "R1",
+            "R2"
+          ]
+        }
+      ]
+    },
+    {
+      "syntax": "LIL rd, imm",
+      "examples": [
+        {
+          "title": "Replace the low byte",
+          "operands": [
+            {
+              "name": "rd",
+              "value": "0b001"
+            },
+            {
+              "name": "imm",
+              "value": "0xAB"
+            }
+          ],
+          "before": [
+            {
+              "register": "GPR",
+              "index": 1,
+              "value": "0x1200"
+            }
+          ],
+          "arguments": [],
+          "watch": [
+            "R1"
+          ]
+        }
+      ]
+    },
+    {
+      "syntax": "LIH rd, imm",
+      "examples": [
+        {
+          "title": "Preserve the low byte",
+          "operands": [
+            {
+              "name": "rd",
+              "value": "0b001"
+            },
+            {
+              "name": "imm",
+              "value": "0xAB"
+            }
+          ],
+          "before": [
+            {
+              "register": "GPR",
+              "index": 1,
+              "value": "0x0034"
+            }
+          ],
+          "arguments": [],
+          "watch": [
+            "R1"
+          ]
+        }
+      ]
+    },
+    {
+      "syntax": "LDW rd, off(base)",
+      "examples": [
+        {
+          "title": "An odd effective address",
+          "operands": [
+            {
+              "name": "rd",
+              "value": "0b001"
+            },
+            {
+              "name": "base",
+              "value": "0b010"
+            },
+            {
+              "name": "off",
+              "value": "0b11111"
+            }
+          ],
+          "before": [
+            {
+              "register": "GPR",
+              "index": 2,
+              "value": "0x0402"
+            },
+            {
+              "register": "MEM",
+              "index": 1024,
+              "value": "0x12"
+            },
+            {
+              "register": "MEM",
+              "index": 1025,
+              "value": "0x34"
+            }
+          ],
+          "arguments": [],
+          "watch": [
+            "R1",
+            "R2"
+          ]
+        },
+        {
+          "title": "Read across the input port",
+          "operands": [
+            {
+              "name": "rd",
+              "value": "0b001"
+            },
+            {
+              "name": "base",
+              "value": "0b010"
+            },
+            {
+              "name": "off",
+              "value": "0b00000"
+            }
+          ],
+          "before": [
+            {
+              "register": "GPR",
+              "index": 2,
+              "value": "0x05FE"
+            },
+            {
+              "register": "MEM",
+              "index": 1534,
+              "value": "0xAA"
+            }
+          ],
+          "arguments": [
+            "0b10101"
+          ],
+          "watch": [
+            "R1",
+            "R2"
+          ]
+        }
+      ]
+    },
+    {
+      "syntax": "STW rs, off(base)",
+      "examples": [
+        {
+          "title": "Store high byte first",
+          "operands": [
+            {
+              "name": "rs",
+              "value": "0b001"
+            },
+            {
+              "name": "base",
+              "value": "0b010"
+            },
+            {
+              "name": "off",
+              "value": "0b11111"
+            }
+          ],
+          "before": [
+            {
+              "register": "GPR",
+              "index": 1,
+              "value": "0xABCD"
+            },
+            {
+              "register": "GPR",
+              "index": 2,
+              "value": "0x0402"
+            }
+          ],
+          "arguments": [],
+          "watch": [
+            "R1",
+            "R2"
+          ]
+        }
+      ]
+    },
+    {
+      "syntax": "LDB rd, off(base)",
+      "examples": [
+        {
+          "title": "Zero-extend a byte",
+          "operands": [
+            {
+              "name": "rd",
+              "value": "0b001"
+            },
+            {
+              "name": "base",
+              "value": "0b010"
+            },
+            {
+              "name": "off",
+              "value": "0b00000"
+            }
+          ],
+          "before": [
+            {
+              "register": "GPR",
+              "index": 2,
+              "value": "0x0401"
+            },
+            {
+              "register": "MEM",
+              "index": 1025,
+              "value": "0xAB"
+            }
+          ],
+          "arguments": [],
+          "watch": [
+            "R1",
+            "R2"
+          ]
+        },
+        {
+          "title": "Read the live input lines",
+          "operands": [
+            {
+              "name": "rd",
+              "value": "0b001"
+            },
+            {
+              "name": "base",
+              "value": "0b010"
+            },
+            {
+              "name": "off",
+              "value": "0b00000"
+            }
+          ],
+          "before": [
+            {
+              "register": "GPR",
+              "index": 2,
+              "value": "0x05FF"
+            }
+          ],
+          "arguments": [
+            "0b10101"
+          ],
+          "watch": [
+            "R1",
+            "R2"
+          ]
+        }
+      ]
+    },
+    {
+      "syntax": "STB rs, off(base)",
+      "examples": [
+        {
+          "title": "Store only the low byte",
+          "operands": [
+            {
+              "name": "rs",
+              "value": "0b001"
+            },
+            {
+              "name": "base",
+              "value": "0b010"
+            },
+            {
+              "name": "off",
+              "value": "0b11111"
+            }
+          ],
+          "before": [
+            {
+              "register": "GPR",
+              "index": 1,
+              "value": "0xABCD"
+            },
+            {
+              "register": "GPR",
+              "index": 2,
+              "value": "0x0402"
+            }
+          ],
+          "arguments": [],
+          "watch": [
+            "R1",
+            "R2"
+          ]
+        }
+      ]
+    },
+    {
+      "syntax": "ADD rd, rs1, rs2",
+      "examples": [
+        {
+          "title": "Wrap at 16 bits",
+          "operands": [
+            {
+              "name": "rd",
+              "value": "0b001"
+            },
+            {
+              "name": "rs1",
+              "value": "0b010"
+            },
+            {
+              "name": "rs2",
+              "value": "0b011"
+            }
+          ],
+          "before": [
+            {
+              "register": "GPR",
+              "index": 2,
+              "value": "0xFFFF"
+            },
+            {
+              "register": "GPR",
+              "index": 3,
+              "value": "0x0001"
+            }
+          ],
+          "arguments": [],
+          "watch": [
+            "R1",
+            "R2",
+            "R3"
+          ]
+        }
+      ]
+    },
+    {
+      "syntax": "SUB rd, rs1, rs2",
+      "examples": [
+        {
+          "title": "Subtract past zero",
+          "operands": [
+            {
+              "name": "rd",
+              "value": "0b001"
+            },
+            {
+              "name": "rs1",
+              "value": "0b010"
+            },
+            {
+              "name": "rs2",
+              "value": "0b011"
+            }
+          ],
+          "before": [
+            {
+              "register": "GPR",
+              "index": 2,
+              "value": "0x0000"
+            },
+            {
+              "register": "GPR",
+              "index": 3,
+              "value": "0x0001"
+            }
+          ],
+          "arguments": [],
+          "watch": [
+            "R1",
+            "R2",
+            "R3"
+          ]
+        }
+      ]
+    },
+    {
+      "syntax": "ADDI rd, imm",
+      "examples": [
+        {
+          "title": "Add a negative immediate",
+          "operands": [
+            {
+              "name": "rd",
+              "value": "0b011"
+            },
+            {
+              "name": "imm",
+              "value": "0xFF"
+            }
+          ],
+          "before": [
+            {
+              "register": "GPR",
+              "index": 3,
+              "value": "0x0000"
+            }
+          ],
+          "arguments": [],
+          "watch": [
+            "R3"
+          ]
+        }
+      ]
+    },
+    {
+      "syntax": "MUL rd, rs1, rs2",
+      "examples": [
+        {
+          "title": "Keep the low half of the product",
+          "operands": [
+            {
+              "name": "rd",
+              "value": "0b001"
+            },
+            {
+              "name": "rs1",
+              "value": "0b010"
+            },
+            {
+              "name": "rs2",
+              "value": "0b011"
+            }
+          ],
+          "before": [
+            {
+              "register": "GPR",
+              "index": 2,
+              "value": "0x1234"
+            },
+            {
+              "register": "GPR",
+              "index": 3,
+              "value": "0x0010"
+            }
+          ],
+          "arguments": [],
+          "watch": [
+            "R1",
+            "R2",
+            "R3"
+          ]
+        }
+      ]
+    },
+    {
+      "syntax": "AND rd, rs1, rs2",
+      "examples": [
+        {
+          "title": "Combine two bit patterns",
+          "operands": [
+            {
+              "name": "rd",
+              "value": "0b001"
+            },
+            {
+              "name": "rs1",
+              "value": "0b010"
+            },
+            {
+              "name": "rs2",
+              "value": "0b011"
+            }
+          ],
+          "before": [
+            {
+              "register": "GPR",
+              "index": 2,
+              "value": "0xF0F0"
+            },
+            {
+              "register": "GPR",
+              "index": 3,
+              "value": "0x0FF0"
+            }
+          ],
+          "arguments": [],
+          "watch": [
+            "R1",
+            "R2",
+            "R3"
+          ]
+        }
+      ]
+    },
+    {
+      "syntax": "OR rd, rs1, rs2",
+      "examples": [
+        {
+          "title": "Combine two bit patterns",
+          "operands": [
+            {
+              "name": "rd",
+              "value": "0b001"
+            },
+            {
+              "name": "rs1",
+              "value": "0b010"
+            },
+            {
+              "name": "rs2",
+              "value": "0b011"
+            }
+          ],
+          "before": [
+            {
+              "register": "GPR",
+              "index": 2,
+              "value": "0xF0F0"
+            },
+            {
+              "register": "GPR",
+              "index": 3,
+              "value": "0x0FF0"
+            }
+          ],
+          "arguments": [],
+          "watch": [
+            "R1",
+            "R2",
+            "R3"
+          ]
+        }
+      ]
+    },
+    {
+      "syntax": "XOR rd, rs1, rs2",
+      "examples": [
+        {
+          "title": "Combine two bit patterns",
+          "operands": [
+            {
+              "name": "rd",
+              "value": "0b001"
+            },
+            {
+              "name": "rs1",
+              "value": "0b010"
+            },
+            {
+              "name": "rs2",
+              "value": "0b011"
+            }
+          ],
+          "before": [
+            {
+              "register": "GPR",
+              "index": 2,
+              "value": "0xF0F0"
+            },
+            {
+              "register": "GPR",
+              "index": 3,
+              "value": "0x0FF0"
+            }
+          ],
+          "arguments": [],
+          "watch": [
+            "R1",
+            "R2",
+            "R3"
+          ]
+        }
+      ]
+    },
+    {
+      "syntax": "NOT rd, rs",
+      "examples": [
+        {
+          "title": "Invert every bit",
+          "operands": [
+            {
+              "name": "rd",
+              "value": "0b001"
+            },
+            {
+              "name": "rs",
+              "value": "0b010"
+            }
+          ],
+          "before": [
+            {
+              "register": "GPR",
+              "index": 2,
+              "value": "0x00FF"
+            }
+          ],
+          "arguments": [],
+          "watch": [
+            "R1",
+            "R2"
+          ]
+        }
+      ]
+    },
+    {
+      "syntax": "SHL rd, shamt",
+      "examples": [
+        {
+          "title": "Shift by one",
+          "operands": [
+            {
+              "name": "rd",
+              "value": "0b001"
+            },
+            {
+              "name": "shamt",
+              "value": "0x01"
+            }
+          ],
+          "before": [
+            {
+              "register": "GPR",
+              "index": 1,
+              "value": "0x8001"
+            }
+          ],
+          "arguments": [],
+          "watch": [
+            "R1"
+          ]
+        },
+        {
+          "title": "Shift every bit out",
+          "operands": [
+            {
+              "name": "rd",
+              "value": "0b001"
+            },
+            {
+              "name": "shamt",
+              "value": "0x10"
+            }
+          ],
+          "before": [
+            {
+              "register": "GPR",
+              "index": 1,
+              "value": "0x8001"
+            }
+          ],
+          "arguments": [],
+          "watch": [
+            "R1"
+          ]
+        },
+        {
+          "title": "The count wraps to zero",
+          "operands": [
+            {
+              "name": "rd",
+              "value": "0b001"
+            },
+            {
+              "name": "shamt",
+              "value": "0x20"
+            }
+          ],
+          "before": [
+            {
+              "register": "GPR",
+              "index": 1,
+              "value": "0x8001"
+            }
+          ],
+          "arguments": [],
+          "watch": [
+            "R1"
+          ]
+        }
+      ]
+    },
+    {
+      "syntax": "SHR rd, shamt",
+      "examples": [
+        {
+          "title": "Shift by one",
+          "operands": [
+            {
+              "name": "rd",
+              "value": "0b001"
+            },
+            {
+              "name": "shamt",
+              "value": "0x01"
+            }
+          ],
+          "before": [
+            {
+              "register": "GPR",
+              "index": 1,
+              "value": "0x8001"
+            }
+          ],
+          "arguments": [],
+          "watch": [
+            "R1"
+          ]
+        },
+        {
+          "title": "Shift every bit out",
+          "operands": [
+            {
+              "name": "rd",
+              "value": "0b001"
+            },
+            {
+              "name": "shamt",
+              "value": "0x10"
+            }
+          ],
+          "before": [
+            {
+              "register": "GPR",
+              "index": 1,
+              "value": "0x8001"
+            }
+          ],
+          "arguments": [],
+          "watch": [
+            "R1"
+          ]
+        },
+        {
+          "title": "The count wraps to zero",
+          "operands": [
+            {
+              "name": "rd",
+              "value": "0b001"
+            },
+            {
+              "name": "shamt",
+              "value": "0x20"
+            }
+          ],
+          "before": [
+            {
+              "register": "GPR",
+              "index": 1,
+              "value": "0x8001"
+            }
+          ],
+          "arguments": [],
+          "watch": [
+            "R1"
+          ]
+        }
+      ]
+    },
+    {
+      "syntax": "SLT rd, rs1, rs2",
+      "examples": [
+        {
+          "title": "Compare signed values",
+          "operands": [
+            {
+              "name": "rd",
+              "value": "0b001"
+            },
+            {
+              "name": "rs1",
+              "value": "0b010"
+            },
+            {
+              "name": "rs2",
+              "value": "0b011"
+            }
+          ],
+          "before": [
+            {
+              "register": "GPR",
+              "index": 2,
+              "value": "0xFFFF"
+            },
+            {
+              "register": "GPR",
+              "index": 3,
+              "value": "0x0001"
+            }
+          ],
+          "arguments": [],
+          "watch": [
+            "R1",
+            "R2",
+            "R3"
+          ]
+        }
+      ]
+    },
+    {
+      "syntax": "BZ rs, off",
+      "examples": [
+        {
+          "title": "Take the branch",
+          "operands": [
+            {
+              "name": "rs",
+              "value": "0b010"
+            },
+            {
+              "name": "off",
+              "value": "0xFF"
+            }
+          ],
+          "before": [
+            {
+              "register": "GPR",
+              "index": 2,
+              "value": "0x0000"
+            }
+          ],
+          "arguments": [],
+          "watch": [
+            "R2"
+          ]
+        },
+        {
+          "title": "Leave the branch untaken",
+          "operands": [
+            {
+              "name": "rs",
+              "value": "0b010"
+            },
+            {
+              "name": "off",
+              "value": "0xFF"
+            }
+          ],
+          "before": [
+            {
+              "register": "GPR",
+              "index": 2,
+              "value": "0x0001"
+            }
+          ],
+          "arguments": [],
+          "watch": [
+            "R2"
+          ]
+        }
+      ]
+    },
+    {
+      "syntax": "BN rs, off",
+      "examples": [
+        {
+          "title": "Take the branch",
+          "operands": [
+            {
+              "name": "rs",
+              "value": "0b010"
+            },
+            {
+              "name": "off",
+              "value": "0xFD"
+            }
+          ],
+          "before": [
+            {
+              "register": "GPR",
+              "index": 2,
+              "value": "0x8000"
+            }
+          ],
+          "arguments": [],
+          "watch": [
+            "R2"
+          ]
+        },
+        {
+          "title": "Leave the branch untaken",
+          "operands": [
+            {
+              "name": "rs",
+              "value": "0b010"
+            },
+            {
+              "name": "off",
+              "value": "0xFD"
+            }
+          ],
+          "before": [
+            {
+              "register": "GPR",
+              "index": 2,
+              "value": "0x0001"
+            }
+          ],
+          "arguments": [],
+          "watch": [
+            "R2"
+          ]
+        }
+      ]
+    },
+    {
+      "syntax": "JMP off",
+      "examples": [
+        {
+          "title": "Jump back to this instruction",
+          "operands": [
+            {
+              "name": "off",
+              "value": "0b11111111111"
+            }
+          ],
+          "before": [],
+          "arguments": [],
+          "watch": []
+        }
+      ]
+    },
+    {
+      "syntax": "CALL off",
+      "examples": [
+        {
+          "title": "Wrap the link and target",
+          "operands": [
+            {
+              "name": "off",
+              "value": "0b00000000000"
+            }
+          ],
+          "before": [
+            {
+              "register": "PC",
+              "index": null,
+              "value": "0x07FE"
+            }
+          ],
+          "arguments": [],
+          "watch": [
+            "R6"
+          ]
+        }
+      ]
+    },
+    {
+      "syntax": "RET",
+      "examples": [
+        {
+          "title": "Return to an odd address",
+          "operands": [],
+          "before": [
+            {
+              "register": "GPR",
+              "index": 6,
+              "value": "0x0201"
+            }
+          ],
+          "arguments": [],
+          "watch": []
+        }
+      ]
+    },
+    {
+      "syntax": "PUSH rs",
+      "examples": [
+        {
+          "title": "Push one word",
+          "operands": [
+            {
+              "name": "rs",
+              "value": "0b001"
+            }
+          ],
+          "before": [
+            {
+              "register": "GPR",
+              "index": 1,
+              "value": "0x1234"
+            },
+            {
+              "register": "GPR",
+              "index": 7,
+              "value": "0x0402"
+            }
+          ],
+          "arguments": [],
+          "watch": [
+            "R1"
+          ]
+        },
+        {
+          "title": "Push the stack pointer itself",
+          "operands": [
+            {
+              "name": "rs",
+              "value": "0b111"
+            }
+          ],
+          "before": [
+            {
+              "register": "GPR",
+              "index": 7,
+              "value": "0x0402"
+            }
+          ],
+          "arguments": [],
+          "watch": [
+            "R7"
+          ]
+        }
+      ]
+    },
+    {
+      "syntax": "POP rd",
+      "examples": [
+        {
+          "title": "Pop one word",
+          "operands": [
+            {
+              "name": "rd",
+              "value": "0b001"
+            }
+          ],
+          "before": [
+            {
+              "register": "GPR",
+              "index": 7,
+              "value": "0x0400"
+            },
+            {
+              "register": "MEM",
+              "index": 1024,
+              "value": "0x12"
+            },
+            {
+              "register": "MEM",
+              "index": 1025,
+              "value": "0x34"
+            }
+          ],
+          "arguments": [],
+          "watch": [
+            "R1"
+          ]
+        },
+        {
+          "title": "Pop into the stack pointer",
+          "operands": [
+            {
+              "name": "rd",
+              "value": "0b111"
+            }
+          ],
+          "before": [
+            {
+              "register": "GPR",
+              "index": 7,
+              "value": "0x0400"
+            },
+            {
+              "register": "MEM",
+              "index": 1024,
+              "value": "0x05"
+            },
+            {
+              "register": "MEM",
+              "index": 1025,
+              "value": "0x00"
+            }
+          ],
+          "arguments": [],
+          "watch": [
+            "R7"
+          ]
+        }
+      ]
+    }
+  ]
+}

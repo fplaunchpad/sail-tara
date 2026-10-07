@@ -113,9 +113,7 @@ let read ~ast ~env ~constructors =
           ~selector:Pattern
           ~documented
           ~guarded:(Option.is_some guard)
-          ~description:
-            (Option.value_map annotation.doc_comment ~default:"" ~f:(fun comment ->
-               comment.contents)))
+          ~description:(Doc_comment.body annotation))
   in
   let from_mappings =
     List.filter_map
@@ -131,9 +129,7 @@ let read ~ast ~env ~constructors =
             ~selector
             ~documented
             ~guarded:(not (List.is_empty guards))
-            ~description:
-              (Option.value_map annotation.doc_comment ~default:"" ~f:(fun comment ->
-                 comment.contents))
+            ~description:(Doc_comment.body annotation)
         in
         Option.first_some (side Left left) (side Right right))
   in

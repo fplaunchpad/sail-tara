@@ -18,24 +18,32 @@ type funct7 = bits(7)
 
 enum rop = {RISCV_ADD, RISCV_SUB}
 
-$[notation "x[{0}]"]
+/*!
+@notation x[{0}]
+ */
 val X : regidx -> word
-$[notation "x[{0}] = {1}"]
+/*!
+@notation x[{0}] = {1}
+ */
 val set_X : (regidx, word) -> unit
-$[notation "M[{0}][31:0]"]
+/*!
+@notation M[{0}][31:0]
+ */
 val load : word -> word
 
 scattered union instruction
 
 /*!
-=== Register arithmetic */
-$anchor register_arithmetic
+@anchor register_arithmetic
+=== Register arithmetic
+ */
 
 union clause instruction = RTYPE : (regidx, regidx, regidx, rop)
 
 /*!
-=== Loads and shifts */
-$anchor loads
+@anchor loads
+=== Loads and shifts
+ */
 
 union clause instruction = LW : (bits(12), regidx, regidx)
 union clause instruction = SLLI : (bits(6), regidx, regidx)

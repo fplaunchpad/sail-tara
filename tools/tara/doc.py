@@ -239,9 +239,7 @@ class Instruction(msgspec.Struct, frozen=True, kw_only=True):
             bits = str(high) if high == low else f"{high}:{low}"
             if isinstance(field, Operand):
                 doc = descriptions.get(field.name)
-                meaning = (
-                    doc.meaning(field.width) if doc is not None else f"{field.width}-bit operand"
-                )
+                meaning = doc.description if doc is not None else f"{field.width}-bit operand"
                 rows.append(
                     Row(
                         cells=(
@@ -357,7 +355,7 @@ class AnchorEntry(msgspec.Struct, frozen=True, tag="anchor", tag_field="kind"):
     name: str
 
     def section(self) -> str:
-        return f"include::sailcomment:{self.name}[type=anchor,indent=0]\n"
+        return f"include::comments/anchor/{self.name}.adoc[]\n"
 
 
 class ConstructorEntry(msgspec.Struct, frozen=True, tag="constructor", tag_field="kind"):
@@ -387,6 +385,37 @@ class Format:
         return tuple(zip(offsets, self.layout, strict=True))
 
 
+class Fragment(msgspec.Struct, frozen=True, kw_only=True):
+    name: str
+    description: str
+
+
+class CommentKind(StrEnum):
+    ANCHOR = auto()
+    REGISTER = auto()
+    LET = auto()
+
+
+class Prose(msgspec.Struct, frozen=True, kw_only=True):
+    anchors: tuple[Fragment, ...] = ()
+    registers: tuple[Fragment, ...] = ()
+    constants: tuple[Fragment, ...] = ()
+
+    def write(self, directory: Path) -> None:
+        for kind, fragments in (
+            (CommentKind.ANCHOR, self.anchors),
+            (CommentKind.REGISTER, self.registers),
+            (CommentKind.LET, self.constants),
+        ):
+            destination = directory / "comments" / kind
+            destination.mkdir(parents=True, exist_ok=True)
+            for old in destination.glob("*.adoc"):
+                old.unlink()
+
+            for fragment in fragments:
+                (destination / f"{fragment.name}.adoc").write_text(f"{fragment.description}\n")
+
+
 class InstructionSet(msgspec.Struct, frozen=True, kw_only=True):
     """The instructions of an instruction set whose words are `word_width` bits, and the outline
     of the files that define them: their documented anchors and constructors, in source order."""
@@ -394,14 +423,15 @@ class InstructionSet(msgspec.Struct, frozen=True, kw_only=True):
     word_width: int
     instructions: tuple[Instruction, ...]
     outline: tuple[AnchorEntry | ConstructorEntry, ...]
-    schema_version: int = 2
+    schema_version: int = 3
+    prose: Prose = Prose()
     helpers: tuple[Helper, ...] = ()
     retirement: tuple[Statement, ...] = ()
     complete: bool = False
     context: Context | None = None
 
     def __post_init__(self) -> None:
-        if self.schema_version != 2:
+        if self.schema_version != 3:
             raise ValueError(f"unsupported documentation schema version {self.schema_version}")
 
         if self.word_width < 1 or not self.instructions:
@@ -437,11 +467,7 @@ class InstructionSet(msgspec.Struct, frozen=True, kw_only=True):
             references = Operation(statements=self.retirement).references
             for instruction in self.instructions:
                 references |= instruction.operation.references
-                if (
-                    instruction.documentation is None
-                    or not instruction.examples
-                    or not instruction.description
-                ):
+                if instruction.documentation is None or not instruction.description:
                     raise ValueError(f"{instruction.constructor}: incomplete documentation")
 
             for helper in self.helpers:
@@ -803,6 +829,7 @@ def main(metadata: Path, directory: Path, section_level: int) -> None:
     except (msgspec.DecodeError, ValueError) as error:
         raise click.ClickException(f"{metadata}: {error}") from error
     directory.mkdir(parents=True, exist_ok=True)
+    instruction_set.prose.write(directory)
     (directory / FORMATS).write_text(str(instruction_set.format_table()))
     (directory / OPCODES).write_text(str(instruction_set.opcodes()))
     (directory / INSTRUCTIONS).write_text(instruction_set.sections(level=section_level))

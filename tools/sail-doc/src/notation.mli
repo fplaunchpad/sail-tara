@@ -14,6 +14,6 @@ val written_operator
   -> Type_check.tannot exp
   -> string option
 
-(** The notations the model gives with the attribute [$[notation "template"]] on a function,
+(** The notations the model gives with [@notation template] in a doc comment on a function,
     value specification, register or [let], over names for Sail's bit constants. *)
 val read : Type_check.typed_ast -> t

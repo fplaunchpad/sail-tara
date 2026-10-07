@@ -17,6 +17,7 @@ justDerivation {
   buildInputs = [
     sail
     ocamlPackages.core
+    ocamlPackages.angstrom
     ocamlPackages.ppx_jane
     ocamlPackages.ppx_yojson_conv
   ];

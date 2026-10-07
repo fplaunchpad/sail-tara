@@ -31,14 +31,6 @@ module Mapping_clause : sig
     }
 end
 
-(** A [$anchor] with a documentation comment. *)
-module Anchor : sig
-  type t =
-    { name : string
-    ; location : Parse_ast.l
-    }
-end
-
 (** An argument of a constructor in a pattern: a name it binds, a constant (an enum member or a
     literal, as written), a wildcard, or another pattern. *)
 module Argument : sig
@@ -97,7 +89,6 @@ val width_of_mpat : Env.t -> tannot mpat -> int
 val function_clauses : typed_ast -> Function_clause.t list
 
 val mapping_clauses : typed_ast -> Mapping_clause.t list
-val anchors : typed_ast -> Anchor.t list
 
 (** A key that orders locations by source position: files in the order their definitions,
     constructors and clauses first appear in the AST, then by offset within a file. *)

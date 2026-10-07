@@ -14,7 +14,6 @@ ocamlPackages.sail.overrideAttrs (_: rec {
     hash = "sha256-CyI+2D9SGth+qs2IGGOQ+68LlE9jxqBKPr35ah/1pgw=";
   };
   # Keep decoder reachability shared in the SystemVerilog backend; see emulator/verilator/README.md.
-  # The retained Lem bug fix is an upstream-report artifact, not a TARA build dependency.
   patches = [ ./patches/sail-sv-reachability.patch ];
   # The typechecker shells out to z3; the upstream wrapper only sets SAIL_DIR.
   postInstall = ''

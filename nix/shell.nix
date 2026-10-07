@@ -69,6 +69,7 @@ mkShell {
     sail
     rocq-sail-stdpp
     ocamlPackages.core
+    ocamlPackages.angstrom
     ocamlPackages.core_unix
     ocamlPackages.ppx_jane
     ocamlPackages.ppx_yojson_conv

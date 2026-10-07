@@ -34,7 +34,7 @@ let read ~ast ~(constructors : (Item.Constructor.t * Parse_ast.l) list) =
     |> String.Set.of_list
   in
   let anchors =
-    List.filter_map (Sail_ast.anchors ast) ~f:(fun { name; location } ->
+    List.filter_map (Prose.anchors ast) ~f:(fun (({ name; _ } : Prose.Fragment.t), location) ->
       Option.some_if (Set.mem files (Sail_ast.source_file location)) (Item.Anchor name, location))
   in
   let constructors =
@@ -42,7 +42,7 @@ let read ~ast ~(constructors : (Item.Constructor.t * Parse_ast.l) list) =
   in
   let order = Sail_ast.order ast in
   anchors @ constructors
-  |> List.sort ~compare:(fun (_, left) (_, right) ->
+  |> List.stable_sort ~compare:(fun (_, left) (_, right) ->
     [%compare: int * int] (order left) (order right))
   |> List.map ~f:fst
 ;;

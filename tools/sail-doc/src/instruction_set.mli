@@ -23,9 +23,10 @@ type t =
   ; instructions : Instruction.t list
   ; outline : Outline.t
   ; helpers : Helper.t list
+  ; prose : Prose.t
   ; retirement : Operation.t list
   ; complete : bool
-  ; context : Documentation.Context.t option
+  ; context : Example.Context.t option
   }
 [@@deriving yojson_of]
 
@@ -33,4 +34,11 @@ type t =
     mapping [assembly] of instructions to text and the function [execute]. Every constructor of
     the union must have an [encdec] clause, and every instruction must have [assembly] and
     [execute] clauses. *)
-val read : state:Interactive.State.istate -> encdec:string -> assembly:string -> execute:string -> t
+val read
+  :  state:Interactive.State.istate
+  -> encdec:string
+  -> assembly:string
+  -> execute:string
+  -> complete:bool
+  -> examples:string option
+  -> t

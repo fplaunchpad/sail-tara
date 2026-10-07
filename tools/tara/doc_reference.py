@@ -1,4 +1,4 @@
-"""Documentation annotations and evaluated examples share the extractor's versioned schema."""
+"""Documentation comments and evaluated examples share the extractor's versioned schema."""
 
 from __future__ import annotations
 
@@ -11,19 +11,6 @@ from tara.asciidoc import Code
 from tara.doc_operation import Expression, Operation, Rendering, Statement
 
 
-class Interpretation(StrEnum):
-    REGISTER = auto()
-    SIGNED = auto()
-    UNSIGNED = auto()
-
-
-class Access(StrEnum):
-    READ = auto()
-    WRITE = auto()
-    READ_WRITE = auto()
-    VALUE = auto()
-
-
 class Category(StrEnum):
     USAGE = auto()
     ARCHITECTURE = auto()
@@ -32,32 +19,12 @@ class Category(StrEnum):
 
 class OperandDoc(msgspec.Struct, frozen=True, kw_only=True):
     name: str
-    interpretation: Interpretation
-    access: Access
     description: str
-    unit: str
-
-    def meaning(self, width: int) -> str:
-        match self.interpretation:
-            case Interpretation.REGISTER:
-                interval = f"0 to {(1 << width) - 1}; {self.access.replace('_', ' and ')}"
-            case Interpretation.SIGNED:
-                interval = f"-{1 << (width - 1)} to {(1 << (width - 1)) - 1}, signed"
-            case Interpretation.UNSIGNED:
-                interval = f"0 to {(1 << width) - 1}, unsigned"
-
-        units = f"; {self.unit}" if self.unit else ""
-        return f"{self.description}: {interval}{units}"
 
 
 class Note(msgspec.Struct, frozen=True, kw_only=True):
     category: Category
     text: str
-
-
-class NamedValue(msgspec.Struct, frozen=True, kw_only=True):
-    name: str
-    value: str
 
 
 class State(msgspec.Struct, frozen=True, kw_only=True):
@@ -76,15 +43,6 @@ class Context(msgspec.Struct, frozen=True, kw_only=True):
     arguments: tuple[str, ...]
     initial: tuple[State, ...]
     observed: tuple[Observed, ...]
-    complete: bool
-
-
-class ExampleSpec(msgspec.Struct, frozen=True, kw_only=True):
-    title: str
-    operands: tuple[NamedValue, ...]
-    before: tuple[State, ...]
-    arguments: tuple[str, ...]
-    watch: tuple[str, ...]
 
 
 class InstructionDoc(msgspec.Struct, frozen=True, kw_only=True):
@@ -92,7 +50,6 @@ class InstructionDoc(msgspec.Struct, frozen=True, kw_only=True):
     operands: tuple[OperandDoc, ...]
     notes: tuple[Note, ...]
     related: tuple[str, ...]
-    examples: tuple[ExampleSpec, ...]
     id: str | None
 
 

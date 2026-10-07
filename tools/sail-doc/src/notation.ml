@@ -21,11 +21,9 @@ let read (ast : Type_check.typed_ast) =
            | _ -> None)
         | _ -> None
       in
-      match Ast_util.get_def_attribute "notation" annot with
-      | Some (_, Some (AD_aux (AD_string template, _))) -> Some (name, template)
-      | Some (location, _) ->
-        Sail_ast.fail_at location "a notation is a string, such as $[notation \"R[{0}]\"]"
-      | None -> None)
+      let%bind.Option doc = Doc_comment.read annot in
+      let%map.Option template = doc.notation in
+      name, template)
   in
   String.Map.of_alist_reduce (library @ named) ~f:(fun _ model -> model)
 ;;

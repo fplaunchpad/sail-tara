@@ -5,41 +5,25 @@ set working-directory := ".."
 
 out := build / "doc"
 
-# Format the stylesheet, the PDF theme and the bundled source width.
+# Format the stylesheet and PDF theme.
 format:
-    prettier --write doc/styles.css doc/theme.yml doc/sail_config.json
+    prettier --write doc/styles.css doc/theme.yml
 
-# Check the formatting of the stylesheet, the PDF theme and the bundled source width.
+# Check the formatting of the stylesheet and PDF theme.
 lint:
-    prettier --check doc/styles.css doc/theme.yml doc/sail_config.json
+    prettier --check doc/styles.css doc/theme.yml
 
-# Format a copy of the Sail sources for the documentation bundle.
+# Place the AsciiDoc layout and its styles beside the generated fragments.
 [private]
-[script("bash", "-euo", "pipefail")]
-documentation-sources: (build-dir "doc/model")
-    shopt -s globstar
-    for source in model/**/*.sail; do
-        destination="{{ out }}/$source"
-        mkdir -p "$(dirname "$destination")"
-        sail --sail-config doc/sail_config.json --fmt --fmt-emit stdout "$source" > "$destination"
-    done
-
-# Bundle the formatted sources and their documentation comments for the Asciidoctor plugin.
-[private]
-[working-directory(out)]
-bundle: documentation-sources
-    sail --doc --doc-embed plain --doc-bundle tara.json -o . model/syntax.sail
-
-# Place the AsciiDoc layout and its styles beside the bundle.
-[private]
-specification: bundle
+specification: (build-dir "doc")
     cp doc/main.adoc doc/styles.css doc/theme.yml doc/cover.svg doc/sections.rb \
         doc/table_widths.rb "{{ out }}/"
 
 # Derive the instruction metadata from the model's encdec and assembly mappings and execute.
 [private]
 metadata: (build-dir "doc")
-    sail -plugin "$TARA_DOC_PLUGIN" --doc-tables -o "{{ out }}/tables.json" model/syntax.sail
+    sail -plugin "$TARA_DOC_PLUGIN" --doc-tables --doc-tables-complete \
+        -o "{{ out }}/tables.json" model/syntax.sail
 
 # Generate tables, instruction entries, helper definitions and SVG encodings.
 [private]
@@ -60,7 +44,7 @@ fonts: font-directory
 # Render the PDF, build/doc/tara.pdf; a warning is an error.
 [default]
 build: specification sections fonts
-    asciidoctor-pdf -r asciidoctor-sail -r "{{ out }}/sections.rb" \
+    asciidoctor-pdf -r "{{ out }}/sections.rb" \
         -r "{{ out }}/table_widths.rb" --failure-level WARN \
         -a pdf-theme="{{ out }}/theme.yml" -a pdf-fontsdir="{{ out }}/fonts" \
         -o "{{ out }}/tara.pdf" "{{ out }}/main.adoc"
@@ -68,7 +52,7 @@ build: specification sections fonts
 # Render the HTML; a warning is an error.
 [private]
 render-html: specification sections fonts
-    asciidoctor -r asciidoctor-sail -r "{{ out }}/sections.rb" --failure-level WARN \
+    asciidoctor -r "{{ out }}/sections.rb" --failure-level WARN \
         -a stylesheet=styles.css -o "{{ out }}/tara.html" "{{ out }}/main.adoc"
 
 # Render the HTML, build/doc/tara.html, formatted for reading.

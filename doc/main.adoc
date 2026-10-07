@@ -5,62 +5,61 @@
 :chapter-signifier:
 :reproducible:
 :autofit-option:
-:sail-doc: {docdir}/tara.json
 
-include::sailcomment:document_title[type=anchor,indent=0]
+include::comments/anchor/document_title.adoc[]
 
 [preface]
 == Preface
 
-include::sailcomment:machine[type=anchor,indent=0]
+include::comments/anchor/machine.adoc[]
 
-include::sailcomment:document_introduction[type=anchor,indent=0]
+include::comments/anchor/document_introduction.adoc[]
 
-include::sailcomment:section_machine[type=anchor,indent=0]
+include::comments/anchor/section_machine.adoc[]
 
-include::sailcomment:types[type=anchor,indent=0]
+include::comments/anchor/types.adoc[]
 
-include::sailcomment:GPR[type=register,indent=0]
+include::comments/register/GPR.adoc[]
 
-include::sailcomment:PC[type=register,indent=0]
+include::comments/register/PC.adoc[]
 
-include::sailcomment:MEM[type=register,indent=0]
+include::comments/register/MEM.adoc[]
 
-include::sailcomment:HALTED[type=register,indent=0]
+include::comments/register/HALTED.adoc[]
 
-include::sailcomment:KEYS[type=register,indent=0]
+include::comments/register/KEYS.adoc[]
 
-include::sailcomment:lr[type=let,indent=0]
+include::comments/let/lr.adoc[]
 
-include::sailcomment:sp[type=let,indent=0]
+include::comments/let/sp.adoc[]
 
-include::sailcomment:input_port[type=let,indent=0]
+include::comments/let/input_port.adoc[]
 
-include::sailcomment:section_instruction_set[type=anchor,indent=0]
+include::comments/anchor/section_instruction_set.adoc[]
 
-include::sailcomment:encoding[type=anchor,indent=0]
+include::comments/anchor/encoding.adoc[]
 
-include::sailcomment:section_instruction_formats[type=anchor,indent=0]
+include::comments/anchor/section_instruction_formats.adoc[]
 
 include::formats.adoc[]
 
-include::sailcomment:section_opcodes[type=anchor,indent=0]
+include::comments/anchor/section_opcodes.adoc[]
 
 include::opcodes.adoc[]
 
-include::sailcomment:operands[type=anchor,indent=0]
+include::comments/anchor/operands.adoc[]
 
 include::notation.adoc[]
 
 include::instructions.adoc[]
 
-include::sailcomment:section_execution[type=anchor,indent=0]
+include::comments/anchor/section_execution.adoc[]
 
-include::sailcomment:drivers[type=anchor,indent=0]
+include::comments/anchor/drivers.adoc[]
 
-include::sailcomment:section_assembly[type=anchor,indent=0]
+include::comments/anchor/section_assembly.adoc[]
 
-include::sailcomment:syntax[type=anchor,indent=0]
+include::comments/anchor/syntax.adoc[]
 
 include::helpers.adoc[]
 
@@ -71,5 +70,4 @@ include::helpers.adoc[]
 * [[[tara-hardware]]] Ayon Chakraborty. _TARA hardware_: the TARA hardware manual. CS2300, IIT Madras. https://www.cse.iitm.ac.in/~ayon/courses/CS2300/taramanual/tarahw/index.html
 * [[[taracpu]]] Ayon Chakraborty. _taracpu 1.2.2_: TARA Studio's assembler and simulator, a Python package. https://pypi.org/project/taracpu/1.2.2/
 * [[[sail]]] Alasdair Armstrong et al. ISA semantics for ARMv8-A, RISC-V, and CHERI-MIPS. _Proceedings of the ACM on Programming Languages_ 3 (POPL), 2019. The Sail language, version 0.20.3: https://github.com/rems-project/sail
-* [[[asciidoctor-sail]]] Alasdair Armstrong. _asciidoctor-sail 0.2_: Asciidoctor extensions that include Sail definitions and their documentation. https://github.com/Alasdair/asciidoctor-sail
 * [[[evan-sty]]] Evan Chen. _evan.sty_, the LaTeX style whose section markers and typography this document's theme follows. https://github.com/vEnhance/dotfiles/blob/main/texmf/tex/latex/evan/evan.sty

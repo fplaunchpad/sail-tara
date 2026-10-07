@@ -55,7 +55,8 @@ let read ~ast ~env ~notation ~roots ~calls =
     List.find_map ast.defs ~f:(function
       | DEF_aux (DEF_val (VS_aux (VS_val_spec (_, id, _), _)), annot)
         when List.mem roots (Sail_ast.id_string id) ~equal:String.equal ->
-        Some (Filename.dirname (Sail_ast.source_file annot.loc) ^ "/")
+        let directory = Filename.dirname (Sail_ast.source_file annot.loc) in
+        Some [%string "%{directory}/"]
       | _ -> None)
   in
   let definitions =
@@ -67,7 +68,13 @@ let read ~ast ~env ~notation ~roots ~calls =
         | DEF_mapdef (MD_aux (MD_mapping (id, _, _), _)) -> Some (Sail_ast.id_string id, "mapping")
         | _ -> None
       in
-      let doc = Documentation.helper annot in
+      let specification =
+        List.find_map ast.defs ~f:(function
+          | DEF_aux (DEF_val (VS_aux (VS_val_spec (_, id, _), _)), annot)
+            when String.equal name (Sail_ast.id_string id) -> Documentation.helper annot
+          | _ -> None)
+      in
+      let doc = Option.first_some (Documentation.helper annot) specification in
       let owned =
         Option.value_map directory ~default:false ~f:(fun directory ->
           Option.is_some (Reporting.simp_loc annot.loc)
@@ -174,16 +181,17 @@ let read ~ast ~env ~notation ~roots ~calls =
       | _ -> []
     in
     let description =
-      Option.first_some
-        annot.doc_comment
-        (Option.bind specification ~f:(fun annot -> annot.doc_comment))
-      |> Option.value_map ~default:"" ~f:(fun comment -> comment.contents)
+      match doc with
+      | Some doc -> doc.description
+      | None ->
+        if Option.is_some annot.doc_comment
+        then Doc_comment.body annot
+        else Option.value_map specification ~default:"" ~f:Doc_comment.body
     in
     { name
     ; title = Option.value_map doc ~default:name ~f:(fun doc -> doc.title)
     ; signature
-    ; description =
-        description ^ "\n" ^ Option.value_map doc ~default:"" ~f:(fun doc -> doc.description)
+    ; description
     ; operation
     ; rules
     ; dependencies =
@@ -196,7 +204,7 @@ let read ~ast ~env ~notation ~roots ~calls =
           ~f:Operation.calls
         |> List.dedup_and_sort ~compare:String.compare
     ; source_kind
-    ; documented = Option.is_some annot.doc_comment
+    ; documented = Option.is_some doc || Option.is_some annot.doc_comment
     ; source = Sail_ast.source_text annot.loc
     }
   in

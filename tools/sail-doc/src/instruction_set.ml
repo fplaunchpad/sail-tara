@@ -23,9 +23,10 @@ type t =
   ; instructions : Instruction.t list
   ; outline : Outline.t
   ; helpers : Helper.t list
+  ; prose : Prose.t
   ; retirement : Operation.t list
   ; complete : bool
-  ; context : Documentation.Context.t option
+  ; context : Example.Context.t option
   }
 [@@deriving yojson_of]
 
@@ -51,9 +52,10 @@ let signature env ~encdec =
   | _ -> fail ()
 ;;
 
-let read ~(state : Interactive.State.istate) ~encdec ~assembly ~execute =
+let read ~(state : Interactive.State.istate) ~encdec ~assembly ~execute ~complete ~examples =
   let ast, env = state.ast, state.env in
-  let context = Documentation.context ast execute in
+  let config = Option.map examples ~f:(Example.Config.read ast) in
+  let context = Option.map config ~f:(fun config -> config.context) in
   let evaluator = Option.map context ~f:(fun _ -> Example.Evaluator.create state) in
   let constructors, word_width = signature env ~encdec in
   let mappings = Sail_ast.mapping_clauses ast in
@@ -68,37 +70,41 @@ let read ~(state : Interactive.State.istate) ~encdec ~assembly ~execute =
   let notation = Notation.read ast in
   let instructions =
     List.map encodings ~f:(fun encoding ->
-      let documentation = Documentation.read encoding.annotation in
-      let description =
+      let matching =
         List.find_map
           functions
           ~f:(fun ({ name; pattern; annotation; _ } : Sail_ast.Function_clause.t) ->
             let%bind.Option () = Option.some_if (String.equal name execute) () in
             let%bind.Option constructor, patterns = Sail_ast.constructor_pat pattern in
-            let%bind.Option _ =
+            let%map.Option _ =
               Encoding.bindings
                 encoding
                 (constructor, List.map patterns ~f:(Sail_ast.Argument.of_pat env))
             in
-            let%map.Option comment = annotation.doc_comment in
-            comment.contents)
-        |> Option.value ~default:""
+            annotation)
       in
+      let annotation =
+        if Option.is_some (Documentation.read encoding.annotation)
+        then encoding.annotation
+        else Option.value matching ~default:encoding.annotation
+      in
+      let documentation = Documentation.read annotation in
+      let description = Doc_comment.body annotation in
       Option.iter documentation ~f:(Documentation.validate encoding);
-      if
-        Option.value_map context ~default:false ~f:(fun context -> context.complete)
-        && Option.is_none documentation
+      if complete && Option.is_none documentation
       then
         Sail_ast.fail_at
           encoding.location
-          "complete documentation requires instruction_doc on every encoding";
+          "complete documentation requires @brief for every encoding";
+      let syntax = Syntax.read ~env ~mappings ~assembly encoding in
       let examples =
-        match documentation, context, evaluator with
-        | Some doc, Some context, Some evaluator ->
-          List.map doc.examples ~f:(Example.read evaluator ~context ~encdec ~assembly encoding)
-        | Some _, _, _ ->
-          Sail_ast.fail_at encoding.location "instruction examples require doc_examples on execute"
-        | None, _, _ -> []
+        match config, context, evaluator, syntax with
+        | Some config, Some context, Some evaluator, Some syntax ->
+          List.find config.instructions ~f:(fun ({ syntax = candidate; _ } : Example.Input.t) ->
+            String.equal syntax candidate)
+          |> Option.value_map ~default:[] ~f:(fun input ->
+            List.map input.examples ~f:(Example.read evaluator ~context ~encdec ~assembly encoding))
+        | _ -> []
       in
       let required name = function
         | Some found -> found
@@ -108,7 +114,7 @@ let read ~(state : Interactive.State.istate) ~encdec ~assembly ~execute =
             [%string "%{name} has no clause for %{Encoding.to_string encoding}"]
       in
       ({ constructor = encoding.constructor
-       ; syntax = Syntax.read ~env ~mappings ~assembly encoding |> required assembly
+       ; syntax = syntax |> required assembly
        ; fields = encoding.fields
        ; condition = encoding.condition
        ; execution = Execution.read ~env ~notation ~functions ~execute encoding |> required execute
@@ -118,6 +124,30 @@ let read ~(state : Interactive.State.istate) ~encdec ~assembly ~execute =
        }
        : Instruction.t))
   in
+  List.iter2_exn encodings instructions ~f:(fun encoding instruction ->
+    Option.iter instruction.documentation ~f:(fun doc ->
+      List.iter doc.related ~f:(fun name ->
+        let matches =
+          List.count instructions ~f:(fun candidate ->
+            let mnemonic =
+              String.take_while candidate.syntax ~f:(fun char ->
+                Char.is_alphanum char || String.mem "_." char)
+            in
+            String.equal name mnemonic)
+        in
+        if matches <> 1
+        then
+          Sail_ast.fail_at
+            encoding.location
+            [%string "unknown or ambiguous related instruction %{name}"])));
+  Option.iter config ~f:(fun config ->
+    List.iter config.instructions ~f:(fun ({ syntax; _ } : Example.Input.t) ->
+      let matches =
+        List.count instructions ~f:(fun instruction -> String.equal instruction.syntax syntax)
+      in
+      if matches <> 1
+      then
+        Sail_ast.fail_at Parse_ast.Unknown [%string "unknown or ambiguous example syntax %{syntax}"]));
   let clauses =
     Clause.read ~ast ~env ~constructors:(List.map constructors ~f:fst |> String.Set.of_list)
   in
@@ -137,13 +167,14 @@ let read ~(state : Interactive.State.istate) ~encdec ~assembly ~execute =
     List.find helpers ~f:(fun helper -> String.equal helper.name "retire")
     |> Option.value_map ~default:[] ~f:(fun helper -> helper.operation)
   in
-  { schema_version = 2
+  { schema_version = 3
   ; word_width
   ; instructions
   ; outline
   ; helpers
+  ; prose = Prose.read ast
   ; retirement
-  ; complete = Option.value_map context ~default:false ~f:(fun context -> context.complete)
+  ; complete
   ; context
   }
 ;;

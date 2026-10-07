@@ -5,7 +5,7 @@ set working-directory := ".."
 
 plugin := build / "sail-doc/sail_doc_tables.cmxs"
 plugin-library := build / "sail-doc/_build/default/src/tara_doc_tables.cmxa"
-link-packages := "core,libsail,ppx_yojson_conv_lib,ppx_string.runtime"
+link-packages := "core,libsail,angstrom,ppx_yojson_conv_lib,ppx_string.runtime"
 
 # Compile the Sail metadata extractor as a reusable native library.
 [private]

@@ -3,6 +3,137 @@ open Libsail
 open Extraction.Ast
 open Ppx_yojson_conv_lib.Yojson_conv.Primitives
 
+module Operand = struct
+  type t =
+    { name : string
+    ; value : string
+    }
+  [@@deriving yojson]
+end
+
+module State = struct
+  type t =
+    { register : string
+    ; index : int option [@default None]
+    ; value : string
+    }
+  [@@deriving yojson]
+end
+
+module Spec = struct
+  type t =
+    { title : string
+    ; operands : Operand.t list
+    ; before : State.t list [@default []]
+    ; arguments : string list [@default []]
+    ; watch : string list [@default []]
+    }
+  [@@deriving yojson]
+end
+
+module Observed = struct
+  type t =
+    { register : string
+    ; label : string
+    }
+  [@@deriving yojson]
+end
+
+module Context = struct
+  type t =
+    { runner : string
+    ; arguments : string list
+    ; initial : State.t list
+    ; observed : Observed.t list
+    }
+  [@@deriving yojson]
+end
+
+let validate_literal location value =
+  let digits prefix valid =
+    String.is_prefix value ~prefix
+    && String.length value > String.length prefix
+    && String.drop_prefix value (String.length prefix) |> String.for_all ~f:valid
+  in
+  let decimal = String.chop_prefix_if_exists value ~prefix:"-" in
+  if
+    not
+      (List.mem [ "true"; "false" ] value ~equal:String.equal
+       || digits "0b" (fun char -> Char.equal char '0' || Char.equal char '1')
+       || digits "0x" Char.is_hex_digit
+       || ((not (String.is_empty decimal)) && String.for_all decimal ~f:Char.is_digit))
+  then Sail_ast.fail_at location [%string "example values must be literals, got %{value}"]
+;;
+
+let validate_state location ({ register; index; value } : State.t) =
+  if
+    (not (Doc_comment.identifier register))
+    || Option.value_map index ~default:false ~f:(fun index -> index < 0)
+  then Sail_ast.fail_at location "example state needs a register name and a nonnegative index";
+  validate_literal location value
+;;
+
+module Input = struct
+  type t =
+    { syntax : string
+    ; examples : Spec.t list
+    }
+  [@@deriving yojson]
+end
+
+module Config = struct
+  type t =
+    { context : Context.t
+    ; instructions : Input.t list
+    }
+  [@@deriving yojson]
+
+  let read (ast : Type_check.typed_ast) path =
+    let location = Parse_ast.Unknown in
+    let config =
+      try Yojson.Safe.from_file path |> t_of_yojson with
+      | Ppx_yojson_conv_lib.Yojson_conv.Of_yojson_error (error, _) ->
+        Sail_ast.fail_at
+          location
+          [%string "%{path}: invalid example fixture: %{Exn.to_string error}"]
+      | Yojson.Json_error message -> Sail_ast.fail_at location [%string "%{path}: %{message}"]
+      | Sys_error message -> Sail_ast.fail_at location [%string "%{path}: %{message}"]
+    in
+    let context = config.context in
+    if (not (Doc_comment.identifier context.runner)) || List.is_empty context.observed
+    then Sail_ast.fail_at location "example context needs a runner and observed state";
+    let registers =
+      List.filter_map ast.defs ~f:(function
+        | DEF_aux (DEF_register (DEC_aux (DEC_reg (_, id, _), _)), _) ->
+          Some (Sail_ast.id_string id)
+        | _ -> None)
+    in
+    let observed =
+      List.map context.observed ~f:(fun ({ register; label } : Observed.t) ->
+        if (not (List.mem registers register ~equal:String.equal)) || String.is_empty label
+        then Sail_ast.fail_at location "example observations need known registers and labels";
+        register)
+    in
+    if List.contains_dup observed ~compare:String.compare
+    then Sail_ast.fail_at location "duplicate example observation";
+    List.iter context.initial ~f:(validate_state location);
+    List.iter context.arguments ~f:(validate_literal location);
+    let names = List.map config.instructions ~f:(fun ({ syntax; _ } : Input.t) -> syntax) in
+    if List.contains_dup names ~compare:String.compare
+    then Sail_ast.fail_at location "duplicate example instruction syntax";
+    List.iter config.instructions ~f:(fun ({ examples; _ } : Input.t) ->
+      if List.is_empty examples
+      then Sail_ast.fail_at location "example instructions need at least one case";
+      List.iter examples ~f:(fun ({ title; operands; before; arguments; watch } : Spec.t) ->
+        if String.is_empty title || List.contains_dup watch ~compare:String.compare
+        then Sail_ast.fail_at location "examples need a title and unique watch labels";
+        List.iter operands ~f:(fun ({ value; _ } : Operand.t) -> validate_literal location value);
+        List.iter before ~f:(validate_state location);
+        List.iter arguments ~f:(validate_literal location)));
+    config
+  ;;
+end
+
 module Observation = struct
   type t =
     { name : string
@@ -19,7 +150,7 @@ type t =
   ; word : string
   ; observations : Observation.t list
   ; retirement : string
-  ; setup : Documentation.State.t list
+  ; setup : State.t list
   ; arguments : string list
   }
 [@@deriving yojson_of]
@@ -111,7 +242,7 @@ module Evaluator = struct
     fst state, { global with registers }
   ;;
 
-  let set evaluator location state ({ register; index; value } : Documentation.State.t) =
+  let set evaluator location state ({ register; index; value } : State.t) =
     let target =
       match index with
       | None -> register
@@ -120,7 +251,7 @@ module Evaluator = struct
     evaluate evaluator location state [%string "{ %{target} = %{value}; () }"] |> fst
   ;;
 
-  let observe (_, (global : Interpreter.gstate)) (specifications : Documentation.Observed.t list) =
+  let observe (_, (global : Interpreter.gstate)) (specifications : Observed.t list) =
     List.concat_map specifications ~f:(fun { register; label } ->
       let value = Ast_compare.Bindings.find (Ast_util.mk_id register) global.registers in
       let scalar name value =
@@ -149,17 +280,10 @@ module Evaluator = struct
   ;;
 end
 
-let read
-      evaluator
-      ~(context : Documentation.Context.t)
-      ~encdec
-      ~assembly
-      (encoding : Encoding.t)
-      (spec : Documentation.Example.t)
-  =
+let read evaluator ~(context : Context.t) ~encdec ~assembly (encoding : Encoding.t) (spec : Spec.t) =
   let values =
     match
-      List.map spec.operands ~f:(fun ({ name; value } : Documentation.Value.t) -> name, value)
+      List.map spec.operands ~f:(fun ({ name; value } : Operand.t) -> name, value)
       |> String.Map.of_alist
     with
     | `Ok values -> values
@@ -185,7 +309,7 @@ let read
     List.fold (context.initial @ spec.before) ~init:[] ~f:(fun setup state ->
       List.filter setup ~f:(fun earlier ->
         not
-          (String.equal earlier.Documentation.State.register state.register
+          (String.equal earlier.State.register state.register
            && [%equal: int option] earlier.index state.index))
       @ [ state ])
   in

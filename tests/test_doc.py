@@ -10,7 +10,7 @@ import pytest
 from src.assembler.asm import assemble
 from src.simulation.cpu import OP_NAME
 
-from helpers.doc import INSTRUCTION_SETS, Specification, Workspace
+from helpers.doc import EXAMPLES, INSTRUCTION_SETS, Specification, Workspace
 from tara.asciidoc import Text
 from tara.doc import (
     OPCODES,
@@ -43,6 +43,14 @@ def built(tmp_path_factory: pytest.TempPathFactory) -> Workspace:
     workspace = Workspace.copy(tmp_path_factory.mktemp("specification"))
     workspace.build("doc", "html")
     return workspace
+
+
+@pytest.fixture(scope="session")
+def evaluated(built: Workspace) -> InstructionSet:
+    output = built.output / "examples.json"
+    run = built.extract(output, "--doc-tables-examples", EXAMPLES)
+    assert run.returncode == 0, run.stdout + run.stderr
+    return InstructionSet.read(output)
 
 
 @pytest.fixture(scope="session")
@@ -144,10 +152,9 @@ def reference_state(cpu: Reference) -> dict[str, int | bool]:
 @needs_plugin
 @pytest.mark.parametrize("mnemonic", MNEMONICS)
 def test_worked_examples_agree_with_assembler_and_reference(
-    built: Workspace, mnemonic: str
+    evaluated: InstructionSet, mnemonic: str
 ) -> None:
-    instruction_set = InstructionSet.read(built.output / METADATA)
-    instruction = next(i for i in instruction_set.instructions if i.mnemonic == mnemonic)
+    instruction = next(i for i in evaluated.instructions if i.mnemonic == mnemonic)
     assert instruction.examples
     for example in instruction.examples:
         assert len({(state.register, state.index) for state in example.setup}) == len(example.setup)
@@ -308,20 +315,28 @@ def test_rejects_a_model_it_cannot_tabulate(
 @pytest.mark.parametrize(
     ("path", "old", "new", "diagnostic"),
     [
-        (DATA_MOVEMENT, 'title = "No operation"', 'title = ""', "requires a title"),
-        (DATA_MOVEMENT, 'value = "0x1234"', 'value = "read_word(PC)"', "must be literals"),
-        (DATA_MOVEMENT, 'value = "0x1234"', 'value = "0b1"', "invalid documentation example"),
-        (DATA_MOVEMENT, "watch = [R1, R2]", "watch = [R99]", "unknown example observation"),
-        ("model/tara.sail", 'label = "R{index}"', 'label = ""', "known registers and labels"),
-        (DATA_MOVEMENT, "related = [LIH]", "related = [MISSING]", "unknown or ambiguous"),
+        (DATA_MOVEMENT, "@brief No operation", "@brief", "needs a title"),
+        (EXAMPLES, '"value": "0x1234"', '"value": "read_word(PC)"', "must be literals"),
+        (EXAMPLES, '"value": "0x1234"', '"value": "0b1"', "invalid documentation example"),
+        (EXAMPLES, '"R1",', '"R99",', "unknown example observation"),
+        (EXAMPLES, '"label": "R{index}"', '"label": ""', "known registers and labels"),
+        (DATA_MOVEMENT, "@see LIH", "@see MISSING", "unknown or ambiguous"),
     ],
 )
 def test_rejects_invalid_documentation_inputs(
     tmp_path: Path, path: str, old: str, new: str, diagnostic: str
 ) -> None:
     workspace = Workspace.copy(tmp_path)
-    workspace.edit(path, old, new)
-    run = workspace.just("doc", "sections")
+    if path == EXAMPLES:
+        fixture = workspace.root / EXAMPLES
+        source = fixture.read_text()
+        assert old in source
+        fixture.write_text(source.replace(old, new, 1))
+        run = workspace.extract(workspace.output / METADATA, "--doc-tables-examples", EXAMPLES)
+    else:
+        workspace.edit(path, old, new)
+        run = workspace.just("doc", "sections")
+
     assert run.returncode != 0
     assert diagnostic in run.stdout + run.stderr
     assert "Traceback" not in run.stdout + run.stderr
@@ -332,8 +347,8 @@ def test_discovers_new_helper_dependencies_without_a_layout_edit(tmp_path: Path)
     workspace = Workspace.copy(tmp_path)
     workspace.edit(
         "model/machine.sail",
-        "/*!\nKeeps the low 11 bits of a PC value",
-        "function doc_identity(value : word) -> word = value\n\n/*!\nKeeps the low 11 bits of a PC value",
+        "/*!\n@notation pc_mask({0})",
+        "function doc_identity(value : word) -> word = value\n\n/*!\n@notation pc_mask({0})",
     )
     workspace.edit(
         "model/machine.sail",
@@ -435,7 +450,6 @@ INSTRUCTION_SET_CASES = [
 # A document for the generated parts alone, with the sections that instructions.adoc nests in.
 DOCUMENT = """\
 = Instruction set
-:sail-doc: {docdir}/tara.json
 
 == Encodings
 
@@ -472,7 +486,7 @@ def install(tmp_path: Path, name: str) -> Workspace:
 
     workspace = Workspace.copy(tmp_path)
     workspace.install(INSTRUCTION_SETS / f"{name}.sail")
-    workspace.build("doc", "sections")
+    workspace.sections()
     return workspace
 
 
@@ -488,7 +502,6 @@ def test_documents_other_instruction_sets(
     instructions: list[tuple[str, str, list[str]]],
 ) -> None:
     workspace = install(tmp_path, name)
-    workspace.build("doc", "bundle")
     instruction_set = InstructionSet.read(workspace.output / METADATA)
     document = workspace.output / "document.adoc"
     document.write_text(DOCUMENT)
@@ -499,7 +512,7 @@ def test_documents_other_instruction_sets(
         for i in instruction_set.instructions
     ] == instructions
     rendered = subprocess.run(
-        ["asciidoctor", "-r", "asciidoctor-sail", "--failure-level", "WARN", document],
+        ["asciidoctor", "--failure-level", "WARN", document],
         cwd=workspace.output,
         capture_output=True,
         text=True,
@@ -559,7 +572,7 @@ def test_encoding_constraints_keep_different_guards_on_both_sides(tmp_path: Path
         "opcode if shamt[5] == bitzero",
         "opcode if shamt[4] == bitzero",
     )
-    workspace.build("doc", "sections")
+    workspace.sections()
     instruction_set = InstructionSet.read(workspace.output / METADATA)
     slli = next(
         instruction
@@ -581,7 +594,7 @@ def test_execution_renaming_preserves_operands_and_local_scope(tmp_path: Path) -
         "  let rd = X(input) + sail_sign_extend(displacement, 32);\n"
         "  set_X(output, load(rd))\n}",
     )
-    workspace.build("doc", "sections")
+    workspace.sections()
     instruction_set = InstructionSet.read(workspace.output / METADATA)
     lw = next(
         instruction for instruction in instruction_set.instructions if instruction.mnemonic == "lw"
@@ -649,3 +662,175 @@ def test_format_table_merges_a_field_across_formats() -> None:
         Text(f"F{number}") for number in range(1, 11)
     ]
     assert [(cell.columns, cell.rows) for cell in opcode_cells] == [(1, 10)]
+
+
+@needs_plugin
+def test_normal_builds_do_not_load_validation_inputs(built: Workspace) -> None:
+    instruction_set = InstructionSet.read(built.output / METADATA)
+    assert instruction_set.schema_version == 3
+    assert instruction_set.complete
+    assert instruction_set.context is None
+    assert all(not instruction.examples for instruction in instruction_set.instructions)
+    assert all(
+        instruction.documentation is not None for instruction in instruction_set.instructions
+    )
+    assert not (built.output / "tara.json").exists()
+    assert (built.output / "comments" / "anchor" / "drivers.adoc").exists()
+
+
+@needs_plugin
+@pytest.mark.parametrize(
+    ("path", "old", "new", "diagnostic"),
+    [
+        (DATA_MOVEMENT, "@brief No operation", "@purpose No operation", "unknown doc marker"),
+        (DATA_MOVEMENT, "@brief No operation", "@", "malformed doc marker"),
+        (
+            DATA_MOVEMENT,
+            "@brief No operation",
+            "@brief No operation\n@brief Again",
+            "duplicate @brief",
+        ),
+        (DATA_MOVEMENT, "@param rs Source register.", "@param rs", "nonempty text"),
+        (
+            DATA_MOVEMENT,
+            "@param rs Source register.",
+            "@param rs Source.\n@param rs Again.",
+            "duplicate @param",
+        ),
+        (
+            DATA_MOVEMENT,
+            "@param rs Source register.",
+            "@param missing Source.",
+            "each encoding operand",
+        ),
+        (DATA_MOVEMENT, "@param rs Source register.", "", "each encoding operand"),
+        (DATA_MOVEMENT, "@see LIH", "@see", "instruction names"),
+        (DATA_MOVEMENT, "@see LIH", "@see LIH\n@note", "nonempty text"),
+        (DATA_MOVEMENT, "@brief No operation", "@brief No operation\n@id bad/name", "@id accepts"),
+        (
+            DATA_MOVEMENT,
+            "@brief No operation",
+            "@brief No operation\n@id one\n@id two",
+            "duplicate @id",
+        ),
+        ("model/machine.sail", "@notation PC_next", "@notation", "nonempty text"),
+        (
+            "model/machine.sail",
+            "@notation PC_next",
+            "@notation PC_next\n@notation next",
+            "duplicate @notation",
+        ),
+        ("model/machine.sail", "@anchor types", "@anchor machine", "duplicate @anchor"),
+        ("model/step.sail", "@anchor drivers", "@anchor types", "duplicate @anchor"),
+    ],
+)
+def test_doc_markers_report_source_errors(
+    tmp_path: Path, path: str, old: str, new: str, diagnostic: str
+) -> None:
+    workspace = Workspace.copy(tmp_path)
+    workspace.edit(path, old, new)
+    run = workspace.extract(workspace.output / METADATA)
+    assert run.returncode != 0
+    assert diagnostic in run.stderr
+    assert Path(path).name in run.stderr
+    assert (
+        "doc comment line" in run.stderr
+        or "duplicate @anchor" in run.stderr
+        or "@param" in run.stderr
+    )
+    assert not (workspace.output / METADATA).exists()
+
+
+@needs_plugin
+def test_comments_preserve_paragraphs_markup_and_continuations(tmp_path: Path) -> None:
+    workspace = Workspace.copy(tmp_path)
+    workspace.edit(
+        DATA_MOVEMENT,
+        "@brief No operation\n\nDoes nothing. PC moves on to the next instruction.",
+        "  @brief No\noperation\n\nFirst paragraph with `PC` and inline @ text.\n\n"
+        "Second paragraph.\n\n* An AsciiDoc item.\n"
+        "  @usage First line\ncontinued on the next line.\n"
+        "@assumption Assumed behavior.\n@see ADD,\nSUB",
+    )
+    workspace.edit(
+        DATA_MOVEMENT,
+        "@param rs Source register.",
+        "@param rs\tSource register,\nread before writing.",
+    )
+    workspace.sections()
+    instruction_set = InstructionSet.read(workspace.output / METADATA)
+    nop = next(
+        instruction for instruction in instruction_set.instructions if instruction.mnemonic == "NOP"
+    )
+    assert (
+        nop.description
+        == "First paragraph with `PC` and inline @ text.\n\nSecond paragraph.\n\n* An AsciiDoc item."
+    )
+    assert nop.documentation is not None
+    assert nop.documentation.title == "No operation"
+    assert nop.documentation.related == ("ADD", "SUB")
+    assert [(note.category, note.text) for note in nop.documentation.notes] == [
+        ("usage", "First line\ncontinued on the next line."),
+        ("assumption", "Assumed behavior."),
+    ]
+    mov = next(
+        instruction for instruction in instruction_set.instructions if instruction.mnemonic == "MOV"
+    )
+    assert mov.documentation is not None
+    assert mov.documentation.operands[1].description == "Source register,\nread before writing."
+
+
+@needs_plugin
+def test_encoding_comment_replaces_execute_documentation_for_one_variant(tmp_path: Path) -> None:
+    workspace = Workspace.copy(tmp_path)
+    workspace.install(INSTRUCTION_SETS / "riscish.sail")
+    workspace.edit(
+        "model/syntax.sail",
+        "Adds `rs1` and `rs2` into `rd`. */",
+        "@brief Register arithmetic\n\nShared overview.\n"
+        "@param rd Destination.\n@param rs1 First input.\n@param rs2 Second input.\n */",
+    )
+    workspace.edit(
+        "model/syntax.sail",
+        "mapping clause encdec = RTYPE(rs2, rs1, rd, RISCV_SUB)",
+        "/*!\n@brief Subtract registers\n\nSubtract overview.\n"
+        "@param rd Difference.\n@param rs1 Minuend.\n@param rs2 Subtrahend.\n"
+        "@id subtract-variant\n@see add\n */\n"
+        "mapping clause encdec = RTYPE(rs2, rs1, rd, RISCV_SUB)",
+    )
+    workspace.sections()
+    instruction_set = InstructionSet.read(workspace.output / METADATA)
+    add, sub, *_rest = instruction_set.instructions
+    assert add.documentation is not None
+    assert add.documentation.title == "Register arithmetic"
+    assert sub.documentation is not None
+    assert sub.documentation.title == "Subtract registers"
+    assert sub.description == "Subtract overview."
+    assert "Shared overview" not in sub.description
+    assert sub.documentation.related == ("add",)
+    assert instruction_set.anchor_of[sub] == "insn-subtract-variant"
+
+
+@needs_plugin
+def test_brief_on_a_val_discovers_an_uncalled_helper(tmp_path: Path) -> None:
+    workspace = Workspace.copy(tmp_path)
+    source = workspace.root / "model/machine.sail"
+    source.write_text(
+        source.read_text() + "\n/*!\n@brief Identity\n\nPreserves every bit.\n */\n"
+        "val doc_identity : word -> word\nfunction doc_identity(value) = value\n"
+    )
+    workspace.sections()
+    instruction_set = InstructionSet.read(workspace.output / METADATA)
+    helper = next(helper for helper in instruction_set.helpers if helper.name == "doc_identity")
+    assert helper.title == "Identity"
+    assert helper.description == "Preserves every bit."
+    assert helper.operation
+    assert "[#helper-doc_identity]" in (workspace.output / "helpers.adoc").read_text()
+
+
+@needs_plugin
+def test_completeness_is_a_build_option(tmp_path: Path) -> None:
+    workspace = install(tmp_path, "tiny")
+    run = workspace.extract(workspace.output / "complete.json", "--doc-tables-complete")
+    assert run.returncode != 0
+    assert "requires @brief for every encoding" in run.stderr
